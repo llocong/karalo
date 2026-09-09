@@ -15,7 +15,12 @@ import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import javax.inject.Inject
 
-internal class NewPipeYouTubeClient
+// Public (not internal): YouTubeClientModule.bindYouTubeClient's @Binds function must be at
+// least as visible as YouTubeClientModule itself (which is public — see that file), so its
+// parameter type can't be internal either. This still doesn't leak NewPipeExtractor's own API:
+// nothing outside this module can resolve the Downloader-typed constructor param without also
+// depending on NewPipeExtractor directly, which no other module does.
+class NewPipeYouTubeClient
     @Inject
     constructor(
         // Injecting the Downloader (rather than reading it) guarantees Hilt has run

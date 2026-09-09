@@ -1,6 +1,8 @@
 package com.karalo.feature.search.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,13 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.tv.material3.ListItem
-import androidx.tv.material3.ListItemDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.karalo.core.ui.components.ErrorState
@@ -122,14 +123,35 @@ private fun SuggestionsList(
     if (suggestions.isEmpty()) return
     LazyColumn(contentPadding = PaddingValues(top = 16.dp)) {
         items(suggestions) { suggestion ->
-            ListItem(
-                selected = false,
-                onClick = { onSuggestionClick(suggestion) },
-                headlineContent = { Text(suggestion) },
-                colors = ListItemDefaults.colors(),
-            )
+            SuggestionRow(suggestion = suggestion, onClick = { onSuggestionClick(suggestion) })
         }
     }
+}
+
+@Composable
+private fun SuggestionRow(
+    suggestion: String,
+    onClick: () -> Unit,
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Text(
+        text = suggestion,
+        color =
+            if (isFocused) {
+                MaterialTheme.colorScheme.background
+            } else {
+                MaterialTheme.colorScheme.onBackground
+            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusable()
+                .onFocusChanged { isFocused = it.isFocused }
+                .clickable(onClick = onClick)
+                .background(if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+    )
 }
 
 private fun rawQueryOf(uiState: SearchUiState): String =

@@ -53,6 +53,14 @@ android {
         compose = true
     }
 
+    // androidTestImplementation(:core-testing) pulls in JUnit5, and several of its jars each
+    // bundle their own META-INF/LICENSE.md — same fix as core-testing/build.gradle.kts.
+    packaging {
+        resources {
+            excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

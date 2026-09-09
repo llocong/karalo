@@ -13,9 +13,11 @@ import okhttp3.OkHttpClient
 import org.schabi.newpipe.extractor.downloader.Downloader
 import javax.inject.Singleton
 
+// Public (not internal): androidTest in :app needs to reference this class for
+// @TestInstallIn(replaces = [YouTubeClientModule::class]) — see FakeYouTubeClientModule.
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class YouTubeClientModule {
+abstract class YouTubeClientModule {
     @Binds
     @Singleton
     abstract fun bindYouTubeClient(impl: NewPipeYouTubeClient): YouTubeClient

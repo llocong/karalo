@@ -18,6 +18,15 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // core-testing has no androidTest sources of its own, but as an Android library it still
+    // builds an (empty) androidTest APK, which fails to package because the JUnit5 jars pulled
+    // in transitively each bundle their own META-INF/LICENSE.md etc.
+    packaging {
+        resources {
+            excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
+        }
+    }
 }
 
 dependencies {
