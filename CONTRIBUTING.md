@@ -50,9 +50,16 @@ Use the PR template checklist. CI (`ci.yml`) runs ktlint/detekt, unit tests + co
 assemble sanity build, and instrumented tests on a TV emulator profile on every PR — all must be
 green before merge.
 
-## Branch protection (configure once, in GitHub repo settings)
+## Branch protection (not yet configured)
 
-On `main`:
+**Current status:** this repo is private on GitHub's free plan, and neither classic branch
+protection rules nor the newer rulesets API are available at that tier (GitHub returns "Upgrade
+to GitHub Pro or make this repository public"). For a solo v1 this isn't blocking — follow the
+branching/PR discipline in this doc regardless of whether GitHub enforces it — but it means `main`
+is not actually protected from direct pushes or force-pushes yet.
+
+Revisit this once the repo goes public or gets a paid plan, or once there's more than one
+contributor. When you do, configure on `main`:
 
 - Require a pull request before merging (no direct pushes).
 - Require status checks to pass: `ktlint & detekt`, `Unit tests & coverage`, `Assemble debug`,
