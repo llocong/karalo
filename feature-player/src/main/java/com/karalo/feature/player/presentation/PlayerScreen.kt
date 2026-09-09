@@ -21,7 +21,12 @@ import com.karalo.core.ui.components.LoadingIndicator
 import kotlinx.coroutines.delay
 
 private const val PROGRESS_POLL_INTERVAL_MS = 500L
-private const val CONTROLS_AUTO_HIDE_MS = 4000L
+
+// Generous on purpose: this is a karaoke app, so controls staying visible longer while someone
+// is mid-song is a reasonable default, not just a concession to CI timing. (A too-short value
+// here caused real instrumented-test flakiness — CoroutineDispatcher/emulator startup overhead
+// on a loaded CI runner alone can eat several seconds before this timer's clock even starts.)
+private const val CONTROLS_AUTO_HIDE_MS = 15000L
 
 @Composable
 fun PlayerScreen(
