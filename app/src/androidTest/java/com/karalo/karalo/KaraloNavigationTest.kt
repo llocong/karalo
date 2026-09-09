@@ -1,15 +1,12 @@
 package com.karalo.karalo
 
-import android.util.Log
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.printToLog
 import androidx.test.espresso.Espresso
 import com.karalo.feature.search.presentation.SEARCH_QUERY_FIELD_TAG
 import com.karalo.karalo.nav.NAV_TAG_SEARCH
@@ -44,16 +41,10 @@ class KaraloNavigationTest {
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).performTextInput("Test Song")
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).performImeAction()
 
-        Log.d("KaraloDebug", "before first assertion")
-        composeRule.onRoot(useUnmergedTree = true).printToLog("KaraloDebug")
         composeRule.onNodeWithText("Karaoke Test Song").assertIsDisplayed()
-
-        Log.d("KaraloDebug", "before click")
         composeRule.onNodeWithText("Karaoke Test Song").performClick()
 
         // The player's controls overlay shows the now-playing title.
-        Log.d("KaraloDebug", "before second assertion")
-        composeRule.onRoot(useUnmergedTree = true).printToLog("KaraloDebug")
         composeRule.onNodeWithText("Karaoke Test Song").assertIsDisplayed()
 
         Espresso.pressBack()

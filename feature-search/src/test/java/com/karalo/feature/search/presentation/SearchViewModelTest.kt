@@ -71,6 +71,42 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun `submitting does not get clobbered by a suggestions fetch that was already in flight`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            // Reproduces a real bug: typing starts the debounced suggestions fetch; submitting
+            // immediately after (before that debounce fires) must not let the stale suggestions
+            // result overwrite the Results state once it lands.
+            val items = listOf(SearchResultItem("id1", "Song", "Channel", null, 200))
+            coEvery { getSuggestions("Test Song") } returns AppResult.Success(listOf("karaoke test song"))
+            coEvery { searchYouTube("Test Song") } returns AppResult.Success(items)
+            val viewModel = createViewModel()
+
+            viewModel.onQueryChanged("Test Song")
+            viewModel.onSubmit("Test Song")
+            advanceUntilIdle()
+
+            assertEquals(SearchUiState.Results("Test Song", items), viewModel.uiState.value)
+        }
+
+    @Test
+    fun `suggestions resume once the user edits the text after submitting`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            coEvery { searchYouTube("Test Song") } returns AppResult.Success(emptyList())
+            coEvery { getSuggestions("Test Song 2") } returns AppResult.Success(listOf("karaoke test song 2"))
+            val viewModel = createViewModel()
+            viewModel.onSubmit("Test Song")
+            advanceUntilIdle()
+
+            viewModel.onQueryChanged("Test Song 2")
+            advanceUntilIdle()
+
+            assertEquals(
+                SearchUiState.Suggesting("Test Song 2", listOf("karaoke test song 2")),
+                viewModel.uiState.value,
+            )
+        }
+
+    @Test
     fun `clearing the query resets state to idle`() =
         runTest(mainDispatcherExtension.testDispatcher) {
             val viewModel = createViewModel()

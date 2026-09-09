@@ -38,6 +38,13 @@ class SearchViewModel
 
         private val queryInput = MutableStateFlow("")
 
+        // Guards against a stale in-flight suggestions fetch (debounced, so it can still resolve
+        // shortly after onSubmit) overwriting the Results/Loading/Error state that submitting the
+        // same text already produced — otherwise the UI can flicker back from "results" to
+        // "suggestions" a moment after the user hits search. Cleared once the user types something
+        // different, so suggestions resume for further edits.
+        private var lastSubmittedQuery: String? = null
+
         init {
             viewModelScope.launch {
                 queryInput
@@ -49,6 +56,9 @@ class SearchViewModel
 
         fun onQueryChanged(rawQuery: String) {
             queryInput.value = rawQuery
+            if (rawQuery != lastSubmittedQuery) {
+                lastSubmittedQuery = null
+            }
             if (rawQuery.isBlank()) {
                 _uiState.value = SearchUiState.Idle
             }
@@ -56,6 +66,7 @@ class SearchViewModel
 
         fun onSubmit(rawQuery: String = queryInput.value) {
             if (rawQuery.isBlank()) return
+            lastSubmittedQuery = rawQuery
             viewModelScope.launch {
                 _uiState.value = SearchUiState.Loading(rawQuery)
                 when (val result = searchYouTube(rawQuery)) {
@@ -72,7 +83,7 @@ class SearchViewModel
         }
 
         private suspend fun loadSuggestions(rawQuery: String) {
-            if (rawQuery.isBlank()) return
+            if (rawQuery.isBlank() || rawQuery == lastSubmittedQuery) return
             when (val result = getSearchSuggestions(rawQuery)) {
                 is AppResult.Success -> _uiState.value = SearchUiState.Suggesting(rawQuery, result.data)
                 // Suggestions are a nice-to-have — a failure here shouldn't block typing/searching.
