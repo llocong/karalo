@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  version-and-changelog:
+    name: Determine version & changelog
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.release-please.outputs.tag_name }}
+      release_created: ${{ steps.release-please.outputs.release_created }}
+    steps:
+      - id: release-please
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: simple
+          # Bumps versionName per semantic versioning from Conventional Commits and generates
+          # CHANGELOG.md; app/build.gradle.kts' versionCode is bumped manually per release for now
+          # (see CONTRIBUTING.md "Releasing").
+
+  build-and-sign:
+    name: Build signed release AAB
+    runs-on: ubuntu-latest
+    needs: version-and-changelog
+    if: needs.version-and-changelog.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode signing keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        if: env.RELEASE_KEYSTORE_BASE64 != ''
+        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release.keystore
+
+      - name: Decode google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        if: env.GOOGLE_SERVICES_JSON_BASE64 != ''
+        run: echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/google-services.json
+
+      - name: Build signed AAB
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
+
+      - name: Attach AAB to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/bundle/release/app-release.aab
+
+      # Play Console publishing is opt-in: wire PLAY_SERVICE_ACCOUNT_JSON as a repo secret and
+      # uncomment this step when the app has a Play Console listing (see README "Secrets").
+      # - name: Publish to Play Console (internal testing track)
+      #   if: env.PLAY_SERVICE_ACCOUNT_JSON != ''
+      #   env:
+      #     PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      #   uses: r0adkll/upload-google-play@v1
+      #   with:
+      #     serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      #     packageName: com.karalo.karalo
+      #     releaseFiles: app/build/outputs/bundle/release/app-release.aab
+      #     track: internal

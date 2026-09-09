@@ -1,0 +1,25 @@
+# Karalo detekt configuration.
+# We build on detekt's default ruleset (see `buildUponDefaultConfig = true` in the root build.gradle.kts)
+# and only override the handful of rules below.
+
+style:
+  MaxLineLength:
+    maxLineLength: 120
+  WildcardImport:
+    active: true
+  ForbiddenComment:
+    active: false # allow TODO/FIXME during active development
+
+complexity:
+  LongParameterList:
+    functionThreshold: 7
+    constructorThreshold: 8
+  TooManyFunctions:
+    thresholdInClasses: 15
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"]
+
+comments:
+  active: false # not requiring KDoc — see CLAUDE/README code-comment conventions

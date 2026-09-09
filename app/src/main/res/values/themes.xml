@@ -1,0 +1,11 @@
+<resources>
+    <!--
+      The UI itself is 100% Compose for TV (KaraloTheme) — this manifest-level theme only needs
+      to set the window background so there's no white flash before Compose takes over, and
+      remove the action bar (TV apps don't use one).
+    -->
+    <style name="Theme.Karalo" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/karalo_background</item>
+        <item name="android:colorBackground">@color/karalo_background</item>
+    </style>
+</resources>
