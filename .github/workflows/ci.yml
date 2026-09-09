@@ -90,10 +90,18 @@ jobs:
           arch: x86_64
           profile: tv_1080p
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest
+          # Dump logcat (captures Log.d/printToLog test diagnostics) before the emulator is torn
+          # down, regardless of whether the gradle command itself succeeded.
+          script: ./gradlew connectedDebugAndroidTest || EXIT_CODE=$?; adb logcat -d > logcat.txt; exit ${EXIT_CODE:-0}
       - name: Upload instrumented test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: instrumented-test-reports
           path: "**/build/reports/androidTests/connected/"
+      - name: Upload logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logcat
+          path: logcat.txt
