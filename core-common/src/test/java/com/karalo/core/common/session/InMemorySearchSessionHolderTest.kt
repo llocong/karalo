@@ -15,9 +15,10 @@ class InMemorySearchSessionHolderTest {
 
     @Test
     fun `returns the last results that were set`() {
-        val items = listOf(
-            PlayableItemRef("abc", "Karaoke Song", "Channel", null, 180_000L),
-        )
+        val items =
+            listOf(
+                PlayableItemRef("abc", "Karaoke Song", "Channel", null, 180_000L),
+            )
 
         holder.setLastResults(items)
 

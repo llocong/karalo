@@ -1,5 +1,6 @@
 package com.karalo.core.testing
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
@@ -18,12 +19,13 @@ import org.junit.jupiter.api.extension.ExtensionContext
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherExtension(
     val testDispatcher: TestDispatcher = StandardTestDispatcher(),
-) : BeforeEachCallback, AfterEachCallback {
+) : BeforeEachCallback,
+    AfterEachCallback {
     override fun beforeEach(context: ExtensionContext) {
-        setMain(testDispatcher)
+        Dispatchers.setMain(testDispatcher)
     }
 
     override fun afterEach(context: ExtensionContext) {
-        resetMain()
+        Dispatchers.resetMain()
     }
 }

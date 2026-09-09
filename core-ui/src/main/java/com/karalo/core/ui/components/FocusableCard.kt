@@ -23,6 +23,7 @@ import coil.compose.AsyncImage
 
 private const val FOCUSED_SCALE = 1.08f
 private const val UNFOCUSED_SCALE = 1f
+private const val THUMBNAIL_ASPECT_RATIO = 16f / 9f
 
 /**
  * A D-pad-focusable result card: thumbnail + title + subtitle, scaling up with a border on focus
@@ -41,18 +42,22 @@ fun FocusableCard(
 
     Card(
         onClick = onClick,
-        modifier = modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .onFocusChanged { isFocused = it.isFocused },
+        modifier =
+            modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }.onFocusChanged { isFocused = it.isFocused },
         colors = CardDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column {
             AsyncImage(
                 model = thumbnailUrl,
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(THUMBNAIL_ASPECT_RATIO),
             )
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(

@@ -14,17 +14,17 @@ import com.karalo.karalo.nav.KaraloNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
-private val MEDIA_KEY_CODES = setOf(
-    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-    KeyEvent.KEYCODE_MEDIA_PLAY,
-    KeyEvent.KEYCODE_MEDIA_PAUSE,
-    KeyEvent.KEYCODE_MEDIA_NEXT,
-    KeyEvent.KEYCODE_MEDIA_PREVIOUS,
-)
+private val MEDIA_KEY_CODES =
+    setOf(
+        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+        KeyEvent.KEYCODE_MEDIA_PLAY,
+        KeyEvent.KEYCODE_MEDIA_PAUSE,
+        KeyEvent.KEYCODE_MEDIA_NEXT,
+        KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+    )
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     @Inject
     lateinit var mediaKeyRouter: MediaKeyRouter
 
@@ -33,9 +33,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             KaraloTheme {
                 KaraloNavHost(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
                 )
             }
         }

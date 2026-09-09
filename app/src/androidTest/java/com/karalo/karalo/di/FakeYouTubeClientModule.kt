@@ -21,14 +21,16 @@ import javax.inject.Singleton
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [YouTubeClientModule::class])
 object FakeYouTubeClientModule {
-
     @Provides
     @Singleton
-    fun provideYouTubeClient(): YouTubeClient = FakeYouTubeClient().apply {
-        searchResult = AppResult.Success(
-            listOf(YtVideoSummary("vid1", "Karaoke Test Song", "Test Channel", null, 180L)),
-        )
-        suggestionsResult = AppResult.Success(listOf(YtSuggestion("karaoke test song")))
-        streamResult = AppResult.Success(YtStreamInfo("https://example.com/fake.mp4", "video/mp4", isAdaptive = false))
-    }
+    fun provideYouTubeClient(): YouTubeClient =
+        FakeYouTubeClient().apply {
+            searchResult =
+                AppResult.Success(
+                    listOf(YtVideoSummary("vid1", "Karaoke Test Song", "Test Channel", null, 180L)),
+                )
+            suggestionsResult = AppResult.Success(listOf(YtSuggestion("karaoke test song")))
+            streamResult =
+                AppResult.Success(YtStreamInfo("https://example.com/fake.mp4", "video/mp4", isAdaptive = false))
+        }
 }

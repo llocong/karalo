@@ -15,8 +15,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class YouTubeClientModule {
-
+internal abstract class YouTubeClientModule {
     @Binds
     @Singleton
     abstract fun bindYouTubeClient(impl: NewPipeYouTubeClient): YouTubeClient

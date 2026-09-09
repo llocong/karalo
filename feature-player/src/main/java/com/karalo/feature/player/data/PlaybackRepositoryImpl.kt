@@ -7,12 +7,13 @@ import com.karalo.feature.player.domain.PlaybackRepository
 import com.karalo.youtubeclient.YouTubeClient
 import javax.inject.Inject
 
-class PlaybackRepositoryImpl @Inject constructor(
-    private val youTubeClient: YouTubeClient,
-) : PlaybackRepository {
-
-    override suspend fun resolveStream(videoId: String): AppResult<PlayableStream> =
-        youTubeClient.streamsFor(videoId).map { stream ->
-            PlayableStream(uri = stream.playbackUrl, mimeType = stream.mimeType, isAdaptive = stream.isAdaptive)
-        }
-}
+class PlaybackRepositoryImpl
+    @Inject
+    constructor(
+        private val youTubeClient: YouTubeClient,
+    ) : PlaybackRepository {
+        override suspend fun resolveStream(videoId: String): AppResult<PlayableStream> =
+            youTubeClient.streamsFor(videoId).map { stream ->
+                PlayableStream(uri = stream.playbackUrl, mimeType = stream.mimeType, isAdaptive = stream.isAdaptive)
+            }
+    }

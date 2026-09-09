@@ -37,7 +37,6 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.runtime)
     implementation(libs.tv.material)
-    implementation(libs.tv.foundation)
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
@@ -49,6 +48,7 @@ dependencies {
     testImplementation(project(":core-testing"))
     testImplementation(libs.junit5.jupiter.api)
     testRuntimeOnly(libs.junit5.jupiter.engine)
+    testImplementation(libs.junit5.jupiter.params)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
 

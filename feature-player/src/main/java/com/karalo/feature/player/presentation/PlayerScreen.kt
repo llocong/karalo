@@ -62,10 +62,11 @@ fun PlayerScreen(
         )
 
         when {
-            uiState.error != null -> ErrorState(
-                message = uiState.error.orEmpty(),
-                modifier = Modifier.fillMaxSize(),
-            )
+            uiState.error != null ->
+                ErrorState(
+                    message = uiState.error.orEmpty(),
+                    modifier = Modifier.fillMaxSize(),
+                )
             uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
         }
 
@@ -77,9 +78,18 @@ fun PlayerScreen(
                 hasPrevious = uiState.hasPrevious,
                 positionMs = positionMs,
                 durationMs = durationMs,
-                onPlayPauseClick = { controlsVisible = true; viewModel.togglePlayPause() },
-                onNextClick = { controlsVisible = true; viewModel.next() },
-                onPreviousClick = { controlsVisible = true; viewModel.previous() },
+                onPlayPauseClick = {
+                    controlsVisible = true
+                    viewModel.togglePlayPause()
+                },
+                onNextClick = {
+                    controlsVisible = true
+                    viewModel.next()
+                },
+                onPreviousClick = {
+                    controlsVisible = true
+                    viewModel.previous()
+                },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }

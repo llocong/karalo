@@ -5,7 +5,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 class KaraokeQueryFormatterTest {
-
     @ParameterizedTest
     @CsvSource(
         "Rihanna, karaoke Rihanna",
@@ -14,7 +13,10 @@ class KaraokeQueryFormatterTest {
         "Karaoke Rihanna, Karaoke Rihanna",
         "KARAOKE Rihanna, KARAOKE Rihanna",
     )
-    fun `format prefixes the query exactly once, case-insensitively`(input: String, expected: String) {
+    fun `format prefixes the query exactly once, case-insensitively`(
+        input: String,
+        expected: String,
+    ) {
         assertEquals(expected, KaraokeQueryFormatter.format(input))
     }
 

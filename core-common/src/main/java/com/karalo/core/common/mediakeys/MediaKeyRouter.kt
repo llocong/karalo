@@ -12,6 +12,8 @@ fun interface MediaKeyHandler {
 
 interface MediaKeyRouter {
     fun attach(handler: MediaKeyHandler)
+
     fun detach(handler: MediaKeyHandler)
+
     fun dispatch(keyCode: Int): Boolean
 }

@@ -4,10 +4,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
-private data class Candidate(val label: String, val resolutionP: Int?)
+private data class Candidate(
+    val label: String,
+    val resolutionP: Int?,
+)
 
 class StreamSelectionTest {
-
     @Test
     fun `returns null for an empty candidate list`() {
         val result = StreamSelection.selectBest(emptyList<Candidate>(), Candidate::resolutionP)
@@ -17,12 +19,13 @@ class StreamSelectionTest {
 
     @Test
     fun `picks the highest resolution at or below the preferred cap`() {
-        val candidates = listOf(
-            Candidate("144p", 144),
-            Candidate("480p", 480),
-            Candidate("720p", 720),
-            Candidate("1080p", 1080),
-        )
+        val candidates =
+            listOf(
+                Candidate("144p", 144),
+                Candidate("480p", 480),
+                Candidate("720p", 720),
+                Candidate("1080p", 1080),
+            )
 
         val result = StreamSelection.selectBest(candidates, Candidate::resolutionP)
 

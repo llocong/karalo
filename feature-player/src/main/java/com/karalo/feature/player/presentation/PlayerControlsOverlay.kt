@@ -39,10 +39,11 @@ internal fun PlayerControlsOverlay(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.6f))
-            .padding(horizontal = 32.dp, vertical = 16.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.6f))
+                .padding(horizontal = 32.dp, vertical = 16.dp),
     ) {
         Text(
             text = title,
@@ -75,27 +76,37 @@ internal fun PlayerControlsOverlay(
 }
 
 @Composable
-private fun RowScope.ControlButton(onClick: () -> Unit, enabled: Boolean, icon: @Composable () -> Unit) {
+private fun RowScope.ControlButton(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    icon: @Composable () -> Unit,
+) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.padding(end = 16.dp)) {
         icon()
     }
 }
 
 @Composable
-private fun ProgressBar(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier) {
+private fun ProgressBar(
+    positionMs: Long,
+    durationMs: Long,
+    modifier: Modifier = Modifier,
+) {
     val fraction = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(6.dp)
-            .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(3.dp)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(3.dp)),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth(fraction)
-                .height(6.dp)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+            modifier =
+                Modifier
+                    .fillMaxWidth(fraction)
+                    .height(6.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
         )
     }
 }

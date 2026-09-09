@@ -31,7 +31,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
-import com.karalo.feature.search.domain.SearchResultItem
 
 @Composable
 fun SearchScreen(
@@ -96,22 +95,30 @@ private fun SearchQueryField(
             onQueryChanged(it)
         },
         singleLine = true,
-        textStyle = TextStyle(color = MaterialTheme.colorScheme.onBackground, fontSize = MaterialTheme.typography.titleLarge.fontSize),
+        textStyle =
+            TextStyle(
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = MaterialTheme.typography.titleLarge.fontSize,
+            ),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(SEARCH_QUERY_FIELD_TAG)
-            .focusRequester(focusRequester)
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(SEARCH_QUERY_FIELD_TAG)
+                .focusRequester(focusRequester)
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(16.dp),
     )
 }
 
 const val SEARCH_QUERY_FIELD_TAG = "search_query_field"
 
 @Composable
-private fun SuggestionsList(suggestions: List<String>, onSuggestionClick: (String) -> Unit) {
+private fun SuggestionsList(
+    suggestions: List<String>,
+    onSuggestionClick: (String) -> Unit,
+) {
     if (suggestions.isEmpty()) return
     LazyColumn(contentPadding = PaddingValues(top = 16.dp)) {
         items(suggestions) { suggestion ->
@@ -125,10 +132,11 @@ private fun SuggestionsList(suggestions: List<String>, onSuggestionClick: (Strin
     }
 }
 
-private fun rawQueryOf(uiState: SearchUiState): String = when (uiState) {
-    is SearchUiState.Idle -> ""
-    is SearchUiState.Suggesting -> uiState.rawQuery
-    is SearchUiState.Loading -> uiState.rawQuery
-    is SearchUiState.Results -> uiState.rawQuery
-    is SearchUiState.Error -> uiState.rawQuery
-}
+private fun rawQueryOf(uiState: SearchUiState): String =
+    when (uiState) {
+        is SearchUiState.Idle -> ""
+        is SearchUiState.Suggesting -> uiState.rawQuery
+        is SearchUiState.Loading -> uiState.rawQuery
+        is SearchUiState.Results -> uiState.rawQuery
+        is SearchUiState.Error -> uiState.rawQuery
+    }

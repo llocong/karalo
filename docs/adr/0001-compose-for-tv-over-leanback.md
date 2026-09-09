@@ -24,11 +24,14 @@ Use Compose for TV, not Leanback, for the entire UI.
 
 ## Consequences
 
-- `androidx.tv:tv-material`/`tv-foundation` are younger and less battle-tested than Leanback —
-  expect some API churn on library upgrades (pin exact versions in `gradle/libs.versions.toml`).
+- `androidx.tv:tv-material` is younger and less battle-tested than Leanback — expect some API
+  churn on library upgrades (pin the exact version in `gradle/libs.versions.toml`).
 - We lose Leanback's built-in `SearchOrbView`/voice-search affordances and its default
   row-browsing patterns, but v1 doesn't need them.
-- D-pad focus behavior (traversal, scroll-into-view, focus restoration) is handled via
-  `tv-foundation`'s `TvLazyVerticalGrid` and `Modifier.focusRestorer()` rather than Leanback's
-  built-in row/grid presenters — verify this on a real device/emulator early (see README "Known
-  limitations" and the player/search screens).
+- `androidx.tv:tv-foundation` turned out to have no Lazy grid/list components in its 1.0.0 stable
+  release (they were dropped before stabilization) — the results grid uses mainline
+  `androidx.compose.foundation.lazy.grid.LazyVerticalGrid` plus `Modifier.focusGroup()`
+  (`androidx.compose.foundation`) and `Modifier.focusRestorer()` (`androidx.compose.ui.focus`)
+  for D-pad traversal/scroll-into-view/focus restoration, not a TV-specific grid. `tv-foundation`
+  itself is unused and not a dependency of this project — only `tv-material` (buttons, cards,
+  theming, nav list items) is.

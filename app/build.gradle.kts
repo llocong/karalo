@@ -23,12 +23,16 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("RELEASE_KEYSTORE_PATH") ?: providers.gradleProperty("RELEASE_KEYSTORE_PATH").orNull
+            val keystorePath =
+                System.getenv("RELEASE_KEYSTORE_PATH") ?: providers.gradleProperty("RELEASE_KEYSTORE_PATH").orNull
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
-                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: providers.gradleProperty("RELEASE_KEYSTORE_PASSWORD").orNull
+                storePassword =
+                    System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                        ?: providers.gradleProperty("RELEASE_KEYSTORE_PASSWORD").orNull
                 keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: providers.gradleProperty("RELEASE_KEY_ALIAS").orNull
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: providers.gradleProperty("RELEASE_KEY_PASSWORD").orNull
+                keyPassword =
+                    System.getenv("RELEASE_KEY_PASSWORD") ?: providers.gradleProperty("RELEASE_KEY_PASSWORD").orNull
             }
         }
     }
@@ -77,7 +81,6 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     implementation(libs.tv.material)
-    implementation(libs.tv.foundation)
     implementation(libs.navigation.compose)
 
     implementation(libs.hilt.android)

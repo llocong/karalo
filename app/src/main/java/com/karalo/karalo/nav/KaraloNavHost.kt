@@ -2,7 +2,6 @@ package com.karalo.karalo.nav
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.weight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -51,13 +50,14 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
             }
             composable(
                 route = NavDestination.Player.route,
-                arguments = listOf(
-                    navArgument(PLAYER_ARG_START_INDEX) { type = NavType.IntType },
-                    navArgument(PLAYER_ARG_START_VIDEO_ID) {
-                        type = NavType.StringType
-                        nullable = true
-                    },
-                ),
+                arguments =
+                    listOf(
+                        navArgument(PLAYER_ARG_START_INDEX) { type = NavType.IntType },
+                        navArgument(PLAYER_ARG_START_VIDEO_ID) {
+                            type = NavType.StringType
+                            nullable = true
+                        },
+                    ),
             ) {
                 PlayerScreen()
             }

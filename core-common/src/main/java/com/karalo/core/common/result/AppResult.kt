@@ -7,8 +7,13 @@ import com.karalo.core.common.error.AppError
  * repository/use-case boundaries instead of throwing.
  */
 sealed interface AppResult<out T> {
-    data class Success<T>(val data: T) : AppResult<T>
-    data class Failure(val error: AppError) : AppResult<Nothing>
+    data class Success<T>(
+        val data: T,
+    ) : AppResult<T>
+
+    data class Failure(
+        val error: AppError,
+    ) : AppResult<Nothing>
 }
 
 inline fun <T, R> AppResult<T>.map(transform: (T) -> R): AppResult<R> =

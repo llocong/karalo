@@ -9,11 +9,16 @@ style:
     active: true
   ForbiddenComment:
     active: false # allow TODO/FIXME during active development
+  ReturnCount:
+    max: 4 # early-return/guard-clause style is preferred over nested if/else in this codebase
 
 complexity:
   LongParameterList:
     functionThreshold: 7
     constructorThreshold: 8
+    ignoreAnnotated: ["Composable"] # TV screen composables legitimately take many display/callback params
+  LongMethod:
+    ignoreAnnotated: ["Composable"] # declarative UI nesting reads better than extra indirection here
   TooManyFunctions:
     thresholdInClasses: 15
 

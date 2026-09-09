@@ -11,6 +11,7 @@ import com.karalo.feature.search.domain.SearchYouTubeUseCase
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,8 +19,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModelTest {
-
     @JvmField
     @RegisterExtension
     val mainDispatcherExtension = MainDispatcherExtension()
@@ -46,33 +47,36 @@ class SearchViewModelTest {
         }
 
     @Test
-    fun `a failed search surfaces an error state`() = runTest(mainDispatcherExtension.testDispatcher) {
-        coEvery { searchYouTube("Adele") } returns AppResult.Failure(AppError.Network())
-        val viewModel = createViewModel()
+    fun `a failed search surfaces an error state`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            coEvery { searchYouTube("Adele") } returns AppResult.Failure(AppError.Network())
+            val viewModel = createViewModel()
 
-        viewModel.onSubmit("Adele")
-        advanceUntilIdle()
+            viewModel.onSubmit("Adele")
+            advanceUntilIdle()
 
-        assertTrue(viewModel.uiState.value is SearchUiState.Error)
-    }
-
-    @Test
-    fun `typing debounces before requesting suggestions`() = runTest(mainDispatcherExtension.testDispatcher) {
-        coEvery { getSuggestions("Rih") } returns AppResult.Success(listOf("karaoke rihanna"))
-        val viewModel = createViewModel()
-
-        viewModel.onQueryChanged("Rih")
-        advanceUntilIdle()
-
-        assertEquals(SearchUiState.Suggesting("Rih", listOf("karaoke rihanna")), viewModel.uiState.value)
-    }
+            assertTrue(viewModel.uiState.value is SearchUiState.Error)
+        }
 
     @Test
-    fun `clearing the query resets state to idle`() = runTest(mainDispatcherExtension.testDispatcher) {
-        val viewModel = createViewModel()
+    fun `typing debounces before requesting suggestions`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            coEvery { getSuggestions("Rih") } returns AppResult.Success(listOf("karaoke rihanna"))
+            val viewModel = createViewModel()
 
-        viewModel.onQueryChanged("")
+            viewModel.onQueryChanged("Rih")
+            advanceUntilIdle()
 
-        assertEquals(SearchUiState.Idle, viewModel.uiState.value)
-    }
+            assertEquals(SearchUiState.Suggesting("Rih", listOf("karaoke rihanna")), viewModel.uiState.value)
+        }
+
+    @Test
+    fun `clearing the query resets state to idle`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.onQueryChanged("")
+
+            assertEquals(SearchUiState.Idle, viewModel.uiState.value)
+        }
 }

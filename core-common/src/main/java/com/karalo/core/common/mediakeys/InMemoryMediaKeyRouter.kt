@@ -5,17 +5,19 @@ import javax.inject.Singleton
 
 /** The most recently attached handler wins — there's only ever one player screen visible. */
 @Singleton
-class InMemoryMediaKeyRouter @Inject constructor() : MediaKeyRouter {
-    @Volatile
-    private var current: MediaKeyHandler? = null
+class InMemoryMediaKeyRouter
+    @Inject
+    constructor() : MediaKeyRouter {
+        @Volatile
+        private var current: MediaKeyHandler? = null
 
-    override fun attach(handler: MediaKeyHandler) {
-        current = handler
+        override fun attach(handler: MediaKeyHandler) {
+            current = handler
+        }
+
+        override fun detach(handler: MediaKeyHandler) {
+            if (current === handler) current = null
+        }
+
+        override fun dispatch(keyCode: Int): Boolean = current?.onMediaKeyEvent(keyCode) ?: false
     }
-
-    override fun detach(handler: MediaKeyHandler) {
-        if (current === handler) current = null
-    }
-
-    override fun dispatch(keyCode: Int): Boolean = current?.onMediaKeyEvent(keyCode) ?: false
-}

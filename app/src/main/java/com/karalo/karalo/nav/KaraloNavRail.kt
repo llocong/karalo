@@ -26,11 +26,12 @@ internal fun KaraloNavRail(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .width(NAV_RAIL_WIDTH_DP.dp)
-            .fillMaxHeight()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 24.dp, horizontal = 8.dp),
+        modifier =
+            modifier
+                .width(NAV_RAIL_WIDTH_DP.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(vertical = 24.dp, horizontal = 8.dp),
     ) {
         ListItem(
             selected = currentRoute == NavDestination.Home.route,

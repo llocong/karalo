@@ -16,16 +16,19 @@ import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
  * gradle/libs.versions.toml) during the integration spike — [Request]/[Response] constructor
  * signatures have shifted across NewPipeExtractor releases.
  */
-internal class NewPipeDownloaderAdapter(private val client: OkHttpClient) : Downloader() {
-
+internal class NewPipeDownloaderAdapter(
+    private val client: OkHttpClient,
+) : Downloader() {
     override fun execute(request: Request): Response {
         val dataToSend = request.dataToSend()
         val requestBody = dataToSend?.toRequestBody()
 
-        val requestBuilder = okhttp3.Request.Builder()
-            .method(request.httpMethod(), requestBody)
-            .url(request.url())
-            .header("User-Agent", USER_AGENT)
+        val requestBuilder =
+            okhttp3.Request
+                .Builder()
+                .method(request.httpMethod(), requestBody)
+                .url(request.url())
+                .header("User-Agent", USER_AGENT)
 
         request.headers().forEach { (name, values) ->
             requestBuilder.removeHeader(name)

@@ -30,9 +30,15 @@ changelog, so take a moment to pick the right one.
 ```
 ./gradlew ktlintCheck detekt   # formatting + static analysis
 ./gradlew testDebugUnitTest    # unit tests (JUnit5 + MockK)
-./gradlew koverVerify          # coverage threshold
+./gradlew koverVerify          # coverage threshold (see note below)
 ./gradlew assembleDebug        # sanity build across all modules
 ```
+
+The coverage floor (`build.gradle.kts`, currently 20% overall line coverage) is intentionally low
+— it measures the whole codebase, and a large share of it is Compose UI/DI modules that this
+project doesn't unit-test by design (UI flows are covered by the instrumented nav test instead).
+Domain/data/ViewModel logic is close to fully covered; when you add well-tested logic, feel free
+to ratchet the floor up in the same PR, but don't raise it just to make a failing PR pass.
 
 If you touched UI, also run the instrumented tests against an Android TV emulator
 (`./gradlew connectedDebugAndroidTest`) and manually verify D-pad focus behavior — see

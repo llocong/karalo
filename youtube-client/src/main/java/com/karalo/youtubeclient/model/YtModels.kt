@@ -9,7 +9,9 @@ data class YtVideoSummary(
     val durationSeconds: Long?,
 )
 
-data class YtSuggestion(val text: String)
+data class YtSuggestion(
+    val text: String,
+)
 
 /**
  * A resolved, playable source for a video. [isAdaptive] distinguishes a single progressive

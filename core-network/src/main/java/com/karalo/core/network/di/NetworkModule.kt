@@ -13,7 +13,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-
     // YouTube's search/suggestion/watch endpoints; extraction adds parsing overhead on top of the
     // request itself, so timeouts are a little more generous than a typical REST client's.
     private const val CONNECT_TIMEOUT_SECONDS = 15L
@@ -23,7 +22,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -35,6 +35,5 @@ object NetworkModule {
                         },
                     )
                 }
-            }
-            .build()
+            }.build()
 }

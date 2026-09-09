@@ -36,9 +36,8 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.compose.runtime)
-    implementation(libs.compose.material.icons.core)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.tv.material)
-    implementation(libs.tv.foundation)
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.dash)

@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class NavDestinationTest {
-
     @Test
     fun `player route template declares both nav args`() {
         assertEquals("player/{startIndex}?startVideoId={startVideoId}", NavDestination.Player.route)

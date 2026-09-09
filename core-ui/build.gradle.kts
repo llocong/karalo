@@ -36,7 +36,6 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     implementation(libs.tv.material)
-    implementation(libs.tv.foundation)
 
     implementation(libs.coil.compose)
 

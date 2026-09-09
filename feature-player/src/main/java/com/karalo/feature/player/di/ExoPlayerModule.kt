@@ -17,10 +17,11 @@ private const val USER_AGENT = "Karalo/1.0 (Android TV)"
 @Module
 @InstallIn(SingletonComponent::class)
 object ExoPlayerModule {
-
     @OptIn(UnstableApi::class)
     @Provides
-    fun provideMediaSourceFactory(@ApplicationContext context: Context): MediaSource.Factory {
+    fun provideMediaSourceFactory(
+        @ApplicationContext context: Context,
+    ): MediaSource.Factory {
         val dataSourceFactory = DefaultHttpDataSource.Factory().setUserAgent(USER_AGENT)
         return DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory)
     }
@@ -34,7 +35,8 @@ object ExoPlayerModule {
         @ApplicationContext context: Context,
         mediaSourceFactory: MediaSource.Factory,
     ): ExoPlayer =
-        ExoPlayer.Builder(context)
+        ExoPlayer
+            .Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
 }

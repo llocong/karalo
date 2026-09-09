@@ -23,7 +23,6 @@ import org.junit.Test
  */
 @HiltAndroidTest
 class KaraloNavigationTest {
-
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 

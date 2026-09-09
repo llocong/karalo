@@ -3,6 +3,7 @@ package com.karalo.core.common.result
 import com.karalo.core.common.error.AppError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -46,6 +47,6 @@ class AppResultTest {
     @Test
     fun `getOrNull returns data for success and null for failure`() {
         assertEquals(1, AppResult.Success(1).getOrNull())
-        assertEquals(null, AppResult.Failure(AppError.NotFound).getOrNull())
+        assertNull(AppResult.Failure(AppError.NotFound).getOrNull())
     }
 }

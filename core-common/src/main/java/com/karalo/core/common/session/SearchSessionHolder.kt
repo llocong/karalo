@@ -12,6 +12,8 @@ import com.karalo.core.common.model.PlayableItemRef
  */
 interface SearchSessionHolder {
     fun setLastResults(items: List<PlayableItemRef>)
+
     fun getLastResults(): List<PlayableItemRef>
+
     fun clear()
 }

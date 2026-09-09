@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test
 private fun item(id: String) = PlayableItem(id, "Title $id", "Channel", null)
 
 class PlaybackQueueTest {
-
     @Test
     fun `empty queue has no current item and no navigation`() {
         val queue = PlaybackQueue.empty()

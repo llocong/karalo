@@ -15,7 +15,12 @@ class InMemoryMediaKeyRouterTest {
     @Test
     fun `dispatch forwards to the attached handler`() {
         var receivedKeyCode: Int? = null
-        router.attach(MediaKeyHandler { keyCode -> receivedKeyCode = keyCode; true })
+        router.attach(
+            MediaKeyHandler { keyCode ->
+                receivedKeyCode = keyCode
+                true
+            },
+        )
 
         val consumed = router.dispatch(KEY_PLAY_PAUSE)
 

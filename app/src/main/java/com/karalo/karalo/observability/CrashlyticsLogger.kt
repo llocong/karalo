@@ -9,18 +9,22 @@ import javax.inject.Inject
  * google-services.json (see docs/firebase-setup.md), Crashlytics logs a warning and no-ops rather
  * than throwing.
  */
-class CrashlyticsLogger @Inject constructor() : Logger {
+class CrashlyticsLogger
+    @Inject
+    constructor() : Logger {
+        override fun log(message: String) {
+            FirebaseCrashlytics.getInstance().log(message)
+        }
 
-    override fun log(message: String) {
-        FirebaseCrashlytics.getInstance().log(message)
-    }
+        override fun recordException(throwable: Throwable) {
+            FirebaseCrashlytics.getInstance().recordException(throwable)
+        }
 
-    override fun recordException(throwable: Throwable) {
-        FirebaseCrashlytics.getInstance().recordException(throwable)
+        override fun recordEvent(
+            name: String,
+            params: Map<String, String>,
+        ) {
+            val details = params.entries.joinToString { (key, value) -> "$key=$value" }
+            FirebaseCrashlytics.getInstance().log("event: $name${if (details.isNotEmpty()) " ($details)" else ""}")
+        }
     }
-
-    override fun recordEvent(name: String, params: Map<String, String>) {
-        val details = params.entries.joinToString { (key, value) -> "$key=$value" }
-        FirebaseCrashlytics.getInstance().log("event: $name${if (details.isNotEmpty()) " ($details)" else ""}")
-    }
-}

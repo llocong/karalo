@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber") // every literal here IS the named constant — that's the point of a palette file
+
 package com.karalo.core.ui.theme
 
 import androidx.compose.ui.graphics.Color

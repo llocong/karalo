@@ -6,14 +6,16 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 class YtMapperTest {
-
     @ParameterizedTest
     @CsvSource(
         "https://www.youtube.com/watch?v=dQw4w9WgXcQ, dQw4w9WgXcQ",
         "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=abc, dQw4w9WgXcQ",
         "https://youtu.be/dQw4w9WgXcQ, dQw4w9WgXcQ",
     )
-    fun `extractVideoId pulls the video id from common URL shapes`(url: String, expectedId: String) {
+    fun `extractVideoId pulls the video id from common URL shapes`(
+        url: String,
+        expectedId: String,
+    ) {
         assertEquals(expectedId, YtMapper.extractVideoId(url))
     }
 
@@ -23,7 +25,10 @@ class YtMapperTest {
         "1080p60, 1080",
         "144p, 144",
     )
-    fun `parseResolutionP extracts the numeric resolution`(resolution: String, expected: Int) {
+    fun `parseResolutionP extracts the numeric resolution`(
+        resolution: String,
+        expected: Int,
+    ) {
         assertEquals(expected, YtMapper.parseResolutionP(resolution))
     }
 

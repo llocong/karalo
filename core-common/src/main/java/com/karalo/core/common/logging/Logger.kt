@@ -7,6 +7,11 @@ package com.karalo.core.common.logging
  */
 interface Logger {
     fun log(message: String)
+
     fun recordException(throwable: Throwable)
-    fun recordEvent(name: String, params: Map<String, String> = emptyMap())
+
+    fun recordEvent(
+        name: String,
+        params: Map<String, String> = emptyMap(),
+    )
 }

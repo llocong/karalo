@@ -15,7 +15,6 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
  * risks); these have changed across NewPipeExtractor releases before.
  */
 internal object YtMapper {
-
     fun toVideoSummary(item: StreamInfoItem): YtVideoSummary =
         YtVideoSummary(
             videoId = extractVideoId(item.url),
@@ -26,10 +25,11 @@ internal object YtMapper {
         )
 
     fun toStreamInfo(streamInfo: StreamInfo): YtStreamInfo? {
-        val progressive = StreamSelection.selectBest(
-            candidates = streamInfo.videoStreams.orEmpty(),
-            resolutionP = { parseResolutionP(it.resolution) },
-        )
+        val progressive =
+            StreamSelection.selectBest(
+                candidates = streamInfo.videoStreams.orEmpty(),
+                resolutionP = { parseResolutionP(it.resolution) },
+            )
         if (progressive != null) {
             return YtStreamInfo(
                 playbackUrl = progressive.content,

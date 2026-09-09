@@ -10,36 +10,38 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class SearchYouTubeUseCaseTest {
-
     private val repository = mockk<SearchRepository>()
     private val useCase = SearchYouTubeUseCase(repository)
 
     @Test
-    fun `applies the karaoke prefix before calling the repository`() = runTest {
-        val items = listOf(SearchResultItem("id1", "Song", "Channel", null, 200))
-        coEvery { repository.search("karaoke Rihanna") } returns AppResult.Success(items)
+    fun `applies the karaoke prefix before calling the repository`() =
+        runTest {
+            val items = listOf(SearchResultItem("id1", "Song", "Channel", null, 200))
+            coEvery { repository.search("karaoke Rihanna") } returns AppResult.Success(items)
 
-        val result = useCase("Rihanna")
+            val result = useCase("Rihanna")
 
-        assertEquals(AppResult.Success(items), result)
-        coVerify { repository.search("karaoke Rihanna") }
-    }
-
-    @Test
-    fun `returns an empty success without calling the repository for a blank query`() = runTest {
-        val result = useCase("   ")
-
-        assertEquals(AppResult.Success(emptyList<SearchResultItem>()), result)
-        coVerify(exactly = 0) { repository.search(any()) }
-    }
+            assertEquals(AppResult.Success(items), result)
+            coVerify { repository.search("karaoke Rihanna") }
+        }
 
     @Test
-    fun `propagates repository failures`() = runTest {
-        val error = AppError.Network()
-        coEvery { repository.search(any()) } returns AppResult.Failure(error)
+    fun `returns an empty success without calling the repository for a blank query`() =
+        runTest {
+            val result = useCase("   ")
 
-        val result = useCase("Adele")
+            assertEquals(AppResult.Success(emptyList<SearchResultItem>()), result)
+            coVerify(exactly = 0) { repository.search(any()) }
+        }
 
-        assertEquals(AppResult.Failure(error), result)
-    }
+    @Test
+    fun `propagates repository failures`() =
+        runTest {
+            val error = AppError.Network()
+            coEvery { repository.search(any()) } returns AppResult.Failure(error)
+
+            val result = useCase("Adele")
+
+            assertEquals(AppResult.Failure(error), result)
+        }
 }

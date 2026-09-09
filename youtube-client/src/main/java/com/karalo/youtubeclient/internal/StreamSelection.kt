@@ -17,7 +17,8 @@ internal object StreamSelection {
         val ranked = candidates.mapNotNull { candidate -> resolutionP(candidate)?.let { candidate to it } }
         if (ranked.isEmpty()) return candidates.firstOrNull()
 
-        return ranked.filter { (_, resolution) -> resolution <= preferredMaxResolutionP }
+        return ranked
+            .filter { (_, resolution) -> resolution <= preferredMaxResolutionP }
             .maxByOrNull { (_, resolution) -> resolution }
             ?.first
             ?: ranked.minByOrNull { (_, resolution) -> resolution }?.first

@@ -14,6 +14,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -22,8 +23,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModelTest {
-
     @JvmField
     @RegisterExtension
     val mainDispatcherExtension = MainDispatcherExtension()
@@ -42,10 +43,11 @@ class PlayerViewModelTest {
         every { sessionHolder.getLastResults() } returns sessionItems
         coEvery { resolveStream(any()) } returns AppResult.Failure(AppError.NotFound)
 
-        val state = buildMap<String, Any?> {
-            put("startIndex", startIndex)
-            if (startVideoId != null) put("startVideoId", startVideoId)
-        }
+        val state =
+            buildMap<String, Any?> {
+                put("startIndex", startIndex)
+                if (startVideoId != null) put("startVideoId", startVideoId)
+            }
         return PlayerViewModel(SavedStateHandle(state), exoPlayer, resolveStream, sessionHolder, mediaKeyRouter, logger)
     }
 
@@ -55,7 +57,11 @@ class PlayerViewModelTest {
             val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
             advanceUntilIdle()
 
-            assertEquals("vid1", viewModel.uiState.value.currentItem?.videoId)
+            assertEquals(
+                "vid1",
+                viewModel.uiState.value.currentItem
+                    ?.videoId,
+            )
             assertFalse(viewModel.uiState.value.hasNext)
             assertFalse(viewModel.uiState.value.hasPrevious)
         }
@@ -63,48 +69,64 @@ class PlayerViewModelTest {
     @Test
     fun `builds the queue from the search session and starts at the requested index`() =
         runTest(mainDispatcherExtension.testDispatcher) {
-            val items = listOf(
-                PlayableItemRef("a", "A", "C", null, null),
-                PlayableItemRef("b", "B", "C", null, null),
-            )
+            val items =
+                listOf(
+                    PlayableItemRef("a", "A", "C", null, null),
+                    PlayableItemRef("b", "B", "C", null, null),
+                )
 
             val viewModel = createViewModel(startIndex = 1, sessionItems = items)
             advanceUntilIdle()
 
-            assertEquals("b", viewModel.uiState.value.currentItem?.videoId)
+            assertEquals(
+                "b",
+                viewModel.uiState.value.currentItem
+                    ?.videoId,
+            )
             assertTrue(viewModel.uiState.value.hasPrevious)
             assertFalse(viewModel.uiState.value.hasNext)
         }
 
     @Test
-    fun `next resolves and plays the next item in the queue`() = runTest(mainDispatcherExtension.testDispatcher) {
-        val items = listOf(
-            PlayableItemRef("a", "A", "C", null, null),
-            PlayableItemRef("b", "B", "C", null, null),
-        )
-        val viewModel = createViewModel(startIndex = 0, sessionItems = items)
-        advanceUntilIdle()
+    fun `next resolves and plays the next item in the queue`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val items =
+                listOf(
+                    PlayableItemRef("a", "A", "C", null, null),
+                    PlayableItemRef("b", "B", "C", null, null),
+                )
+            val viewModel = createViewModel(startIndex = 0, sessionItems = items)
+            advanceUntilIdle()
 
-        viewModel.next()
-        advanceUntilIdle()
+            viewModel.next()
+            advanceUntilIdle()
 
-        assertEquals("b", viewModel.uiState.value.currentItem?.videoId)
-    }
+            assertEquals(
+                "b",
+                viewModel.uiState.value.currentItem
+                    ?.videoId,
+            )
+        }
 
     @Test
     fun `previous at the first item does not change the current item`() =
         runTest(mainDispatcherExtension.testDispatcher) {
-            val items = listOf(
-                PlayableItemRef("a", "A", "C", null, null),
-                PlayableItemRef("b", "B", "C", null, null),
-            )
+            val items =
+                listOf(
+                    PlayableItemRef("a", "A", "C", null, null),
+                    PlayableItemRef("b", "B", "C", null, null),
+                )
             val viewModel = createViewModel(startIndex = 0, sessionItems = items)
             advanceUntilIdle()
 
             viewModel.previous()
             advanceUntilIdle()
 
-            assertEquals("a", viewModel.uiState.value.currentItem?.videoId)
+            assertEquals(
+                "a",
+                viewModel.uiState.value.currentItem
+                    ?.videoId,
+            )
         }
 
     @Test
