@@ -5,6 +5,41 @@ import org.junit.jupiter.api.Test
 
 class VideoTitleFormatterTest {
     @Test
+    fun `strips a leading Karaoke prefix`() {
+        assertEquals(
+            "Je te donne - Jean-Jacques Goldman",
+            formatVideoTitle("Karaoké Je te donne - Jean-Jacques Goldman"),
+        )
+    }
+
+    @Test
+    fun `strips a leading Karaoke prefix regardless of accent, case or misspelling`() {
+        assertEquals("Song - Artist", formatVideoTitle("karaoke Song - Artist"))
+        assertEquals("Song - Artist", formatVideoTitle("KARAOKE Song - Artist"))
+        assertEquals("Song - Artist", formatVideoTitle("Karoke Song - Artist"))
+        assertEquals("Song - Artist", formatVideoTitle("Karoké Song - Artist"))
+    }
+
+    @Test
+    fun `strips a leading Karaoke prefix followed by a colon or dash separator`() {
+        assertEquals("Song - Artist", formatVideoTitle("Karaoké: Song - Artist"))
+        assertEquals("Song - Artist", formatVideoTitle("Karaoké - Song - Artist"))
+    }
+
+    @Test
+    fun `does not strip a word that merely starts with karaoke`() {
+        assertEquals("Karaokefest 2024 - Artist", formatVideoTitle("Karaokefest 2024 - Artist"))
+    }
+
+    @Test
+    fun `strips both a leading and a trailing karaoke marker`() {
+        assertEquals(
+            "Song - Artist",
+            formatVideoTitle("Karaoké Song - Artist (Karaoke Version)"),
+        )
+    }
+
+    @Test
     fun `strips a trailing pipe-delimited suffix`() {
         assertEquals(
             "The Weeknd - Save Your Tears",
