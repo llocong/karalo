@@ -25,6 +25,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     ) {
         Text(
             text = "Search for a karaoke song to get started",
+            color = MaterialTheme.colorScheme.onBackground,
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
