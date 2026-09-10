@@ -3,6 +3,7 @@ package com.karalo.karalo.nav
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -123,8 +124,11 @@ private fun NavRailItem(
             modifier
                 .fillMaxWidth()
                 .onFocusChanged { isFocused = it.isFocused }
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ).padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
