@@ -18,13 +18,23 @@ import androidx.tv.material3.Text
 import com.karalo.core.ui.R
 import com.karalo.core.ui.theme.KaraloLogoTextStyle
 
+// Safe-zone content margins recommended by the TV layout guidelines
+// (developer.android.com/design/ui/tv/guides/styles/layouts).
+private val SAFE_ZONE_HORIZONTAL = 58.dp
+private val SAFE_ZONE_VERTICAL = 28.dp
+
 /**
  * v1 has no browse/recommendations backend, so Home is a static prompt pointing the user at
  * Search — see docs/adr for why this is intentionally minimal rather than a placeholder.
  */
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize().padding(32.dp)) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
+    ) {
         Row(
             modifier = Modifier.align(Alignment.TopEnd),
             verticalAlignment = Alignment.CenterVertically,

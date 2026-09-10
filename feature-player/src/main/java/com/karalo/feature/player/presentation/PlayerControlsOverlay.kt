@@ -52,6 +52,12 @@ private const val SEEK_STEP_MS = 10_000L
 private val DOT_SIZE = 14.dp
 private const val DOT_FOCUSED_SCALE = 1.5f
 
+// Safe-zone content margins recommended by the TV layout guidelines
+// (developer.android.com/design/ui/tv/guides/styles/layouts) -- the video itself stays full-bleed,
+// but this overlay's own controls still need to clear the overscan margin.
+private val SAFE_ZONE_HORIZONTAL = 58.dp
+private val SAFE_ZONE_VERTICAL = 28.dp
+
 @Composable
 internal fun PlayerControlsOverlay(
     title: String,
@@ -73,7 +79,7 @@ internal fun PlayerControlsOverlay(
             modifier
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.6f))
-                .padding(horizontal = 32.dp, vertical = 16.dp),
+                .padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
     ) {
         Text(
             text = title,

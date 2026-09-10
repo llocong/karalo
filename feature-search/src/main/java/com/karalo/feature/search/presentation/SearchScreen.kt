@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,13 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,6 +38,12 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
+
+// Safe-zone content margins recommended by the TV layout guidelines
+// (developer.android.com/design/ui/tv/guides/styles/layouts).
+private val SAFE_ZONE_HORIZONTAL = 58.dp
+private val SAFE_ZONE_VERTICAL = 28.dp
+private val SEARCH_FIELD_CORNER_RADIUS = 12.dp
 
 @Composable
 fun SearchScreen(
@@ -80,7 +87,12 @@ internal fun SearchScreenContent(
         if (isShowingResults) firstResultFocusRequester.requestFocus()
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(32.dp)) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
+    ) {
         SearchQueryField(
             text = text,
             onTextChange = {
@@ -127,15 +139,15 @@ private fun SearchQueryField(
     hasSuggestions: Boolean,
     onDownToSuggestions: () -> Unit,
 ) {
+    // Uses titleMedium (the Plain/Manrope role) rather than a Brand/Fredoka style: an editable
+    // text field needs a plain, highly-legible face for arbitrary typed text, not the expressive
+    // display font reserved for headlines.
     BasicTextField(
         value = text,
         onValueChange = onTextChange,
         singleLine = true,
-        textStyle =
-            TextStyle(
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = MaterialTheme.typography.titleLarge.fontSize,
-            ),
+        textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onBackground),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.onBackground),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
         modifier =
@@ -150,8 +162,8 @@ private fun SearchQueryField(
                     } else {
                         false
                     }
-                }.background(MaterialTheme.colorScheme.surface)
-                .padding(16.dp),
+                }.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(SEARCH_FIELD_CORNER_RADIUS))
+                .padding(horizontal = 20.dp, vertical = 16.dp),
     )
 }
 
@@ -185,6 +197,7 @@ private fun SuggestionRow(
 
     Text(
         text = formatSuggestion(suggestion),
+        style = MaterialTheme.typography.bodyLarge,
         color =
             if (isFocused) {
                 MaterialTheme.colorScheme.background

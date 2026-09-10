@@ -12,6 +12,11 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 
+// Safe-zone content margins recommended by the TV layout guidelines
+// (developer.android.com/design/ui/tv/guides/styles/layouts).
+private val SAFE_ZONE_HORIZONTAL = 58.dp
+private val SAFE_ZONE_VERTICAL = 28.dp
+
 @Composable
 fun ErrorState(
     message: String,
@@ -19,7 +24,10 @@ fun ErrorState(
     onRetry: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().padding(32.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

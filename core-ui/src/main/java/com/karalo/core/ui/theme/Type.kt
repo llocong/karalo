@@ -35,21 +35,42 @@ private val ManropeSemiBold = FontFamily(manrope(FontWeight.SemiBold))
 private val ManropeBold = FontFamily(manrope(FontWeight.Bold))
 private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
 
-// The "Karalo" logo wordmark treatment — Fredoka is reserved for this and for hero/tagline
-// headlines (see displayLarge/headlineLarge/headlineMedium below); every other practical bit of
-// UI text (nav, card titles, "Now Playing", body copy) is Manrope on the brand board.
+// The "Karalo" logo wordmark treatment — Fredoka is reserved for this and for the "Brand" font
+// role below; every other practical bit of UI text (nav, card titles, body copy) uses the "Plain"
+// role (Manrope) on the brand board.
 val KaraloLogoTextStyle =
     TextStyle(fontFamily = FredokaSemiBold, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 24.sp)
 
-// Larger than phone-scale Material defaults — legible from a couch at 10-foot viewing distance.
+// The full 15-style TV Material typography scale (developer.android.com/design/ui/tv/guides/
+// styles/typography), sized up from the guide's phone-derived base tokens for 10-foot legibility.
+// Font-role split follows the guide exactly: "Brand" (Fredoka) for Display/Headline/TitleLarge,
+// "Plain" (Manrope) for TitleMedium/Small, Body*, and Label*. Weights deliberately deviate from the
+// guide's Regular/Medium defaults in a few spots to match the brand board's voice — each exception
+// is called out below; every deviation is a considered choice, not an oversight.
 val KaraloTypography =
     Typography(
+        // -- Brand (Fredoka SemiBold) --
         displayLarge =
             TextStyle(
                 fontFamily = FredokaSemiBold,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 48.sp,
-                lineHeight = 56.sp,
+                fontSize = 57.sp,
+                lineHeight = 64.sp,
+                letterSpacing = (-0.2).sp,
+            ),
+        displayMedium =
+            TextStyle(
+                fontFamily = FredokaSemiBold,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 45.sp,
+                lineHeight = 52.sp,
+            ),
+        displaySmall =
+            TextStyle(
+                fontFamily = FredokaSemiBold,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 36.sp,
+                lineHeight = 44.sp,
             ),
         headlineLarge =
             TextStyle(
@@ -58,6 +79,7 @@ val KaraloTypography =
                 fontSize = 32.sp,
                 lineHeight = 40.sp,
             ),
+        // Home's hero prompt.
         headlineMedium =
             TextStyle(
                 fontFamily = FredokaSemiBold,
@@ -65,28 +87,38 @@ val KaraloTypography =
                 fontSize = 28.sp,
                 lineHeight = 36.sp,
             ),
-        titleLarge =
+        headlineSmall =
             TextStyle(
-                fontFamily = ManropeBold,
-                fontWeight = FontWeight.Bold,
+                fontFamily = FredokaSemiBold,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 24.sp,
                 lineHeight = 32.sp,
             ),
+        titleLarge =
+            TextStyle(
+                fontFamily = FredokaSemiBold,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
+            ),
+        // -- Plain (Manrope) --
+        // "Now Playing" title on the player overlay — Bold rather than the guide's Medium, to read
+        // clearly over video content.
         titleMedium =
             TextStyle(
                 fontFamily = ManropeBold,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 lineHeight = 28.sp,
+                letterSpacing = 0.2.sp,
             ),
-        // Result/shelf card titles — smaller than titleMedium, per the brand board's home-screen
-        // video grid.
-        labelSmall =
+        titleSmall =
             TextStyle(
                 fontFamily = ManropeBold,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
+                fontSize = 18.sp,
+                lineHeight = 24.sp,
+                letterSpacing = 0.1.sp,
             ),
         bodyLarge =
             TextStyle(
@@ -94,6 +126,7 @@ val KaraloTypography =
                 fontWeight = FontWeight.Normal,
                 fontSize = 18.sp,
                 lineHeight = 26.sp,
+                letterSpacing = 0.5.sp,
             ),
         bodyMedium =
             TextStyle(
@@ -101,21 +134,44 @@ val KaraloTypography =
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
+                letterSpacing = 0.2.sp,
             ),
+        bodySmall =
+            TextStyle(
+                fontFamily = ManropeRegular,
+                fontWeight = FontWeight.Normal,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                letterSpacing = 0.2.sp,
+            ),
+        // Buttons (e.g. KaraloButton's CTA) — ExtraBold rather than the guide's Medium, to match
+        // the brand board's punchy call-to-action treatment.
         labelLarge =
             TextStyle(
                 fontFamily = ManropeExtraBold,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 16.sp,
                 lineHeight = 22.sp,
+                letterSpacing = 0.1.sp,
             ),
-        // Sidebar nav items — Manrope SemiBold(600) for every item, active or not (only the
-        // color differs), per the brand board's home-screen sidebar.
+        // Sidebar nav items — SemiBold for every item, active or not (only the color differs), per
+        // the brand board's home-screen sidebar.
         labelMedium =
             TextStyle(
                 fontFamily = ManropeSemiBold,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 18.sp,
                 lineHeight = 26.sp,
+                letterSpacing = 0.5.sp,
+            ),
+        // Compact badges (e.g. the result-card duration chip) — Bold rather than the guide's
+        // Medium, to stay legible at this size from a couch.
+        labelSmall =
+            TextStyle(
+                fontFamily = ManropeBold,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                letterSpacing = 0.5.sp,
             ),
     )
