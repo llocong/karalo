@@ -118,7 +118,7 @@ fun PlayerScreen(
 
         if (controlsVisible) {
             PlayerControlsOverlay(
-                title = uiState.currentItem?.title.orEmpty(),
+                title = formatVideoTitle(uiState.currentItem?.title.orEmpty()),
                 isPlaying = uiState.isPlaying,
                 hasNext = uiState.hasNext,
                 hasPrevious = uiState.hasPrevious,
