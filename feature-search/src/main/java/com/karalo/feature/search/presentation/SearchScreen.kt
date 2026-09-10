@@ -90,7 +90,9 @@ internal fun SearchScreenContent(
                 SuggestionsList(
                     suggestions = uiState.suggestions,
                     onSuggestionClick = { suggestion ->
-                        text = suggestion
+                        // Display the cleaned-up text (matching the suggestion row itself), but
+                        // still submit the raw suggestion — see formatSuggestion's own doc.
+                        text = formatSuggestion(suggestion)
                         onSuggestionClick(suggestion)
                     },
                     firstItemFocusRequester = firstSuggestionFocusRequester,
