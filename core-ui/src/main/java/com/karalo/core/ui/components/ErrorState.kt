@@ -25,6 +25,7 @@ fun ErrorState(
     ) {
         Text(
             text = message,
+            color = MaterialTheme.colorScheme.onBackground,
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
         )
