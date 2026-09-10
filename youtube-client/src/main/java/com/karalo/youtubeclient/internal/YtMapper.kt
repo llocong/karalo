@@ -25,6 +25,18 @@ internal object YtMapper {
         )
 
     fun toStreamInfo(streamInfo: StreamInfo): YtStreamInfo? {
+        // Prefer adaptive (DASH/HLS) over "progressive" (muxed) streams: YouTube's progressive
+        // format entries are legacy and, since the SABR streaming rollout, are frequently listed
+        // as available but no longer actually contain an audio track — silent video playback.
+        // Adaptive manifests correctly reference separate, real audio and video renditions.
+        streamInfo.dashMpdUrl?.takeIf { it.isNotBlank() }?.let { dashUrl ->
+            return YtStreamInfo(playbackUrl = dashUrl, mimeType = "application/dash+xml", isAdaptive = true)
+        }
+
+        streamInfo.hlsUrl?.takeIf { it.isNotBlank() }?.let { hlsUrl ->
+            return YtStreamInfo(playbackUrl = hlsUrl, mimeType = "application/x-mpegURL", isAdaptive = true)
+        }
+
         val progressive =
             StreamSelection.selectBest(
                 candidates = streamInfo.videoStreams.orEmpty(),
@@ -36,14 +48,6 @@ internal object YtMapper {
                 mimeType = progressive.format?.mimeType,
                 isAdaptive = false,
             )
-        }
-
-        streamInfo.dashMpdUrl?.takeIf { it.isNotBlank() }?.let { dashUrl ->
-            return YtStreamInfo(playbackUrl = dashUrl, mimeType = "application/dash+xml", isAdaptive = true)
-        }
-
-        streamInfo.hlsUrl?.takeIf { it.isNotBlank() }?.let { hlsUrl ->
-            return YtStreamInfo(playbackUrl = hlsUrl, mimeType = "application/x-mpegURL", isAdaptive = true)
         }
 
         return null
