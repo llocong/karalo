@@ -1,6 +1,5 @@
 package com.karalo.karalo.nav
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,6 +11,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.tv.material3.DrawerValue
+import androidx.tv.material3.NavigationDrawer
+import androidx.tv.material3.rememberDrawerState
 import com.karalo.feature.home.HomeScreen
 import com.karalo.feature.player.presentation.PlayerScreen
 import com.karalo.feature.search.presentation.SearchScreen
@@ -24,19 +26,11 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // The nav rail is hidden during immersive playback so the player owns the whole screen.
     val showNavRail = currentRoute != NavDestination.Player.route
 
-    Row(modifier = modifier.fillMaxSize()) {
-        if (showNavRail) {
-            KaraloNavRail(
-                currentRoute = currentRoute,
-                onHomeClick = { navController.navigateToTopLevel(NavDestination.Home.route) },
-                onSearchClick = { navController.navigateToTopLevel(NavDestination.Search.route) },
-            )
-        }
-
+    val screens: @Composable () -> Unit = {
         NavHost(
             navController = navController,
             startDestination = NavDestination.Home.route,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxSize(),
         ) {
             composable(NavDestination.Home.route) {
                 HomeScreen()
@@ -62,6 +56,25 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                 PlayerScreen()
             }
         }
+    }
+
+    if (showNavRail) {
+        val drawerState = rememberDrawerState(DrawerValue.Closed)
+        NavigationDrawer(
+            modifier = modifier.fillMaxSize(),
+            drawerState = drawerState,
+            drawerContent = {
+                KaraloNavRailContent(
+                    currentRoute = currentRoute,
+                    drawerState = drawerState,
+                    onHomeClick = { navController.navigateToTopLevel(NavDestination.Home.route) },
+                    onSearchClick = { navController.navigateToTopLevel(NavDestination.Search.route) },
+                )
+            },
+            content = screens,
+        )
+    } else {
+        screens()
     }
 }
 
