@@ -4,6 +4,7 @@ import com.karalo.youtubeclient.YouTubeClient
 import com.karalo.youtubeclient.internal.NewPipeBootstrap
 import com.karalo.youtubeclient.internal.NewPipeDownloaderAdapter
 import com.karalo.youtubeclient.internal.NewPipeYouTubeClient
+import com.karalo.youtubeclient.internal.potoken.WebViewPoTokenProvider
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -25,7 +26,12 @@ abstract class YouTubeClientModule {
     companion object {
         @Provides
         @Singleton
-        fun provideDownloader(okHttpClient: OkHttpClient): Downloader =
-            NewPipeDownloaderAdapter(okHttpClient).also(NewPipeBootstrap::ensureInitialized)
+        fun provideDownloader(
+            okHttpClient: OkHttpClient,
+            poTokenProvider: WebViewPoTokenProvider,
+        ): Downloader =
+            NewPipeDownloaderAdapter(okHttpClient).also {
+                NewPipeBootstrap.ensureInitialized(it, poTokenProvider)
+            }
     }
 }

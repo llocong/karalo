@@ -34,6 +34,10 @@ dependencies {
     // YouTubeClient.
     implementation(libs.newpipe.extractor)
 
+    // WebView-based PoTokenProvider (see internal/potoken/) — YouTube requires a "proof of
+    // origin" token, minted by running Google's BotGuard JS challenge, for reliable playback.
+    implementation(libs.androidx.webkit)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 

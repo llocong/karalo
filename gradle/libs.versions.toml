@@ -22,14 +22,25 @@ coil = "2.7.0"
 hilt = "2.52"
 hiltNavigationCompose = "1.2.0"
 
+# WebView (used for the PoTokenProvider's BotGuard challenge — see WebViewPoTokenProvider)
+webkit = "1.17.0"
+
 # Async
 coroutines = "1.9.0"
 
 # Networking
 okhttp = "4.12.0"
 
-# YouTube extraction (pinned tag, NOT a floating branch — see ADR-0002)
-newpipeExtractor = "v0.24.0"
+# YouTube extraction (pinned tag, NOT a floating branch — see ADR-0002).
+# Consumed from our own fork (llocong/NewPipeExtractor, tag v0.26.5-karalo1), which carries a
+# one-line patch on top of upstream v0.26.5: avoids the URLEncoder/URLDecoder Charset overloads
+# (Java 10+, only implemented natively on Android API 33+ and not covered by core library
+# desugaring), which otherwise crash with NoSuchMethodError on our minSdk 24. v0.26.5 (over
+# v0.24.1) carries: the SABR-crash fix and PoTokenProvider interface (v0.24.6), and the
+# "ContentNotAvailableException: The page needs to be reloaded" fix (v0.25.1, see
+# TeamNewPipe/NewPipe#13082) — both needed for playback to work at all.
+newpipeExtractor = "v0.26.5-karalo1"
+desugarJdkLibs = "2.0.4"
 
 # Firebase
 firebaseBom = "33.5.1"
@@ -85,6 +96,8 @@ hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.re
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }
 
+androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
+
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
@@ -92,7 +105,8 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
 
-newpipe-extractor = { module = "com.github.TeamNewPipe:NewPipeExtractor", version.ref = "newpipeExtractor" }
+newpipe-extractor = { module = "com.github.llocong:NewPipeExtractor", version.ref = "newpipeExtractor" }
+desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics-ktx" }
