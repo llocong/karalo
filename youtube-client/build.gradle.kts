@@ -46,4 +46,5 @@ dependencies {
     testImplementation(libs.junit5.jupiter.params)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
 }
