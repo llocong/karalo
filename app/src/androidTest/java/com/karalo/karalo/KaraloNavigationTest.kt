@@ -4,6 +4,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -56,9 +57,14 @@ class KaraloNavigationTest {
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
         composeRule.onNodeWithText("Sample Song").assertIsDisplayed()
 
-        // The first Back hides the controls; the second navigates back to Search.
+        // Whether the first Back only hides the controls (then a second navigates back to
+        // Search) or lands directly on Search depends on whether the controls' 3s auto-hide
+        // timer already fired first — a device-speed race, not something this test controls —
+        // so press again only if the first press didn't already get us there.
         Espresso.pressBack()
-        Espresso.pressBack()
+        if (composeRule.onAllNodesWithTag(SEARCH_QUERY_FIELD_TAG).fetchSemanticsNodes().isEmpty()) {
+            Espresso.pressBack()
+        }
 
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).assertIsDisplayed()
     }
