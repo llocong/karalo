@@ -64,14 +64,20 @@ internal fun SearchScreenContent(
     onResultClick: (Int, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Lifted out of SearchQueryField so a suggestion click (which bypasses onQueryChanged) can
+    // also update the field's displayed text — see onSuggestionClick below.
+    var text by remember { mutableStateOf(rawQueryOf(uiState)) }
     val focusRequester = remember { FocusRequester() }
     val firstSuggestionFocusRequester = remember { FocusRequester() }
     val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
 
     Column(modifier = modifier.fillMaxSize().padding(32.dp)) {
         SearchQueryField(
-            uiState = uiState,
-            onQueryChanged = onQueryChanged,
+            text = text,
+            onTextChange = {
+                text = it
+                onQueryChanged(it)
+            },
             onSubmit = onSubmit,
             focusRequester = focusRequester,
             hasSuggestions = hasSuggestions,
@@ -83,7 +89,10 @@ internal fun SearchScreenContent(
             is SearchUiState.Suggesting ->
                 SuggestionsList(
                     suggestions = uiState.suggestions,
-                    onSuggestionClick = onSuggestionClick,
+                    onSuggestionClick = { suggestion ->
+                        text = suggestion
+                        onSuggestionClick(suggestion)
+                    },
                     firstItemFocusRequester = firstSuggestionFocusRequester,
                 )
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
@@ -95,21 +104,16 @@ internal fun SearchScreenContent(
 
 @Composable
 private fun SearchQueryField(
-    uiState: SearchUiState,
-    onQueryChanged: (String) -> Unit,
+    text: String,
+    onTextChange: (String) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
     hasSuggestions: Boolean,
     onDownToSuggestions: () -> Unit,
 ) {
-    var text by remember { mutableStateOf(rawQueryOf(uiState)) }
-
     BasicTextField(
         value = text,
-        onValueChange = {
-            text = it
-            onQueryChanged(it)
-        },
+        onValueChange = onTextChange,
         singleLine = true,
         textStyle =
             TextStyle(
