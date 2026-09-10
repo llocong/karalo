@@ -66,8 +66,10 @@ internal fun SearchScreenContent(
     modifier: Modifier = Modifier,
 ) {
     // Lifted out of SearchQueryField so a suggestion click (which bypasses onQueryChanged) can
-    // also update the field's displayed text — see onSuggestionClick below.
-    var text by remember { mutableStateOf(rawQueryOf(uiState)) }
+    // also update the field's displayed text — see onSuggestionClick below. Seeded with the
+    // cleaned-up text since this recomposes fresh (losing any prior `text` edits) whenever the
+    // screen re-enters composition, e.g. navigating back from the player.
+    var text by remember { mutableStateOf(formatSuggestion(rawQueryOf(uiState))) }
     val focusRequester = remember { FocusRequester() }
     val firstSuggestionFocusRequester = remember { FocusRequester() }
     val firstResultFocusRequester = remember { FocusRequester() }
