@@ -84,6 +84,10 @@ fun PlayerScreen(
                             controlsVisible = true
                             true
                         }
+                        PlayerKeyAction.HIDE_CONTROLS -> {
+                            controlsVisible = false
+                            true
+                        }
                         PlayerKeyAction.RESET_AUTO_HIDE_TIMER -> {
                             interactionTick++
                             false
@@ -112,7 +116,7 @@ fun PlayerScreen(
             uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
         }
 
-        if (controlsVisible || !uiState.isPlaying) {
+        if (controlsVisible) {
             PlayerControlsOverlay(
                 title = uiState.currentItem?.title.orEmpty(),
                 isPlaying = uiState.isPlaying,
@@ -134,6 +138,7 @@ fun PlayerScreen(
                     viewModel.previous()
                 },
                 onSeek = viewModel::seekTo,
+                onHideControls = { controlsVisible = false },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -143,6 +148,9 @@ fun PlayerScreen(
 private enum class PlayerKeyAction {
     /** Controls are hidden — this key reveals them (and is consumed, so it does nothing else). */
     REVEAL_CONTROLS,
+
+    /** Back while controls are visible hides them instead of leaving the player. */
+    HIDE_CONTROLS,
 
     /** Controls are already visible — let the key event proceed, but restart the auto-hide timer. */
     RESET_AUTO_HIDE_TIMER,
@@ -160,6 +168,8 @@ private fun classifyPlayerKeyEvent(
             if (!controlsVisible) PlayerKeyAction.REVEAL_CONTROLS else PlayerKeyAction.RESET_AUTO_HIDE_TIMER
         Key.DirectionLeft, Key.DirectionRight ->
             if (controlsVisible) PlayerKeyAction.RESET_AUTO_HIDE_TIMER else PlayerKeyAction.IGNORE
+        Key.Back ->
+            if (controlsVisible) PlayerKeyAction.HIDE_CONTROLS else PlayerKeyAction.IGNORE
         else -> PlayerKeyAction.IGNORE
     }
 }

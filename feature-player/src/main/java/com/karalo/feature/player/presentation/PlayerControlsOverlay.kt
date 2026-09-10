@@ -65,6 +65,7 @@ internal fun PlayerControlsOverlay(
     onNextClick: () -> Unit,
     onPreviousClick: () -> Unit,
     onSeek: (positionMs: Long) -> Unit,
+    onHideControls: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -86,6 +87,7 @@ internal fun PlayerControlsOverlay(
             positionMs = positionMs,
             durationMs = durationMs,
             onSeek = onSeek,
+            onHideControls = onHideControls,
             modifier = Modifier.padding(top = 12.dp),
         )
 
@@ -134,6 +136,7 @@ private fun SeekBar(
     positionMs: Long,
     durationMs: Long,
     onSeek: (positionMs: Long) -> Unit,
+    onHideControls: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fraction = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
@@ -186,6 +189,12 @@ private fun SeekBar(
                             }
                             Key.DirectionRight -> {
                                 onSeek((positionMs + SEEK_STEP_MS).coerceIn(0L, durationMs))
+                                true
+                            }
+                            // The dot is the topmost focusable control, so there's nothing above
+                            // it to navigate to — repurpose Up here to hide the controls instead.
+                            Key.DirectionUp -> {
+                                onHideControls()
                                 true
                             }
                             else -> false
