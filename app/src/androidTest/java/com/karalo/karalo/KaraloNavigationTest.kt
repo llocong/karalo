@@ -1,12 +1,17 @@
 package com.karalo.karalo
 
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.pressKey
 import androidx.test.espresso.Espresso
 import com.karalo.feature.search.presentation.SEARCH_QUERY_FIELD_TAG
 import com.karalo.karalo.nav.NAV_TAG_SEARCH
@@ -21,6 +26,7 @@ import org.junit.Test
  * a scripted [com.karalo.core.testing.FakeYouTubeClient] (see FakeYouTubeClientModule), so it
  * covers real D-pad-navigable UI wiring without hitting the network or real YouTube.
  */
+@OptIn(ExperimentalTestApi::class)
 @HiltAndroidTest
 class KaraloNavigationTest {
     @get:Rule(order = 0)
@@ -41,12 +47,17 @@ class KaraloNavigationTest {
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).performTextInput("Test Song")
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).performImeAction()
 
-        composeRule.onNodeWithText("Karaoke Test Song").assertIsDisplayed()
-        composeRule.onNodeWithText("Karaoke Test Song").performClick()
+        composeRule.onNodeWithText("Sample Song").assertIsDisplayed()
+        // TV Material3's Card only wires its onClick to real key/remote input, not Compose test's
+        // semantics-based performClick(), so select it the way a D-pad actually would.
+        composeRule.onNodeWithText("Sample Song").performKeyInput { pressKey(Key.DirectionCenter) }
 
-        // The player's controls overlay shows the now-playing title.
-        composeRule.onNodeWithText("Karaoke Test Song").assertIsDisplayed()
+        // The player's controls are hidden by default; reveal them to show the now-playing title.
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.onNodeWithText("Sample Song").assertIsDisplayed()
 
+        // The first Back hides the controls; the second navigates back to Search.
+        Espresso.pressBack()
         Espresso.pressBack()
 
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).assertIsDisplayed()
