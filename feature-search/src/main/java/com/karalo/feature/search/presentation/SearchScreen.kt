@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +70,13 @@ internal fun SearchScreenContent(
     var text by remember { mutableStateOf(rawQueryOf(uiState)) }
     val focusRequester = remember { FocusRequester() }
     val firstSuggestionFocusRequester = remember { FocusRequester() }
+    val firstResultFocusRequester = remember { FocusRequester() }
     val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
+    val isShowingResults = uiState is SearchUiState.Results
+
+    LaunchedEffect(isShowingResults) {
+        if (isShowingResults) firstResultFocusRequester.requestFocus()
+    }
 
     Column(modifier = modifier.fillMaxSize().padding(32.dp)) {
         SearchQueryField(
@@ -98,7 +105,12 @@ internal fun SearchScreenContent(
                     firstItemFocusRequester = firstSuggestionFocusRequester,
                 )
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
-            is SearchUiState.Results -> SearchResultsGrid(items = uiState.items, onResultClick = onResultClick)
+            is SearchUiState.Results ->
+                SearchResultsGrid(
+                    items = uiState.items,
+                    onResultClick = onResultClick,
+                    firstItemFocusRequester = firstResultFocusRequester,
+                )
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)
         }
     }

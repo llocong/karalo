@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
 import com.karalo.core.common.text.formatVideoTitle
@@ -21,6 +23,7 @@ fun SearchResultsGrid(
     items: List<SearchResultItem>,
     onResultClick: (startIndex: Int, videoId: String) -> Unit,
     modifier: Modifier = Modifier,
+    firstItemFocusRequester: FocusRequester? = null,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(GRID_COLUMNS),
@@ -28,12 +31,18 @@ fun SearchResultsGrid(
         modifier = modifier.focusGroup().focusRestorer(),
     ) {
         itemsIndexed(items) { index, item ->
+            val focusModifier =
+                if (index == 0 && firstItemFocusRequester != null) {
+                    Modifier.focusRequester(firstItemFocusRequester)
+                } else {
+                    Modifier
+                }
             FocusableCard(
                 title = formatVideoTitle(item.title),
                 subtitle = null,
                 thumbnailUrl = item.thumbnailUrl,
                 onClick = { onResultClick(index, item.videoId) },
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier.padding(8.dp).then(focusModifier),
             )
         }
     }
