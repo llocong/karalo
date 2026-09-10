@@ -3,6 +3,7 @@ package com.karalo.karalo.nav
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -23,6 +24,10 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     val currentRoute = backStackEntry?.destination?.route
     // The nav rail is hidden during immersive playback so the player owns the whole screen.
     val showNavRail = currentRoute != NavDestination.Player.route
+
+    LaunchedEffect(currentRoute) {
+        android.util.Log.d("KaraloNavDebug", "currentRoute=$currentRoute")
+    }
 
     Row(modifier = modifier.fillMaxSize()) {
         if (showNavRail) {

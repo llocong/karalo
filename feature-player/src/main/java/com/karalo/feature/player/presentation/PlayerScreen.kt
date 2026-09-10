@@ -79,7 +79,15 @@ fun PlayerScreen(
                 .focusRequester(rootFocusRequester)
                 .focusable()
                 .onPreviewKeyEvent { keyEvent ->
-                    when (classifyPlayerKeyEvent(keyEvent, controlsVisible)) {
+                    val action = classifyPlayerKeyEvent(keyEvent, controlsVisible)
+                    if (keyEvent.key == androidx.compose.ui.input.key.Key.Back) {
+                        android.util.Log.d(
+                            "KaraloNavDebug",
+                            "PlayerScreen Back key type=${keyEvent.type} " +
+                                "controlsVisible=$controlsVisible action=$action",
+                        )
+                    }
+                    when (action) {
                         PlayerKeyAction.REVEAL_CONTROLS -> {
                             interactionTick++
                             controlsVisible = true

@@ -61,10 +61,15 @@ class KaraloNavigationTest {
         // Search) or lands directly on Search depends on whether the controls' 3s auto-hide
         // timer already fired first — a device-speed race, not something this test controls —
         // so press again only if the first press didn't already get us there.
+        android.util.Log.d("KaraloNavDebug", "TEST: about to press back #1")
         Espresso.pressBack()
-        if (composeRule.onAllNodesWithTag(SEARCH_QUERY_FIELD_TAG).fetchSemanticsNodes().isEmpty()) {
+        val foundAfterFirst = composeRule.onAllNodesWithTag(SEARCH_QUERY_FIELD_TAG).fetchSemanticsNodes().isNotEmpty()
+        android.util.Log.d("KaraloNavDebug", "TEST: after back #1, searchFieldFound=$foundAfterFirst")
+        if (!foundAfterFirst) {
+            android.util.Log.d("KaraloNavDebug", "TEST: about to press back #2")
             Espresso.pressBack()
         }
+        android.util.Log.d("KaraloNavDebug", "TEST: final assertion")
 
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).assertIsDisplayed()
     }
