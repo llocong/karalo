@@ -29,10 +29,16 @@ private fun manrope(weight: FontWeight) =
         variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)),
     )
 
-private val FredokaMedium = FontFamily(fredoka(FontWeight.Medium))
 private val FredokaSemiBold = FontFamily(fredoka(FontWeight.SemiBold))
 private val ManropeRegular = FontFamily(manrope(FontWeight.Normal))
+private val ManropeBold = FontFamily(manrope(FontWeight.Bold))
 private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
+
+// The "Karalo" logo wordmark treatment — Fredoka is reserved for this and for hero/tagline
+// headlines (see displayLarge/headlineLarge/headlineMedium below); every other practical bit of
+// UI text (nav, card titles, "Now Playing", body copy) is Manrope on the brand board.
+val KaraloLogoTextStyle =
+    TextStyle(fontFamily = FredokaSemiBold, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 24.sp)
 
 // Larger than phone-scale Material defaults — legible from a couch at 10-foot viewing distance.
 val KaraloTypography =
@@ -60,15 +66,15 @@ val KaraloTypography =
             ),
         titleLarge =
             TextStyle(
-                fontFamily = FredokaMedium,
-                fontWeight = FontWeight.Medium,
+                fontFamily = ManropeBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 24.sp,
                 lineHeight = 32.sp,
             ),
         titleMedium =
             TextStyle(
-                fontFamily = FredokaMedium,
-                fontWeight = FontWeight.Medium,
+                fontFamily = ManropeBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 lineHeight = 28.sp,
             ),

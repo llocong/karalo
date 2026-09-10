@@ -34,7 +34,7 @@ changelog, so take a moment to pick the right one.
 ./gradlew assembleDebug        # sanity build across all modules
 ```
 
-The coverage floor (`build.gradle.kts`, currently 19% overall line coverage) is intentionally low
+The coverage floor (`build.gradle.kts`, currently 18% overall line coverage) is intentionally low
 — it measures the whole codebase, and a large share of it is Compose UI/DI modules that this
 project doesn't unit-test by design (UI flows are covered by the instrumented nav test instead).
 Domain/data/ViewModel logic is close to fully covered; when you add well-tested logic, feel free
