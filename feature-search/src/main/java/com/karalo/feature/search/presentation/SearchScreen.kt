@@ -2,14 +2,13 @@ package com.karalo.feature.search.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -61,6 +65,8 @@ internal fun SearchScreenContent(
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
+    val firstSuggestionFocusRequester = remember { FocusRequester() }
+    val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
 
     Column(modifier = modifier.fillMaxSize().padding(32.dp)) {
         SearchQueryField(
@@ -68,11 +74,18 @@ internal fun SearchScreenContent(
             onQueryChanged = onQueryChanged,
             onSubmit = onSubmit,
             focusRequester = focusRequester,
+            hasSuggestions = hasSuggestions,
+            onDownToSuggestions = { firstSuggestionFocusRequester.requestFocus() },
         )
 
         when (uiState) {
             is SearchUiState.Idle -> Unit
-            is SearchUiState.Suggesting -> SuggestionsList(uiState.suggestions, onSuggestionClick)
+            is SearchUiState.Suggesting ->
+                SuggestionsList(
+                    suggestions = uiState.suggestions,
+                    onSuggestionClick = onSuggestionClick,
+                    firstItemFocusRequester = firstSuggestionFocusRequester,
+                )
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
             is SearchUiState.Results -> SearchResultsGrid(items = uiState.items, onResultClick = onResultClick)
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)
@@ -86,6 +99,8 @@ private fun SearchQueryField(
     onQueryChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
+    hasSuggestions: Boolean,
+    onDownToSuggestions: () -> Unit,
 ) {
     var text by remember { mutableStateOf(rawQueryOf(uiState)) }
 
@@ -108,7 +123,14 @@ private fun SearchQueryField(
                 .fillMaxWidth()
                 .testTag(SEARCH_QUERY_FIELD_TAG)
                 .focusRequester(focusRequester)
-                .background(MaterialTheme.colorScheme.surface)
+                .onPreviewKeyEvent { keyEvent ->
+                    if (hasSuggestions && keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionDown) {
+                        onDownToSuggestions()
+                        true
+                    } else {
+                        false
+                    }
+                }.background(MaterialTheme.colorScheme.surface)
                 .padding(16.dp),
     )
 }
@@ -119,11 +141,16 @@ const val SEARCH_QUERY_FIELD_TAG = "search_query_field"
 private fun SuggestionsList(
     suggestions: List<String>,
     onSuggestionClick: (String) -> Unit,
+    firstItemFocusRequester: FocusRequester,
 ) {
     if (suggestions.isEmpty()) return
     LazyColumn(contentPadding = PaddingValues(top = 16.dp)) {
-        items(suggestions) { suggestion ->
-            SuggestionRow(suggestion = suggestion, onClick = { onSuggestionClick(suggestion) })
+        itemsIndexed(suggestions) { index, suggestion ->
+            SuggestionRow(
+                suggestion = suggestion,
+                onClick = { onSuggestionClick(suggestion) },
+                modifier = if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier,
+            )
         }
     }
 }
@@ -132,11 +159,12 @@ private fun SuggestionsList(
 private fun SuggestionRow(
     suggestion: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
     Text(
-        text = suggestion,
+        text = formatSuggestion(suggestion),
         color =
             if (isFocused) {
                 MaterialTheme.colorScheme.background
@@ -144,9 +172,8 @@ private fun SuggestionRow(
                 MaterialTheme.colorScheme.onBackground
             },
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
-                .focusable()
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable(onClick = onClick)
                 .background(if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)

@@ -1,4 +1,4 @@
-package com.karalo.feature.player.presentation
+package com.karalo.core.common.text
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

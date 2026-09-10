@@ -1,4 +1,4 @@
-package com.karalo.feature.player.presentation
+package com.karalo.core.common.text
 
 // Matches a trailing " | ..." section, e.g. " | Karaoke Version | Karafun".
 private val TRAILING_PIPE_SUFFIX = Regex("""\s*\|.*$""")
@@ -9,9 +9,9 @@ private val TRAILING_PAREN_SUFFIX = Regex("""\s*\([^()]*\)\s*$""")
 /**
  * Strips the promotional/branding suffix search results commonly tack onto a video's title (e.g.
  * "Artist - Song (Karaoke Version)" or "Artist - Song | Karaoke Version | Karafun"), leaving just
- * the artist and song title for display above the player's progress bar.
+ * the artist and song title. Shared by the search results grid and the player's title display.
  */
-internal fun formatVideoTitle(rawTitle: String): String =
+fun formatVideoTitle(rawTitle: String): String =
     rawTitle
         .replace(TRAILING_PIPE_SUFFIX, "")
         .replace(TRAILING_PAREN_SUFFIX, "")

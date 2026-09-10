@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
+import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
 import com.karalo.feature.search.domain.SearchResultItem
 
@@ -28,8 +29,8 @@ fun SearchResultsGrid(
     ) {
         itemsIndexed(items) { index, item ->
             FocusableCard(
-                title = item.title,
-                subtitle = item.channelName,
+                title = formatVideoTitle(item.title),
+                subtitle = null,
                 thumbnailUrl = item.thumbnailUrl,
                 onClick = { onResultClick(index, item.videoId) },
                 modifier = Modifier.padding(8.dp),

@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.ui.PlayerView
+import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
 import kotlinx.coroutines.delay
