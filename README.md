@@ -88,6 +88,13 @@ values it documents (release signing).
 2. Run the `app` configuration against that device.
 3. Navigate with the emulator's D-pad controls (arrow keys map to D-pad, Enter to select).
 
+If arrow keys and the Extended Controls D-pad don't do anything, check the AVD's
+`~/.android/avd/<name>.avd/config.ini` for `hw.keyboard=no` — some device profiles are created
+with the virtual keyboard hardware disabled, which silently drops all D-pad input (both host
+keys and the Extended Controls panel) while leaving `adb shell input keyevent` unaffected, since
+that path injects into the guest's InputManager directly instead of going through the emulated
+keyboard. Set `hw.keyboard=yes` and restart the emulator to fix it.
+
 ### Tests
 
 ```
