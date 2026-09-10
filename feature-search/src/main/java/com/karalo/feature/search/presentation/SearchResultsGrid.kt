@@ -16,7 +16,7 @@ import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
 import com.karalo.feature.search.domain.SearchResultItem
 
-private const val GRID_COLUMNS = 4
+private const val GRID_COLUMNS = 3
 
 @Composable
 fun SearchResultsGrid(
@@ -41,6 +41,7 @@ fun SearchResultsGrid(
                 title = formatVideoTitle(item.title),
                 subtitle = null,
                 thumbnailUrl = item.thumbnailUrl,
+                durationSeconds = item.durationSeconds,
                 onClick = { onResultClick(index, item.videoId) },
                 modifier = Modifier.padding(8.dp).then(focusModifier),
             )
