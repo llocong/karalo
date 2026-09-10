@@ -31,6 +31,7 @@ private fun manrope(weight: FontWeight) =
 
 private val FredokaSemiBold = FontFamily(fredoka(FontWeight.SemiBold))
 private val ManropeRegular = FontFamily(manrope(FontWeight.Normal))
+private val ManropeSemiBold = FontFamily(manrope(FontWeight.SemiBold))
 private val ManropeBold = FontFamily(manrope(FontWeight.Bold))
 private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
 
@@ -78,6 +79,15 @@ val KaraloTypography =
                 fontSize = 20.sp,
                 lineHeight = 28.sp,
             ),
+        // Result/shelf card titles — smaller than titleMedium, per the brand board's home-screen
+        // video grid.
+        labelSmall =
+            TextStyle(
+                fontFamily = ManropeBold,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+            ),
         bodyLarge =
             TextStyle(
                 fontFamily = ManropeRegular,
@@ -98,5 +108,14 @@ val KaraloTypography =
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 16.sp,
                 lineHeight = 22.sp,
+            ),
+        // Sidebar nav items — Manrope SemiBold(600) for every item, active or not (only the
+        // color differs), per the brand board's home-screen sidebar.
+        labelMedium =
+            TextStyle(
+                fontFamily = ManropeSemiBold,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
+                lineHeight = 26.sp,
             ),
     )

@@ -138,7 +138,7 @@ private fun NavRailItem(
             Text(
                 text = label,
                 color = contentColor,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.labelMedium,
                 modifier =
                     Modifier.graphicsLayer {
                         scaleX = scale
