@@ -64,6 +64,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // NewPipeExtractor calls java.util.stream.Collectors APIs (e.g. toUnmodifiableList())
+        // that ART only implements on API 33+; desugaring backports them for our minSdk 24.
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -103,6 +106,8 @@ dependencies {
     testImplementation(libs.junit5.jupiter.api)
     testRuntimeOnly(libs.junit5.jupiter.engine)
     testImplementation(libs.mockk)
+
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     androidTestImplementation(project(":core-testing"))
     androidTestImplementation(project(":youtube-client"))
