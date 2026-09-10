@@ -9,6 +9,17 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 
+// Positions within the Create endpoint's challenge data array (a fixed protocol shape, not
+// arbitrary indices).
+private const val CHALLENGE_INDEX_MESSAGE_ID = 0
+private const val CHALLENGE_INDEX_INTERPRETER_HASH = 3
+private const val CHALLENGE_INDEX_PROGRAM = 4
+private const val CHALLENGE_INDEX_GLOBAL_NAME = 5
+private const val CHALLENGE_INDEX_CLIENT_EXPERIMENTS_STATE_BLOB = 7
+
+// The scrambled challenge is descrambled by adding this shift to every byte.
+private const val DESCRAMBLE_SHIFT = 97
+
 /**
  * Parses the raw challenge data obtained from the Create endpoint and returns a JSON object
  * (valid as a JS object literal) that can be embedded in a JavaScript snippet.
@@ -23,11 +34,11 @@ internal fun parseChallengeData(rawChallengeData: String): String {
             scrambled.getJSONArray(0)
         }
 
-    val messageId = challengeData.getString(0)
-    val interpreterHash = challengeData.getString(3)
-    val program = challengeData.getString(4)
-    val globalName = challengeData.getString(5)
-    val clientExperimentsStateBlob = challengeData.getString(7)
+    val messageId = challengeData.getString(CHALLENGE_INDEX_MESSAGE_ID)
+    val interpreterHash = challengeData.getString(CHALLENGE_INDEX_INTERPRETER_HASH)
+    val program = challengeData.getString(CHALLENGE_INDEX_PROGRAM)
+    val globalName = challengeData.getString(CHALLENGE_INDEX_GLOBAL_NAME)
+    val clientExperimentsStateBlob = challengeData.getString(CHALLENGE_INDEX_CLIENT_EXPERIMENTS_STATE_BLOB)
 
     val safeScriptValue = challengeData.optJSONArray(1).firstStringOrNull()
     val trustedResourceUrlValue = challengeData.optJSONArray(2).firstStringOrNull()
@@ -85,7 +96,7 @@ internal fun u8ToBase64(poToken: String): String {
  */
 private fun descramble(scrambledChallenge: String): String =
     base64ToByteArray(scrambledChallenge)
-        .map { (it + 97).toByte() }
+        .map { (it + DESCRAMBLE_SHIFT).toByte() }
         .toByteArray()
         .decodeToString()
 
@@ -111,7 +122,7 @@ private fun base64ToByteArray(base64: String): ByteArray {
     return try {
         Base64.decode(base64Mod, Base64.DEFAULT)
     } catch (e: IllegalArgumentException) {
-        throw PoTokenException("Cannot base64 decode")
+        throw PoTokenException("Cannot base64 decode", e)
     }
 }
 

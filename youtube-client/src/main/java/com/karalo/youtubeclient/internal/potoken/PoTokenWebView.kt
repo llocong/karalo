@@ -93,7 +93,10 @@ internal class PoTokenWebView private constructor(
     private suspend fun loadHtmlAndObtainBotguard(context: Context) {
         val html =
             withContext(Dispatchers.IO) {
-                context.assets.open(ASSET_FILE_NAME).bufferedReader().use { it.readText() }
+                context.assets
+                    .open(ASSET_FILE_NAME)
+                    .bufferedReader()
+                    .use { it.readText() }
             }
         withContext(Dispatchers.Main) {
             webView.loadDataWithBaseURL(
@@ -141,7 +144,11 @@ internal class PoTokenWebView private constructor(
                         null,
                     )
                 }
-            } catch (t: Throwable) {
+            } catch (
+                @Suppress("TooGenericExceptionCaught") t: Throwable,
+            ) {
+                // Deliberately broad: any failure in this chain (network, JSON parsing, JS
+                // evaluation) is fatal to initialization and reported the same way.
                 onInitializationErrorCloseAndCancel(t)
             }
         }
@@ -171,8 +178,7 @@ internal class PoTokenWebView private constructor(
                         "[ \"$REQUEST_KEY\", \"$botguardResponse\" ]",
                     )
                 val (integrityToken, expirationTimeInSeconds) = parseIntegrityTokenData(responseBody)
-                // leave 10 minutes of margin just to be sure
-                expirationInstant = Instant.now().plusSeconds(expirationTimeInSeconds - 600)
+                expirationInstant = Instant.now().plusSeconds(expirationTimeInSeconds - EXPIRATION_MARGIN_SECONDS)
 
                 withContext(Dispatchers.Main) {
                     webView.evaluateJavascript("this.integrityToken = $integrityToken") {
@@ -182,7 +188,10 @@ internal class PoTokenWebView private constructor(
                         }
                     }
                 }
-            } catch (t: Throwable) {
+            } catch (
+                @Suppress("TooGenericExceptionCaught") t: Throwable,
+            ) {
+                // Deliberately broad — see downloadAndRunBotguard's catch above.
                 onInitializationErrorCloseAndCancel(t)
             }
         }
@@ -240,7 +249,11 @@ internal class PoTokenWebView private constructor(
         val poToken =
             try {
                 u8ToBase64(poTokenU8)
-            } catch (t: Throwable) {
+            } catch (
+                @Suppress("TooGenericExceptionCaught") t: Throwable,
+            ) {
+                // Deliberately broad: any malformed poTokenU8 (bad base64, non-numeric bytes)
+                // should fail this specific request, not crash the WebView bridge.
                 if (continuation.isActive) continuation.resumeWithException(t)
                 return
             }
@@ -371,6 +384,9 @@ internal class PoTokenWebView private constructor(
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
         private const val JS_INTERFACE = "PoTokenWebView"
         private const val ASSET_FILE_NAME = "po_token.html"
+
+        // Leave this much margin on the reported expiration time, just to be sure.
+        private const val EXPIRATION_MARGIN_SECONDS = 600L
 
         /**
          * Initializes a [PoTokenGenerator] by loading the BotGuard VM, running it, and obtaining

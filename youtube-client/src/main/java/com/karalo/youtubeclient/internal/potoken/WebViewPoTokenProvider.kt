@@ -109,7 +109,11 @@ class WebViewPoTokenProvider
                     // parallel; the only thing that must happen exactly once is the streaming
                     // poToken generation above.
                     init.generator.generatePoToken(videoId)
-                } catch (t: Throwable) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") t: Throwable,
+                ) {
+                    // Deliberately broad: any failure minting this poToken should either retry
+                    // with a fresh generator or propagate, not crash the caller.
                     if (init.hasBeenRecreated) {
                         // the generator has just been (re)created, so there is likely nothing
                         // more we can do
@@ -140,7 +144,11 @@ class WebViewPoTokenProvider
                 try {
                     CookieManager.getInstance()
                     true
-                } catch (t: Throwable) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught", "SwallowedException") t: Throwable,
+                ) {
+                    // Deliberately broad and silent: this is how NewPipe's own DeviceUtils checks
+                    // for the (expected, not exceptional) absence of a WebView implementation.
                     false
                 }
         }
