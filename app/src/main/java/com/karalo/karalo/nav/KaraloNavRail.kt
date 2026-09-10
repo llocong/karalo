@@ -2,7 +2,6 @@ package com.karalo.karalo.nav
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,7 +76,6 @@ private fun NavRailItem(
         modifier =
             modifier
                 .fillMaxWidth()
-                .focusable()
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable(onClick = onClick)
                 .background(background, RoundedCornerShape(8.dp))
