@@ -22,6 +22,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+private const val MAX_BACK_PRESS_ATTEMPTS = 4
+
 /**
  * Exercises the full v1 nav flow end to end (Home -> Search -> Results -> Player -> Back) against
  * a scripted [com.karalo.core.testing.FakeYouTubeClient] (see FakeYouTubeClientModule), so it
@@ -57,19 +59,18 @@ class KaraloNavigationTest {
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
         composeRule.onNodeWithText("Sample Song").assertIsDisplayed()
 
-        // Whether the first Back only hides the controls (then a second navigates back to
-        // Search) or lands directly on Search depends on whether the controls' 3s auto-hide
-        // timer already fired first — a device-speed race, not something this test controls —
-        // so press again only if the first press didn't already get us there.
-        android.util.Log.d("KaraloNavDebug", "TEST: about to press back #1")
-        Espresso.pressBack()
-        val foundAfterFirst = composeRule.onAllNodesWithTag(SEARCH_QUERY_FIELD_TAG).fetchSemanticsNodes().isNotEmpty()
-        android.util.Log.d("KaraloNavDebug", "TEST: after back #1, searchFieldFound=$foundAfterFirst")
-        if (!foundAfterFirst) {
-            android.util.Log.d("KaraloNavDebug", "TEST: about to press back #2")
+        // Getting back to Search can take a variable number of Back presses: one is consumed
+        // hiding the controls (unless the 3s auto-hide timer already beat us to it), one
+        // navigates back -- and on some CI emulators, a Back key event is occasionally dropped
+        // entirely (observed directly: no key ever reaches the app). Retry instead of assuming a
+        // fixed count, bounded so a real regression still fails fast.
+        var attempts = 0
+        while (attempts < MAX_BACK_PRESS_ATTEMPTS &&
+            composeRule.onAllNodesWithTag(SEARCH_QUERY_FIELD_TAG).fetchSemanticsNodes().isEmpty()
+        ) {
             Espresso.pressBack()
+            attempts++
         }
-        android.util.Log.d("KaraloNavDebug", "TEST: final assertion")
 
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).assertIsDisplayed()
     }
