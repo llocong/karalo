@@ -6,14 +6,18 @@ import androidx.tv.material3.darkColorScheme
 
 private val KaraloColorScheme =
     darkColorScheme(
-        primary = KaraloPurple,
-        primaryContainer = KaraloPurpleVariant,
+        primary = KaraloVioletPrimary,
+        primaryContainer = KaraloVioletDeep,
+        secondary = KaraloCoralAccent,
+        onSecondary = KaraloBackground,
+        tertiary = KaraloLilacTint,
         background = KaraloBackground,
         surface = KaraloSurface,
-        surfaceVariant = KaraloSurfaceFocused,
+        surfaceVariant = KaraloVioletDeep,
         onBackground = KaraloOnBackground,
         onSurface = KaraloOnBackground,
         onSurfaceVariant = KaraloOnSurfaceVariant,
+        border = KaraloOutline,
         error = KaraloError,
     )
 
