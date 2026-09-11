@@ -169,6 +169,7 @@ internal fun SearchScreenContent(
                     items = uiState.items,
                     onResultClick = trackedOnResultClick,
                     firstItemFocusRequester = firstResultFocusRequester,
+                    focusFirstItemTrigger = contentFocusTrigger,
                     restoreFocusVideoId = lastPlayedVideoId,
                     restoreFocusRequester = restoreFocusRequester,
                     canRestoreFocus = canRestoreLastPlayed,
@@ -186,7 +187,10 @@ internal fun SearchScreenContent(
  * [SearchScreenContent] purely to keep that function's own complexity down: (1) a genuine Loading
  * -> Results transition (a real query submission during this screen's lifetime) focuses the first
  * result; (2) an explicit rail-click selection -- a fresh [contentFocusTrigger] -- focuses the
- * query field (no results yet) or the first result (results already showing).
+ * query field when there are no results yet. When results *are* already showing, focusing the
+ * first one is left entirely to SearchResultsGrid's own focusFirstItemTrigger handling instead of
+ * being done here, since only it owns the LazyGridState needed to scroll a possibly-scrolled-away
+ * first item back into view first.
  */
 @Composable
 private fun rememberSearchFocusState(
@@ -209,10 +213,11 @@ private fun rememberSearchFocusState(
     LaunchedEffect(contentFocusTrigger) {
         if (contentFocusTrigger > consumedFocusTrigger) {
             consumedFocusTrigger = contentFocusTrigger
-            val resultsWithItems = (uiState as? SearchUiState.Results)?.takeIf { it.items.isNotEmpty() }
-            if (resultsWithItems != null) {
-                firstResultFocusRequester.requestFocus()
-            } else {
+            val hasResults = (uiState as? SearchUiState.Results)?.items?.isNotEmpty() == true
+            // Focusing an already-showing, possibly-scrolled results grid needs to scroll back to
+            // its first item first -- left entirely to SearchResultsGrid's own focusFirstItemTrigger
+            // handling (it owns the LazyGridState needed to do that; see its own comment for why).
+            if (!hasResults) {
                 focusRequester.requestFocus()
             }
         }
