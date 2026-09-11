@@ -38,6 +38,12 @@ private val RESULT_CARD_WIDTH = 240.dp
 private val RESULT_CARD_GUTTER = 20.dp
 private val ROW_VERTICAL_PADDING = 20.dp
 
+// Safe-zone horizontal margin (developer.android.com/design/ui/tv/guides/styles/layouts), applied
+// as this row's own contentPadding rather than a Modifier.padding on it or an ancestor -- that
+// reserves room at each end for a focused edge card to scale up into without being clipped, the
+// same way Home's own shelves avoid it (see HomeScreen.kt's SAFE_ZONE_HORIZONTAL usage).
+private val SAFE_ZONE_HORIZONTAL = 58.dp
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchResultsRow(
@@ -69,7 +75,7 @@ fun SearchResultsRow(
     CompositionLocalProvider(LocalBringIntoViewSpec provides CenteredBringIntoViewSpec) {
         LazyRow(
             state = listState,
-            contentPadding = PaddingValues(vertical = ROW_VERTICAL_PADDING),
+            contentPadding = PaddingValues(horizontal = SAFE_ZONE_HORIZONTAL, vertical = ROW_VERTICAL_PADDING),
             horizontalArrangement = Arrangement.spacedBy(RESULT_CARD_GUTTER),
             // Deliberately no focusRestorer() here: every focus decision this row needs is already
             // handled explicitly above (fresh results, an explicit rail select, and restoring the

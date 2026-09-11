@@ -121,6 +121,12 @@ internal fun SearchScreenContent(
         firstResultFocusRequester = firstResultFocusRequester,
     )
 
+    // Horizontal safe-zone inset is applied per-child below (on the query field directly, and as
+    // the results row's own contentPadding) rather than here on the whole Column, so a focused
+    // edge card in that row can visually scale up into the reserved contentPadding space instead
+    // of being clipped by the Column's own now-narrower bounds -- matching how Home's shelves
+    // avoid the same problem (see HomeScreenContent's Column, which only insets vertically for
+    // exactly this reason).
     Column(
         modifier =
             modifier
@@ -136,7 +142,7 @@ internal fun SearchScreenContent(
                     } else {
                         false
                     }
-                }.padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
+                }.padding(vertical = SAFE_ZONE_VERTICAL),
     ) {
         SearchQueryField(
             text = text,
@@ -247,6 +253,7 @@ private fun SearchQueryField(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .padding(horizontal = SAFE_ZONE_HORIZONTAL)
                 .testTag(SEARCH_QUERY_FIELD_TAG)
                 .focusRequester(focusRequester)
                 .onPreviewKeyEvent { keyEvent ->
@@ -270,7 +277,7 @@ private fun SuggestionsList(
     firstItemFocusRequester: FocusRequester,
 ) {
     if (suggestions.isEmpty()) return
-    LazyColumn(contentPadding = PaddingValues(top = 16.dp)) {
+    LazyColumn(contentPadding = PaddingValues(start = SAFE_ZONE_HORIZONTAL, end = SAFE_ZONE_HORIZONTAL, top = 16.dp)) {
         itemsIndexed(suggestions) { index, suggestion ->
             SuggestionRow(
                 suggestion = suggestion,
