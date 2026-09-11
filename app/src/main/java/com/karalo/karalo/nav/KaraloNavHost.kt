@@ -83,6 +83,20 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // the instant it's merely focused, not clicked.
     var isFirstEverHomeEntry by remember { mutableStateOf(true) }
 
+    // Navigating to the route that's already current serves no purpose -- there's nowhere to
+    // actually go -- but doing it anyway (e.g. every time a rail item is merely re-focused while
+    // already on its destination) is exactly what triggers Navigation-Compose's
+    // popUpTo(saveState=true)+restoreState=true dispose/restore cycle non-deterministically: this
+    // is the root cause behind several hard-to-reproduce focus bugs (a rail item's own destination
+    // content randomly losing/mishandling pending focus state right as the drawer opens/closes).
+    // Skipping the call entirely when already there sidesteps that instability altogether, rather
+    // than working around its symptoms.
+    fun navigateToTopLevelIfNeeded(route: String) {
+        if (currentRoute != route) {
+            navController.navigateToTopLevel(route)
+        }
+    }
+
     // Wrapped in movableContentOf (rather than a plain lambda) because this same content is
     // called from two different structural positions below -- as NavigationDrawer's content slot
     // while the rail is shown, or directly when it's hidden for immersive playback. A plain lambda
@@ -154,19 +168,19 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                     homeFocusRequester = homeRailFocusRequester,
                     searchFocusRequester = searchRailFocusRequester,
                     settingsFocusRequester = settingsRailFocusRequester,
-                    onHomeClick = { navController.navigateToTopLevel(NavDestination.Home.route) },
-                    onSearchClick = { navController.navigateToTopLevel(NavDestination.Search.route) },
-                    onSettingsClick = { navController.navigateToTopLevel(NavDestination.Settings.route) },
+                    onHomeClick = { navigateToTopLevelIfNeeded(NavDestination.Home.route) },
+                    onSearchClick = { navigateToTopLevelIfNeeded(NavDestination.Search.route) },
+                    onSettingsClick = { navigateToTopLevelIfNeeded(NavDestination.Settings.route) },
                     onHomeSelect = {
-                        navController.navigateToTopLevel(NavDestination.Home.route)
+                        navigateToTopLevelIfNeeded(NavDestination.Home.route)
                         homeContentFocusTrigger++
                     },
                     onSearchSelect = {
-                        navController.navigateToTopLevel(NavDestination.Search.route)
+                        navigateToTopLevelIfNeeded(NavDestination.Search.route)
                         searchContentFocusTrigger++
                     },
                     onSettingsSelect = {
-                        navController.navigateToTopLevel(NavDestination.Settings.route)
+                        navigateToTopLevelIfNeeded(NavDestination.Settings.route)
                         settingsContentFocusTrigger++
                     },
                 )
