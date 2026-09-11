@@ -71,6 +71,7 @@ class HomeShelfScrollTest {
                 HomeScreenContent(
                     uiState = HomeUiState(topPicks = ShelfUiState.Loaded(items)),
                     onResultClick = { _, _ -> },
+                    firstVideoFocusTrigger = 0,
                 )
             }
         }

@@ -1,6 +1,7 @@
 package com.karalo.feature.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,11 +21,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -60,6 +67,8 @@ private const val ROCK_TITLE = "Rock"
 fun HomeScreen(
     onResultClick: (startIndex: Int, videoId: String) -> Unit,
     modifier: Modifier = Modifier,
+    firstVideoFocusTrigger: Int = 0,
+    claimInitialPlaceholderFocus: Boolean = false,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -70,6 +79,8 @@ fun HomeScreen(
             viewModel.onResultClicked(items)
             onResultClick(index, items[index].videoId)
         },
+        firstVideoFocusTrigger = firstVideoFocusTrigger,
+        claimInitialPlaceholderFocus = claimInitialPlaceholderFocus,
         modifier = modifier,
     )
 }
@@ -78,8 +89,35 @@ fun HomeScreen(
 internal fun HomeScreenContent(
     uiState: HomeUiState,
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
+    firstVideoFocusTrigger: Int,
+    claimInitialPlaceholderFocus: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val firstVideoFocusRequester = remember { FocusRequester() }
+    // Neutral focus target claimed the instant this screen mounts on the app's true first-ever
+    // launch, purely to keep focus off the nav rail (Compose's fallback focus-search would
+    // otherwise land there -- see KaraloNavHost) until the first shelf's own first card is ready
+    // to take over below.
+    val rootFocusRequester = remember { FocusRequester() }
+    // Persisted across the Compose-Navigation dispose/recreate cycle that happens every time this
+    // screen is re-entered (see KaraloNavHost's saveState/restoreState) so a later, unrelated
+    // recomposition -- or simply re-entering Home by *focusing* it in the rail, not selecting it --
+    // never mistakes an already-consumed trigger value for a fresh one.
+    var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
+    val topPicksLoaded = (uiState.topPicks as? ShelfUiState.Loaded)?.takeIf { it.items.isNotEmpty() }
+
+    if (claimInitialPlaceholderFocus) {
+        LaunchedEffect(Unit) { rootFocusRequester.requestFocus() }
+    }
+
+    // Only fires once the first shelf's data (and hence its first card) actually exists to focus.
+    LaunchedEffect(firstVideoFocusTrigger, topPicksLoaded != null) {
+        if (firstVideoFocusTrigger > consumedFocusTrigger && topPicksLoaded != null) {
+            consumedFocusTrigger = firstVideoFocusTrigger
+            firstVideoFocusRequester.requestFocus()
+        }
+    }
+
     // The top safe-zone inset goes *outside* verticalScroll so it's a fixed part of the viewport
     // rather than scrollable content -- otherwise it (and, per shelf, the title above each row)
     // can get scrolled out of reach: focus-driven auto-scroll only moves just enough to reveal
@@ -92,10 +130,17 @@ internal fun HomeScreenContent(
             modifier
                 .fillMaxSize()
                 .padding(top = SAFE_ZONE_VERTICAL)
+                .focusRequester(rootFocusRequester)
+                .focusable()
                 .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
     ) {
-        HomeShelf(title = TOP_PICKS_TITLE, state = uiState.topPicks, onResultClick = onResultClick)
+        HomeShelf(
+            title = TOP_PICKS_TITLE,
+            state = uiState.topPicks,
+            onResultClick = onResultClick,
+            firstItemFocusRequester = firstVideoFocusRequester,
+        )
         HomeShelf(title = POP_TITLE, state = uiState.pop, onResultClick = onResultClick)
         HomeShelf(title = ROCK_TITLE, state = uiState.rock, onResultClick = onResultClick)
         Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
@@ -113,6 +158,7 @@ private fun HomeShelf(
     title: String,
     state: ShelfUiState,
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
+    firstItemFocusRequester: FocusRequester? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
     // Requests the whole shelf (title included) into view -- not just the focused card -- when
@@ -162,13 +208,19 @@ private fun HomeShelf(
                         horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
                     ) {
                         itemsIndexed(state.items) { index, item ->
+                            val focusModifier =
+                                if (index == 0 && firstItemFocusRequester != null) {
+                                    Modifier.focusRequester(firstItemFocusRequester)
+                                } else {
+                                    Modifier
+                                }
                             FocusableCard(
                                 title = formatVideoTitle(item.title),
                                 subtitle = null,
                                 thumbnailUrl = item.thumbnailUrl,
                                 durationSeconds = item.durationSeconds,
                                 onClick = { onResultClick(state.items, index) },
-                                modifier = Modifier.width(SHELF_CARD_WIDTH),
+                                modifier = Modifier.width(SHELF_CARD_WIDTH).then(focusModifier),
                             )
                         }
                     }

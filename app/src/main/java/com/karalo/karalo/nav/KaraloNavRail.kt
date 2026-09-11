@@ -26,8 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -78,6 +76,13 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
  * guides/components/navigation-drawer) -- collapsed to icons-only until an item gains focus, then
  * it animates open to show icon + label for every item.
  *
+ * The menu starts collapsed with no item focused: initial D-pad focus goes to the Home screen's
+ * own content instead (see [com.karalo.feature.home.HomeScreen]), matching a common TV "browse in
+ * content, dip into the rail only when needed" pattern. Merely *focusing* an item here (e.g. while
+ * arrowing through the rail) immediately navigates to and previews that destination via
+ * [onHomeClick]/[onSearchClick]/[onSettingsClick] -- *clicking* (selecting) an item instead moves
+ * focus on into that destination's own content, via [onHomeSelect]/[onSearchSelect].
+ *
  * Items are hand-rolled on top of [Surface] rather than using the library's own
  * [androidx.tv.material3.NavigationDrawerItem]: that component's width animation and its label's
  * fade animation are two independent, un-synchronizable animations (no parameter exposes either
@@ -99,6 +104,8 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     onHomeClick: () -> Unit,
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onHomeSelect: () -> Unit,
+    onSearchSelect: () -> Unit,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
@@ -106,16 +113,17 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
     val isHomeFocused by homeInteractionSource.collectIsFocusedAsState()
     val isSettingsFocused by settingsInteractionSource.collectIsFocusedAsState()
-    val homeFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(isSearchFocused, isHomeFocused, isSettingsFocused) {
         val anyFocused = isSearchFocused || isHomeFocused || isSettingsFocused
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
     }
 
-    // Home is the app's start destination, so it should own initial D-pad focus even though
-    // Search is listed first.
-    LaunchedEffect(Unit) { homeFocusRequester.requestFocus() }
+    // Focusing an item -- without clicking it -- immediately navigates to and previews that
+    // destination, matching a common TV "focus to preview" pattern.
+    LaunchedEffect(isSearchFocused) { if (isSearchFocused) onSearchClick() }
+    LaunchedEffect(isHomeFocused) { if (isHomeFocused) onHomeClick() }
+    LaunchedEffect(isSettingsFocused) { if (isSettingsFocused) onSettingsClick() }
 
     Column(
         modifier =
@@ -133,7 +141,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
 
         KaraloNavItem(
             selected = currentRoute == NavDestination.Search.route,
-            onClick = onSearchClick,
+            onClick = onSearchSelect,
             icon = Icons.Filled.Search,
             label = "Search",
             interactionSource = searchInteractionSource,
@@ -142,11 +150,11 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
 
         KaraloNavItem(
             selected = currentRoute == NavDestination.Home.route,
-            onClick = onHomeClick,
+            onClick = onHomeSelect,
             icon = Icons.Filled.Home,
             label = "Home",
             interactionSource = homeInteractionSource,
-            modifier = Modifier.testTag(NAV_TAG_HOME).focusRequester(homeFocusRequester).padding(top = 8.dp),
+            modifier = Modifier.testTag(NAV_TAG_HOME).padding(top = 8.dp),
         )
 
         Box(modifier = Modifier.weight(1f))

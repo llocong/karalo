@@ -17,8 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -49,6 +51,7 @@ private val SEARCH_FIELD_CORNER_RADIUS = 12.dp
 fun SearchScreen(
     onResultClick: (startIndex: Int, videoId: String) -> Unit,
     modifier: Modifier = Modifier,
+    contentFocusTrigger: Int = 0,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -59,6 +62,7 @@ fun SearchScreen(
         onSubmit = viewModel::onSubmit,
         onSuggestionClick = { suggestion -> viewModel.onSubmit(suggestion) },
         onResultClick = onResultClick,
+        contentFocusTrigger = contentFocusTrigger,
         modifier = modifier,
     )
 }
@@ -70,6 +74,7 @@ internal fun SearchScreenContent(
     onSubmit: () -> Unit,
     onSuggestionClick: (String) -> Unit,
     onResultClick: (Int, String) -> Unit,
+    contentFocusTrigger: Int,
     modifier: Modifier = Modifier,
 ) {
     // Lifted out of SearchQueryField so a suggestion click (which bypasses onQueryChanged) can
@@ -83,8 +88,36 @@ internal fun SearchScreenContent(
     val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
     val isShowingResults = uiState is SearchUiState.Results
 
+    // Auto-focuses the first result only on a genuine Loading -> Results transition (a real query
+    // submission during this screen's lifetime) -- seeding `previousIsShowingResults` from the
+    // *current* value means mounting directly into an already-loaded Results state (e.g. merely
+    // *focusing*, not selecting, the Search nav item to preview it -- see KaraloNavRailContent)
+    // never steals focus away from the rail.
+    var previousIsShowingResults by remember { mutableStateOf(isShowingResults) }
     LaunchedEffect(isShowingResults) {
-        if (isShowingResults) firstResultFocusRequester.requestFocus()
+        if (isShowingResults && !previousIsShowingResults) {
+            firstResultFocusRequester.requestFocus()
+        }
+        previousIsShowingResults = isShowingResults
+    }
+
+    // Bumped when the user *selects* (clicks) the Search nav item -- see KaraloNavRailContent --
+    // asking this screen to grab focus: the query field if there's no existing result, or the
+    // first result if one is already showing. Persisted across the Compose-Navigation
+    // dispose/recreate cycle that happens every time this screen is re-entered so a later,
+    // unrelated recomposition -- or merely *focusing* Search in the rail, not selecting it -- never
+    // mistakes an already-consumed trigger value for a fresh one.
+    var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(contentFocusTrigger) {
+        if (contentFocusTrigger > consumedFocusTrigger) {
+            consumedFocusTrigger = contentFocusTrigger
+            val resultsWithItems = (uiState as? SearchUiState.Results)?.takeIf { it.items.isNotEmpty() }
+            if (resultsWithItems != null) {
+                firstResultFocusRequester.requestFocus()
+            } else {
+                focusRequester.requestFocus()
+            }
+        }
     }
 
     Column(
