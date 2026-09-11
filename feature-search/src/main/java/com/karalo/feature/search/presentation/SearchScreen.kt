@@ -52,6 +52,7 @@ fun SearchScreen(
     onResultClick: (startIndex: Int, videoId: String) -> Unit,
     modifier: Modifier = Modifier,
     contentFocusTrigger: Int = 0,
+    railFocusRequester: FocusRequester? = null,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -63,6 +64,7 @@ fun SearchScreen(
         onSuggestionClick = { suggestion -> viewModel.onSubmit(suggestion) },
         onResultClick = onResultClick,
         contentFocusTrigger = contentFocusTrigger,
+        railFocusRequester = railFocusRequester,
         modifier = modifier,
     )
 }
@@ -75,6 +77,7 @@ internal fun SearchScreenContent(
     onSuggestionClick: (String) -> Unit,
     onResultClick: (Int, String) -> Unit,
     contentFocusTrigger: Int,
+    railFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     // Lifted out of SearchQueryField so a suggestion click (which bypasses onQueryChanged) can
@@ -111,7 +114,18 @@ internal fun SearchScreenContent(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
+                // BACK while browsing opens the drawer with Search's own item focused -- see the
+                // matching comment on HomeScreenContent's own Column for why this is a raw key
+                // event intercept rather than a BackHandler.
+                .onPreviewKeyEvent { keyEvent ->
+                    val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
+                    if (isBackKeyDown && railFocusRequester != null) {
+                        railFocusRequester.requestFocus()
+                        true
+                    } else {
+                        false
+                    }
+                }.padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
     ) {
         SearchQueryField(
             text = text,
@@ -147,6 +161,7 @@ internal fun SearchScreenContent(
                     restoreFocusVideoId = lastPlayedVideoId,
                     restoreFocusRequester = restoreFocusRequester,
                     canRestoreFocus = canRestoreLastPlayed,
+                    railFocusRequester = railFocusRequester,
                 )
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)
         }

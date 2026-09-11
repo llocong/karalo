@@ -1,5 +1,6 @@
 package com.karalo.karalo.nav
 
+import android.app.Activity
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -35,6 +38,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +95,13 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
  * [KaraloNavItem]'s own key handling -- since RIGHT is the natural "go into the content" direction
  * once the drawer has expanded to reveal it there.
  *
+ * [homeFocusRequester]/[searchFocusRequester] are attached to their respective items here so
+ * [com.karalo.karalo.nav.KaraloNavHost] (BACK) and each destination's own content (LEFT from its
+ * first item/column) can move focus straight onto the *correct* rail item deterministically,
+ * rather than relying on Compose's default two-dimensional focus search -- which, spatially, can
+ * land on a different item than intended (e.g. Settings, if it happens to sit closer to whichever
+ * shelf/row currently has focus).
+ *
  * Items are hand-rolled on top of [Surface] rather than using the library's own
  * [androidx.tv.material3.NavigationDrawerItem]: that component's width animation and its label's
  * fade animation are two independent, un-synchronizable animations (no parameter exposes either
@@ -109,6 +120,8 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
 internal fun NavigationDrawerScope.KaraloNavRailContent(
     currentRoute: String?,
     drawerState: DrawerState,
+    homeFocusRequester: FocusRequester,
+    searchFocusRequester: FocusRequester,
     onHomeClick: () -> Unit,
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -133,6 +146,8 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     LaunchedEffect(isHomeFocused) { if (isHomeFocused) onHomeClick() }
     LaunchedEffect(isSettingsFocused) { if (isSettingsFocused) onSettingsClick() }
 
+    val activity = LocalContext.current as? Activity
+
     Column(
         modifier =
             Modifier
@@ -142,7 +157,21 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                     ),
                 ).fillMaxHeight()
                 .padding(12.dp)
-                .selectableGroup(),
+                .selectableGroup()
+                // BACK while any rail item is focused (i.e. the drawer is open) exits the app --
+                // consumed here, on an ancestor of every item, rather than left to fall through to
+                // the platform default: NavHost installs its own internal back handling that would
+                // otherwise intercept it first and silently no-op (there's nothing to actually pop
+                // from Home or Search's own top-level back stack), leaving BACK looking like it
+                // does nothing at all instead of exiting.
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back) {
+                        activity?.finish()
+                        true
+                    } else {
+                        false
+                    }
+                },
     ) {
         KaraloNavHeader()
         Spacer(modifier = Modifier.height(HEADER_TO_ITEMS_SPACING))
@@ -153,7 +182,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             icon = Icons.Filled.Search,
             label = "Search",
             interactionSource = searchInteractionSource,
-            modifier = Modifier.testTag(NAV_TAG_SEARCH),
+            modifier = Modifier.testTag(NAV_TAG_SEARCH).focusRequester(searchFocusRequester),
         )
 
         KaraloNavItem(
@@ -162,7 +191,11 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             icon = Icons.Filled.Home,
             label = "Home",
             interactionSource = homeInteractionSource,
-            modifier = Modifier.testTag(NAV_TAG_HOME).padding(top = 8.dp),
+            modifier =
+                Modifier
+                    .testTag(NAV_TAG_HOME)
+                    .focusRequester(homeFocusRequester)
+                    .padding(top = 8.dp),
         )
 
         Box(modifier = Modifier.weight(1f))

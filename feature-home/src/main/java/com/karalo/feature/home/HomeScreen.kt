@@ -34,6 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
@@ -70,6 +75,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     firstVideoFocusTrigger: Int = 0,
     claimInitialPlaceholderFocus: Boolean = false,
+    railFocusRequester: FocusRequester? = null,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -82,6 +88,7 @@ fun HomeScreen(
         },
         firstVideoFocusTrigger = firstVideoFocusTrigger,
         claimInitialPlaceholderFocus = claimInitialPlaceholderFocus,
+        railFocusRequester = railFocusRequester,
         modifier = modifier,
     )
 }
@@ -92,6 +99,7 @@ internal fun HomeScreenContent(
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
     firstVideoFocusTrigger: Int,
     claimInitialPlaceholderFocus: Boolean = false,
+    railFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     val firstVideoFocusRequester = remember { FocusRequester() }
@@ -150,7 +158,25 @@ internal fun HomeScreenContent(
                 .padding(top = SAFE_ZONE_VERTICAL)
                 .focusRequester(rootFocusRequester)
                 .focusable()
-                .verticalScroll(rememberScrollState()),
+                // BACK while browsing opens the drawer with Home's own item focused, instead of
+                // the platform default (which -- since Home has nothing behind it on the back
+                // stack -- would otherwise exit the app). Attached here, on an ancestor of every
+                // shelf's cards, rather than as a BackHandler: NavHost installs its own internal
+                // back handling that, in this app's setup, always wins a BackHandler priority race
+                // regardless of where either one sits in the composition, silently swallowing BACK
+                // before ours ever sees it. Consuming the raw key event here instead pre-empts that
+                // entirely, and naturally only fires while focus is actually inside this content
+                // (once a rail item has focus instead, this modifier is no longer an ancestor of
+                // the focused node, so it's simply not part of the key event's path at all).
+                .onPreviewKeyEvent { keyEvent ->
+                    val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
+                    if (isBackKeyDown && railFocusRequester != null) {
+                        railFocusRequester.requestFocus()
+                        true
+                    } else {
+                        false
+                    }
+                }.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
     ) {
         HomeShelf(
@@ -161,6 +187,7 @@ internal fun HomeScreenContent(
             restoreFocusVideoId = lastPlayedVideoId,
             restoreFocusRequester = restoreFocusRequester,
             canRestoreFocus = canRestoreLastPlayed,
+            railFocusRequester = railFocusRequester,
         )
         HomeShelf(
             title = POP_TITLE,
@@ -169,6 +196,7 @@ internal fun HomeScreenContent(
             restoreFocusVideoId = lastPlayedVideoId,
             restoreFocusRequester = restoreFocusRequester,
             canRestoreFocus = canRestoreLastPlayed,
+            railFocusRequester = railFocusRequester,
         )
         HomeShelf(
             title = ROCK_TITLE,
@@ -177,6 +205,7 @@ internal fun HomeScreenContent(
             restoreFocusVideoId = lastPlayedVideoId,
             restoreFocusRequester = restoreFocusRequester,
             canRestoreFocus = canRestoreLastPlayed,
+            railFocusRequester = railFocusRequester,
         )
         Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
     }
@@ -197,6 +226,7 @@ private fun HomeShelf(
     restoreFocusVideoId: String? = null,
     restoreFocusRequester: FocusRequester? = null,
     canRestoreFocus: Boolean = false,
+    railFocusRequester: FocusRequester? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
     // Requests the whole shelf (title included) into view -- not just the focused card -- when
@@ -260,13 +290,15 @@ private fun HomeShelf(
                         horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
                     ) {
                         itemsIndexed(state.items) { index, item ->
-                            var focusModifier: Modifier = Modifier
-                            if (index == 0 && firstItemFocusRequester != null) {
-                                focusModifier = focusModifier.focusRequester(firstItemFocusRequester)
-                            }
-                            if (restoreFocusRequester != null && item.videoId == restoreFocusVideoId) {
-                                focusModifier = focusModifier.focusRequester(restoreFocusRequester)
-                            }
+                            val focusModifier =
+                                shelfItemFocusModifier(
+                                    index = index,
+                                    videoId = item.videoId,
+                                    firstItemFocusRequester = firstItemFocusRequester,
+                                    restoreFocusRequester = restoreFocusRequester,
+                                    restoreFocusVideoId = restoreFocusVideoId,
+                                    railFocusRequester = railFocusRequester,
+                                )
                             FocusableCard(
                                 title = formatVideoTitle(item.title),
                                 subtitle = null,
@@ -280,4 +312,41 @@ private fun HomeShelf(
                 }
         }
     }
+}
+
+/**
+ * The focus-related modifiers for one shelf card, kept out of [HomeShelf] itself purely to keep
+ * that function's own complexity down.
+ */
+private fun shelfItemFocusModifier(
+    index: Int,
+    videoId: String,
+    firstItemFocusRequester: FocusRequester?,
+    restoreFocusRequester: FocusRequester?,
+    restoreFocusVideoId: String?,
+    railFocusRequester: FocusRequester?,
+): Modifier {
+    var modifier: Modifier = Modifier
+    if (index == 0 && firstItemFocusRequester != null) {
+        modifier = modifier.focusRequester(firstItemFocusRequester)
+    }
+    if (restoreFocusRequester != null && videoId == restoreFocusVideoId) {
+        modifier = modifier.focusRequester(restoreFocusRequester)
+    }
+    // Pressing LEFT on any shelf's first card always opens the drawer with the Home item
+    // focused -- not just Top Picks' -- overriding Compose's default focus search, which would
+    // otherwise land on whichever rail item happens to sit spatially closest (e.g. Settings, for
+    // the last shelf).
+    if (index == 0 && railFocusRequester != null) {
+        modifier =
+            modifier.onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
+                    railFocusRequester.requestFocus()
+                    true
+                } else {
+                    false
+                }
+            }
+    }
+    return modifier
 }

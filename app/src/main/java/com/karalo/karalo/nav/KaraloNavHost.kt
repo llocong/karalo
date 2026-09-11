@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -50,6 +51,18 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // preview it never steals focus away from the rail itself.
     var isFirstEverHomeEntry by remember { mutableStateOf(true) }
 
+    // Hoisted above the show/hide branch below so both the rail (which drives it on focus) and
+    // each destination's own content (which reads it to decide whether BACK should open the
+    // drawer -- see HomeScreen/SearchScreen's own key handling) can see it.
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    // Each destination's own rail item -- attached to it via KaraloNavRailContent -- so both BACK
+    // from each screen's own content and LEFT from its first item/column can move focus straight
+    // to the *correct* item deterministically, rather than relying on Compose's default
+    // two-dimensional focus search (which, spatially, can land on a completely different item --
+    // e.g. Settings, if it happens to sit closer to whichever shelf/row is currently focused).
+    val homeRailFocusRequester = remember { FocusRequester() }
+    val searchRailFocusRequester = remember { FocusRequester() }
+
     // Wrapped in movableContentOf (rather than a plain lambda) because this same content is
     // called from two different structural positions below -- as NavigationDrawer's content slot
     // while the rail is shown, or directly when it's hidden for immersive playback. A plain lambda
@@ -72,6 +85,7 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                             },
                             firstVideoFocusTrigger = homeContentFocusTrigger,
                             claimInitialPlaceholderFocus = isFirstEverHomeEntry,
+                            railFocusRequester = homeRailFocusRequester,
                         )
                         if (isFirstEverHomeEntry) {
                             LaunchedEffect(Unit) { isFirstEverHomeEntry = false }
@@ -83,6 +97,7 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
                             contentFocusTrigger = searchContentFocusTrigger,
+                            railFocusRequester = searchRailFocusRequester,
                         )
                     }
                     composable(NavDestination.Settings.route) {
@@ -106,7 +121,6 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
         }
 
     if (showNavRail) {
-        val drawerState = rememberDrawerState(DrawerValue.Closed)
         NavigationDrawer(
             modifier = modifier.fillMaxSize(),
             drawerState = drawerState,
@@ -114,6 +128,8 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                 KaraloNavRailContent(
                     currentRoute = currentRoute,
                     drawerState = drawerState,
+                    homeFocusRequester = homeRailFocusRequester,
+                    searchFocusRequester = searchRailFocusRequester,
                     onHomeClick = { navController.navigateToTopLevel(NavDestination.Home.route) },
                     onSearchClick = { navController.navigateToTopLevel(NavDestination.Search.route) },
                     onSettingsClick = { navController.navigateToTopLevel(NavDestination.Settings.route) },

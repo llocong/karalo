@@ -16,6 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
@@ -38,6 +43,7 @@ fun SearchResultsGrid(
     restoreFocusVideoId: String? = null,
     restoreFocusRequester: FocusRequester? = null,
     canRestoreFocus: Boolean = false,
+    railFocusRequester: FocusRequester? = null,
 ) {
     val gridState = rememberLazyGridState()
 
@@ -73,6 +79,21 @@ fun SearchResultsGrid(
                 }
                 if (restoreFocusRequester != null && item.videoId == restoreFocusVideoId) {
                     focusModifier = focusModifier.focusRequester(restoreFocusRequester)
+                }
+                // Pressing LEFT on any card in the leftmost column always opens the drawer with
+                // the Search item focused, overriding Compose's default focus search (which would
+                // otherwise land on whichever rail item happens to sit spatially closest to that
+                // row).
+                if (index % GRID_COLUMNS == 0 && railFocusRequester != null) {
+                    focusModifier =
+                        focusModifier.onPreviewKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
+                                railFocusRequester.requestFocus()
+                                true
+                            } else {
+                                false
+                            }
+                        }
                 }
                 FocusableCard(
                     title = formatVideoTitle(item.title),
