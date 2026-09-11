@@ -10,6 +10,8 @@ sealed class NavDestination(
 
     data object Search : NavDestination("search")
 
+    data object Settings : NavDestination("settings")
+
     data object Player :
         NavDestination("player/{$PLAYER_ARG_START_INDEX}?$PLAYER_ARG_START_VIDEO_ID={$PLAYER_ARG_START_VIDEO_ID}") {
         fun createRoute(

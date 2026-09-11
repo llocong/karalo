@@ -33,7 +33,11 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize(),
         ) {
             composable(NavDestination.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    onResultClick = { startIndex, videoId ->
+                        navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
+                    },
+                )
             }
             composable(NavDestination.Search.route) {
                 SearchScreen(
@@ -41,6 +45,9 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                         navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                     },
                 )
+            }
+            composable(NavDestination.Settings.route) {
+                SettingsScreen()
             }
             composable(
                 route = NavDestination.Player.route,
@@ -69,6 +76,7 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                     drawerState = drawerState,
                     onHomeClick = { navController.navigateToTopLevel(NavDestination.Home.route) },
                     onSearchClick = { navController.navigateToTopLevel(NavDestination.Search.route) },
+                    onSettingsClick = { navController.navigateToTopLevel(NavDestination.Settings.route) },
                 )
             },
             content = screens,

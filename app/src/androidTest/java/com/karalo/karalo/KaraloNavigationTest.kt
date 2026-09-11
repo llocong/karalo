@@ -12,8 +12,10 @@ import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.test.espresso.Espresso
 import com.karalo.feature.search.presentation.SEARCH_QUERY_FIELD_TAG
+import com.karalo.karalo.nav.NAV_TAG_SEARCH
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
@@ -43,12 +45,15 @@ class KaraloNavigationTest {
 
     @Test
     fun searchingAndSelectingAResultOpensThePlayer() {
-        // Home has initial focus; move down to Search and select it. TV Material3's
+        // Which nav item (if any) ends up with real initial keyboard focus is environment-
+        // dependent (observed to differ between a manual run and this test harness, and Home's
+        // own composition got heavier with the new shelves) -- rather than assume it lands on
+        // Search, request focus on it directly via its semantics node. TV Material3's
         // NavigationDrawerItem, like Card, only wires its onClick to real key/remote input, not
         // Compose test's semantics-based performClick() -- and performKeyInput dispatches to
-        // whichever node currently holds focus, not to the node it's called on, so drive it from
-        // the root the way a real D-pad would.
-        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        // whichever node currently holds focus, not to the node it's called on, so drive the
+        // actual selection the way a real D-pad would once focus is set.
+        composeRule.onNodeWithTag(NAV_TAG_SEARCH).requestFocus()
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
 
         composeRule.onNodeWithTag(SEARCH_QUERY_FIELD_TAG).performTextInput("Test Song")
