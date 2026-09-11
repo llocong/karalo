@@ -250,6 +250,12 @@ private fun NavigationDrawerScope.KaraloNavHeader() {
                 text = "Karalo",
                 color = MaterialTheme.colorScheme.onBackground,
                 style = KaraloLogoTextStyle,
+                // At in-between widths during the collapse/expand tween, this would otherwise
+                // wrap onto a second line -- taller than the logo itself -- which grew the
+                // header's own height for that instant and pushed every item below it down (and
+                // made the header's own icon look like it was moving too).
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
                 modifier =
                     Modifier
                         .padding(start = 12.dp)
