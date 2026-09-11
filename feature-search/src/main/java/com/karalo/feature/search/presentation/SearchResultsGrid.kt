@@ -1,12 +1,15 @@
 package com.karalo.feature.search.presentation
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -14,6 +17,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
+import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
 import com.karalo.feature.search.domain.SearchResultItem
 
 private const val GRID_COLUMNS = 3
@@ -22,6 +26,7 @@ private const val GRID_COLUMNS = 3
 // (developer.android.com/design/ui/tv/guides/styles/layouts).
 private val GRID_GUTTER = 20.dp
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchResultsGrid(
     items: List<SearchResultItem>,
@@ -29,28 +34,33 @@ fun SearchResultsGrid(
     modifier: Modifier = Modifier,
     firstItemFocusRequester: FocusRequester? = null,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(GRID_COLUMNS),
-        contentPadding = PaddingValues(vertical = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(GRID_GUTTER),
-        verticalArrangement = Arrangement.spacedBy(GRID_GUTTER),
-        modifier = modifier.focusGroup().focusRestorer(),
-    ) {
-        itemsIndexed(items) { index, item ->
-            val focusModifier =
-                if (index == 0 && firstItemFocusRequester != null) {
-                    Modifier.focusRequester(firstItemFocusRequester)
-                } else {
-                    Modifier
-                }
-            FocusableCard(
-                title = formatVideoTitle(item.title),
-                subtitle = null,
-                thumbnailUrl = item.thumbnailUrl,
-                durationSeconds = item.durationSeconds,
-                onClick = { onResultClick(index, item.videoId) },
-                modifier = focusModifier,
-            )
+    // Same YouTube-on-Google-TV-style carousel scrolling as the Home shelves: keeps the focused
+    // row centered vertically while scrolling through the middle of the results, pinned at the
+    // start/end for the first/last couple of rows. See CenteredBringIntoViewSpec.
+    CompositionLocalProvider(LocalBringIntoViewSpec provides CenteredBringIntoViewSpec) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(GRID_COLUMNS),
+            contentPadding = PaddingValues(vertical = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(GRID_GUTTER),
+            verticalArrangement = Arrangement.spacedBy(GRID_GUTTER),
+            modifier = modifier.focusGroup().focusRestorer(),
+        ) {
+            itemsIndexed(items) { index, item ->
+                val focusModifier =
+                    if (index == 0 && firstItemFocusRequester != null) {
+                        Modifier.focusRequester(firstItemFocusRequester)
+                    } else {
+                        Modifier
+                    }
+                FocusableCard(
+                    title = formatVideoTitle(item.title),
+                    subtitle = null,
+                    thumbnailUrl = item.thumbnailUrl,
+                    durationSeconds = item.durationSeconds,
+                    onClick = { onResultClick(index, item.videoId) },
+                    modifier = focusModifier,
+                )
+            }
         }
     }
 }
