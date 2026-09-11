@@ -74,6 +74,7 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // e.g. Settings, if it happens to sit closer to whichever shelf/row is currently focused).
     val homeRailFocusRequester = remember { FocusRequester() }
     val searchRailFocusRequester = remember { FocusRequester() }
+    val settingsRailFocusRequester = remember { FocusRequester() }
 
     // True only for Home's very first-ever composition (the app's initial launch). Home uses this
     // to decide whether it's safe to unconditionally claim a neutral placeholder focus target while
@@ -120,7 +121,10 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                         )
                     }
                     composable(NavDestination.Settings.route) {
-                        SettingsScreen(contentFocusTrigger = settingsContentFocusTrigger)
+                        SettingsScreen(
+                            contentFocusTrigger = settingsContentFocusTrigger,
+                            railFocusRequester = settingsRailFocusRequester,
+                        )
                     }
                     composable(
                         route = NavDestination.Player.route,
@@ -149,6 +153,7 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                     drawerState = drawerState,
                     homeFocusRequester = homeRailFocusRequester,
                     searchFocusRequester = searchRailFocusRequester,
+                    settingsFocusRequester = settingsRailFocusRequester,
                     onHomeClick = { navController.navigateToTopLevel(NavDestination.Home.route) },
                     onSearchClick = { navController.navigateToTopLevel(NavDestination.Search.route) },
                     onSettingsClick = { navController.navigateToTopLevel(NavDestination.Settings.route) },

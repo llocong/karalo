@@ -117,6 +117,14 @@ internal fun HomeScreenContent(
     if (claimInitialPlaceholderFocus) {
         LaunchedEffect(Unit) { rootFocusRequester.requestFocus() }
     }
+    // Tracks whether the placeholder is still the thing actually holding focus while a select is
+    // pending Top Picks' load (see the select-effect below) -- cleared the moment focus leaves it
+    // for any reason (e.g. the user pressed BACK to the rail, or browsed into another shelf while
+    // waiting) so a *later* load completion can't yank focus back into content out from under
+    // whatever the user has since focused, undoing their navigation. Without this, a slow-loading
+    // Top Picks could complete well after the user moved on, and the hand-off below would silently
+    // steal focus back at that arbitrary later moment.
+    var placeholderClaimPending by remember { mutableStateOf(false) }
     // Persisted across the Compose-Navigation dispose/recreate cycle that happens every time this
     // screen is re-entered (see KaraloNavHost's saveState/restoreState) so a later, unrelated
     // recomposition -- or simply re-entering Home by *focusing* it in the rail, not selecting it --
@@ -162,8 +170,10 @@ internal fun HomeScreenContent(
         if (firstVideoFocusTrigger > consumedFocusTrigger) {
             if (topPicksLoaded != null) {
                 consumedFocusTrigger = firstVideoFocusTrigger
+                placeholderClaimPending = false
                 firstVideoFocusRequester.requestFocus()
             } else {
+                placeholderClaimPending = true
                 rootFocusRequester.requestFocus()
             }
         }
@@ -182,7 +192,19 @@ internal fun HomeScreenContent(
                 .fillMaxSize()
                 .padding(top = SAFE_ZONE_VERTICAL)
                 .focusRequester(rootFocusRequester)
-                .focusable()
+                // Abandons a still-pending placeholder claim the moment focus actually leaves this
+                // exact node for any reason -- browsing into an already-loaded shelf while Top
+                // Picks is still loading, or BACK moving focus out to the rail -- by marking the
+                // trigger consumed right here instead of waiting for the select-effect above to do
+                // it. Without this, Top Picks finishing its load later (its own delay is random and
+                // independent of the other shelves) would otherwise steal focus back into content
+                // out from under wherever the user has since navigated, undoing their action.
+                .onFocusChanged { focusState ->
+                    if (!focusState.isFocused && placeholderClaimPending) {
+                        placeholderClaimPending = false
+                        consumedFocusTrigger = firstVideoFocusTrigger
+                    }
+                }.focusable()
                 // BACK while browsing opens the drawer with Home's own item focused, instead of
                 // the platform default (which -- since Home has nothing behind it on the back
                 // stack -- would otherwise exit the app). Attached here, on an ancestor of every

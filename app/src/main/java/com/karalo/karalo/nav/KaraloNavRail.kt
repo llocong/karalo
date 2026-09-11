@@ -95,12 +95,12 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
  * [KaraloNavItem]'s own key handling -- since RIGHT is the natural "go into the content" direction
  * once the drawer has expanded to reveal it there.
  *
- * [homeFocusRequester]/[searchFocusRequester] are attached to their respective items here so
- * [com.karalo.karalo.nav.KaraloNavHost] (BACK) and each destination's own content (LEFT from its
- * first item/column) can move focus straight onto the *correct* rail item deterministically,
- * rather than relying on Compose's default two-dimensional focus search -- which, spatially, can
- * land on a different item than intended (e.g. Settings, if it happens to sit closer to whichever
- * shelf/row currently has focus).
+ * [homeFocusRequester]/[searchFocusRequester]/[settingsFocusRequester] are attached to their
+ * respective items here so each destination's own content (BACK, or LEFT from Home/Search's first
+ * item/column) can move focus straight onto the *correct* rail item deterministically, rather than
+ * relying on Compose's default two-dimensional focus search -- which, spatially, can land on a
+ * different item than intended (e.g. Settings, if it happens to sit closer to whichever shelf/row
+ * currently has focus).
  *
  * Items are hand-rolled on top of [Surface] rather than using the library's own
  * [androidx.tv.material3.NavigationDrawerItem]: that component's width animation and its label's
@@ -122,6 +122,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     drawerState: DrawerState,
     homeFocusRequester: FocusRequester,
     searchFocusRequester: FocusRequester,
+    settingsFocusRequester: FocusRequester,
     onHomeClick: () -> Unit,
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -208,7 +209,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             icon = Icons.Filled.Settings,
             label = "Settings",
             interactionSource = settingsInteractionSource,
-            modifier = Modifier.testTag(NAV_TAG_SETTINGS),
+            modifier = Modifier.testTag(NAV_TAG_SETTINGS).focusRequester(settingsFocusRequester),
         )
     }
 }
