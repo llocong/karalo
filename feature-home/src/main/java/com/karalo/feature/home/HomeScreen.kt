@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 private val SAFE_ZONE_HORIZONTAL = 58.dp
 private val SAFE_ZONE_VERTICAL = 28.dp
 private val SAFE_ZONE_BOTTOM_EXTRA = 24.dp
+private val BOTTOM_SPACER_HEIGHT = SAFE_ZONE_VERTICAL + SAFE_ZONE_BOTTOM_EXTRA
 
 private val SHELF_SPACING = 32.dp
 private val SHELF_TITLE_SPACING = 20.dp
@@ -78,21 +79,25 @@ internal fun HomeScreenContent(
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Padding goes *outside* verticalScroll so it's a fixed inset of the viewport rather than
-    // part of the scrollable content -- otherwise it (and, per shelf, the title above each row)
+    // The top safe-zone inset goes *outside* verticalScroll so it's a fixed part of the viewport
+    // rather than scrollable content -- otherwise it (and, per shelf, the title above each row)
     // can get scrolled out of reach: focus-driven auto-scroll only moves just enough to reveal
-    // the newly-focused card, not the whole safe zone or the shelf's own title above it.
+    // the newly-focused card, not the whole safe zone or the shelf's own title above it. The
+    // bottom inset, though, is a trailing Spacer *inside* the scrollable content instead of a
+    // matching fixed inset -- it should only ever be visible once you've scrolled to the last
+    // shelf, not permanently shrink the viewport while you're still at the top.
     Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(top = SAFE_ZONE_VERTICAL, bottom = SAFE_ZONE_VERTICAL + SAFE_ZONE_BOTTOM_EXTRA)
+                .padding(top = SAFE_ZONE_VERTICAL)
                 .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
     ) {
         HomeShelf(title = TOP_PICKS_TITLE, state = uiState.topPicks, onResultClick = onResultClick)
         HomeShelf(title = POP_TITLE, state = uiState.pop, onResultClick = onResultClick)
         HomeShelf(title = ROCK_TITLE, state = uiState.rock, onResultClick = onResultClick)
+        Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
     }
 }
 
@@ -173,10 +178,11 @@ private fun HomeShelf(
                                                 // newly-focused card into view) runs concurrently and
                                                 // otherwise wins this race, leaving a residual scroll
                                                 // offset that hides the row's start padding -- letting
-                                                // it settle first, then snapping to a true zero offset,
-                                                // guarantees the padding is always restored.
+                                                // it settle first, then animating the rest of the way
+                                                // to a true zero offset, guarantees the padding is
+                                                // always restored without an abrupt final snap.
                                                 delay(SCROLL_SETTLE_DELAY_MS)
-                                                listState.scrollToItem(0)
+                                                listState.animateScrollToItem(0)
                                             }
                                         }
                                     },

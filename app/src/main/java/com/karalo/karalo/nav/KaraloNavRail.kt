@@ -1,6 +1,7 @@
 package com.karalo.karalo.nav
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -52,6 +54,11 @@ private val HEADER_TO_ITEMS_SPACING = 48.dp
 
 // Bigger than a regular nav icon -- this is the brand mark, not just another rail item.
 private val LOGO_SIZE = 40.dp
+
+// NavigationDrawerItem's ListItem reserves this much horizontal inset before its own leading
+// icon (an internal library constant we can't reference directly); matching it here is what
+// lines the logo up with the icons below it.
+private val NAV_ITEM_HORIZONTAL_INSET = 16.dp
 
 /**
  * The drawer's contents: a logo header, the primary destinations, and a settings action pinned to
@@ -141,12 +148,31 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     }
 }
 
-/** App logo + wordmark, matching [NavigationDrawerItem]'s own icon-size and expand-on-focus pattern. */
+/**
+ * App logo + wordmark, matching [NavigationDrawerItem]'s own icon inset and expand-on-focus
+ * pattern -- including animating its width the exact same way (rather than letting it be an
+ * implicit side effect of the label fading in/out), so the drawer's overall collapse/expand
+ * doesn't visibly jump at the end from the header settling on a different timing than the items.
+ */
 @Composable
 private fun NavigationDrawerScope.KaraloNavHeader() {
+    val width by
+        animateDpAsState(
+            targetValue =
+                if (hasFocus) {
+                    NavigationDrawerItemDefaults.ExpandedDrawerItemWidth
+                } else {
+                    NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
+                },
+            label = "headerWidth",
+        )
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 12.dp),
+        modifier =
+            Modifier
+                .width(width)
+                .padding(start = NAV_ITEM_HORIZONTAL_INSET, top = 12.dp, bottom = 12.dp),
     ) {
         Image(
             painter = painterResource(R.drawable.ic_karalo_logo),
