@@ -74,6 +74,7 @@ fun HomeScreen(
     onResultClick: (startIndex: Int, videoId: String) -> Unit,
     modifier: Modifier = Modifier,
     firstVideoFocusTrigger: Int = 0,
+    playerReturnTrigger: Int = 0,
     claimInitialPlaceholderFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -87,6 +88,7 @@ fun HomeScreen(
             onResultClick(index, items[index].videoId)
         },
         firstVideoFocusTrigger = firstVideoFocusTrigger,
+        playerReturnTrigger = playerReturnTrigger,
         claimInitialPlaceholderFocus = claimInitialPlaceholderFocus,
         railFocusRequester = railFocusRequester,
         modifier = modifier,
@@ -98,6 +100,7 @@ internal fun HomeScreenContent(
     uiState: HomeUiState,
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
     firstVideoFocusTrigger: Int,
+    playerReturnTrigger: Int = 0,
     claimInitialPlaceholderFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
@@ -106,8 +109,14 @@ internal fun HomeScreenContent(
     // Neutral focus target claimed the instant this screen mounts on the app's true first-ever
     // launch, purely to keep focus off the nav rail (Compose's fallback focus-search would
     // otherwise land there -- see KaraloNavHost) until the first shelf's own first card is ready
-    // to take over below.
+    // to take over below. Deliberately gated rather than unconditional: claiming it on *every*
+    // mount -- including a mere rail focus-preview, which also navigates here (see
+    // KaraloNavRailContent) and looks identical to this from Home's own point of view -- would
+    // steal real focus off the rail item the instant it's merely focused, not clicked.
     val rootFocusRequester = remember { FocusRequester() }
+    if (claimInitialPlaceholderFocus) {
+        LaunchedEffect(Unit) { rootFocusRequester.requestFocus() }
+    }
     // Persisted across the Compose-Navigation dispose/recreate cycle that happens every time this
     // screen is re-entered (see KaraloNavHost's saveState/restoreState) so a later, unrelated
     // recomposition -- or simply re-entering Home by *focusing* it in the rail, not selecting it --
@@ -128,19 +137,35 @@ internal fun HomeScreenContent(
         lastPlayedVideoId = items[index].videoId
         onResultClick(items, index)
     }
-    // An explicit rail-click trigger (below) always takes priority over restoring the last-played
-    // video.
-    val canRestoreLastPlayed = firstVideoFocusTrigger <= consumedFocusTrigger
-
-    if (claimInitialPlaceholderFocus) {
-        LaunchedEffect(Unit) { rootFocusRequester.requestFocus() }
+    // Restoring only on a genuine, not-yet-consumed playerReturnTrigger (rather than e.g. "no
+    // fresh select pending") matters because merely *focusing* Home in the rail to preview it
+    // also navigates here (see KaraloNavRailContent), producing a remount that would otherwise be
+    // indistinguishable from a real return from the player.
+    var consumedPlayerReturnTrigger by rememberSaveable { mutableIntStateOf(0) }
+    val canRestoreLastPlayed = playerReturnTrigger > consumedPlayerReturnTrigger
+    LaunchedEffect(playerReturnTrigger) {
+        if (playerReturnTrigger > consumedPlayerReturnTrigger) {
+            consumedPlayerReturnTrigger = playerReturnTrigger
+        }
     }
 
-    // Only fires once the first shelf's data (and hence its first card) actually exists to focus.
+    // Reacts to a fresh (not-yet-consumed) select trigger in two steps rather than one: claim the
+    // root placeholder immediately if Top Picks hasn't loaded yet, then hand off to the real first
+    // video (consuming the trigger) once it has -- guaranteeing an explicit selection always
+    // visibly moves focus into content and closes the drawer right away, instead of silently doing
+    // nothing while Top Picks is still loading (or forever, if it fails to load at all): this
+    // effect re-runs the instant topPicksLoaded flips, so the hand-off still happens as soon as it
+    // can. Unlike claimInitialPlaceholderFocus above, this only fires on a genuine fresh trigger
+    // (an explicit select), never a mere focus-preview, so it can safely also run on every
+    // subsequent selection, not just the first-ever one.
     LaunchedEffect(firstVideoFocusTrigger, topPicksLoaded != null) {
-        if (firstVideoFocusTrigger > consumedFocusTrigger && topPicksLoaded != null) {
-            consumedFocusTrigger = firstVideoFocusTrigger
-            firstVideoFocusRequester.requestFocus()
+        if (firstVideoFocusTrigger > consumedFocusTrigger) {
+            if (topPicksLoaded != null) {
+                consumedFocusTrigger = firstVideoFocusTrigger
+                firstVideoFocusRequester.requestFocus()
+            } else {
+                rootFocusRequester.requestFocus()
+            }
         }
     }
 

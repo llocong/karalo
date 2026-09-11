@@ -127,6 +127,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     onSettingsClick: () -> Unit,
     onHomeSelect: () -> Unit,
     onSearchSelect: () -> Unit,
+    onSettingsSelect: () -> Unit,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
@@ -183,6 +184,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             label = "Search",
             interactionSource = searchInteractionSource,
             modifier = Modifier.testTag(NAV_TAG_SEARCH).focusRequester(searchFocusRequester),
+            blockDirectionUp = true,
         )
 
         KaraloNavItem(
@@ -202,7 +204,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
 
         KaraloNavItem(
             selected = currentRoute == NavDestination.Settings.route,
-            onClick = onSettingsClick,
+            onClick = onSettingsSelect,
             icon = Icons.Filled.Settings,
             label = "Settings",
             interactionSource = settingsInteractionSource,
@@ -219,6 +221,7 @@ private fun NavigationDrawerScope.KaraloNavItem(
     label: String,
     interactionSource: MutableInteractionSource,
     modifier: Modifier = Modifier,
+    blockDirectionUp: Boolean = false,
 ) {
     val width by
         animateDpAsState(
@@ -241,11 +244,20 @@ private fun NavigationDrawerScope.KaraloNavItem(
                 // only reachable while the drawer is open (see the drawerState effect above), so
                 // no extra "is the drawer open" check is needed here.
                 .onPreviewKeyEvent { keyEvent ->
-                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
+                    if (keyEvent.type != KeyEventType.KeyDown) {
+                        false
+                    } else if (keyEvent.key == Key.DirectionRight) {
                         onClick()
                         true
                     } else {
-                        false
+                        // The topmost item (Search) has nothing above it within the rail's own
+                        // Column; left unconsumed, Compose's default focus search doesn't respect
+                        // that boundary and can leak UP into the underlying content instead (e.g.
+                        // the search query field, which sits near the top of the content pane) --
+                        // consuming it here keeps UP a no-op once you're already at the top of the
+                        // rail, matching how the rail's own bottom (Settings) already has nothing
+                        // below it to leak into.
+                        blockDirectionUp && keyEvent.key == Key.DirectionUp
                     }
                 },
         shape = SelectableSurfaceDefaults.shape(shape = RoundedCornerShape(percent = 50)),

@@ -41,15 +41,27 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // content rather than on any rail item.
     var homeContentFocusTrigger by remember { mutableIntStateOf(1) }
     var searchContentFocusTrigger by remember { mutableIntStateOf(0) }
-    // Without an explicit initial focus target, the system's own fallback focus-search lands on
-    // the rail's first item instead (composed before the content, in NavigationDrawer's own Row) --
-    // immediately (and wrongly) expanding the menu and navigating away from Home. True only for
-    // Home's very first-ever composition (the real app launch): HomeScreen claims a neutral
-    // placeholder focus target the instant it mounts, purely to keep focus off the rail until its
-    // first video is ready to take over. Any later re-entry to Home (via the rail, focus or click)
-    // goes through the ordinary firstVideoFocusTrigger path instead, so merely *focusing* Home to
-    // preview it never steals focus away from the rail itself.
-    var isFirstEverHomeEntry by remember { mutableStateOf(true) }
+    var settingsContentFocusTrigger by remember { mutableIntStateOf(0) }
+
+    // Bumped specifically when the back stack pops from Player back to Home/Search (a genuine
+    // system-BACK return), asking that destination to restore focus to whichever video was last
+    // played there. This has to be a dedicated signal rather than reusing "no fresh select
+    // pending" as a proxy for it: merely *focusing* a rail item to preview it also navigates (see
+    // KaraloNavRailContent), producing a remount that looks identical to a real return from
+    // Player from the content's own point of view -- without this, that mere preview would also
+    // silently steal focus off the rail and onto whatever video was last played there.
+    var previousRoute by remember { mutableStateOf<String?>(null) }
+    var homePlayerReturnTrigger by remember { mutableIntStateOf(0) }
+    var searchPlayerReturnTrigger by remember { mutableIntStateOf(0) }
+    LaunchedEffect(currentRoute) {
+        if (previousRoute == NavDestination.Player.route) {
+            when (currentRoute) {
+                NavDestination.Home.route -> homePlayerReturnTrigger++
+                NavDestination.Search.route -> searchPlayerReturnTrigger++
+            }
+        }
+        previousRoute = currentRoute
+    }
 
     // Hoisted above the show/hide branch below so both the rail (which drives it on focus) and
     // each destination's own content (which reads it to decide whether BACK should open the
@@ -62,6 +74,13 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // e.g. Settings, if it happens to sit closer to whichever shelf/row is currently focused).
     val homeRailFocusRequester = remember { FocusRequester() }
     val searchRailFocusRequester = remember { FocusRequester() }
+
+    // True only for Home's very first-ever composition (the app's initial launch). Home uses this
+    // to decide whether it's safe to unconditionally claim a neutral placeholder focus target while
+    // Top Picks is still loading -- doing that on every mount (including a mere rail focus-preview,
+    // which also navigates here, see KaraloNavRailContent) would steal real focus off the rail item
+    // the instant it's merely focused, not clicked.
+    var isFirstEverHomeEntry by remember { mutableStateOf(true) }
 
     // Wrapped in movableContentOf (rather than a plain lambda) because this same content is
     // called from two different structural positions below -- as NavigationDrawer's content slot
@@ -79,17 +98,16 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     composable(NavDestination.Home.route) {
+                        LaunchedEffect(Unit) { isFirstEverHomeEntry = false }
                         HomeScreen(
                             onResultClick = { startIndex, videoId ->
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
                             firstVideoFocusTrigger = homeContentFocusTrigger,
+                            playerReturnTrigger = homePlayerReturnTrigger,
                             claimInitialPlaceholderFocus = isFirstEverHomeEntry,
                             railFocusRequester = homeRailFocusRequester,
                         )
-                        if (isFirstEverHomeEntry) {
-                            LaunchedEffect(Unit) { isFirstEverHomeEntry = false }
-                        }
                     }
                     composable(NavDestination.Search.route) {
                         SearchScreen(
@@ -97,11 +115,12 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
                             contentFocusTrigger = searchContentFocusTrigger,
+                            playerReturnTrigger = searchPlayerReturnTrigger,
                             railFocusRequester = searchRailFocusRequester,
                         )
                     }
                     composable(NavDestination.Settings.route) {
-                        SettingsScreen()
+                        SettingsScreen(contentFocusTrigger = settingsContentFocusTrigger)
                     }
                     composable(
                         route = NavDestination.Player.route,
@@ -140,6 +159,10 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                     onSearchSelect = {
                         navController.navigateToTopLevel(NavDestination.Search.route)
                         searchContentFocusTrigger++
+                    },
+                    onSettingsSelect = {
+                        navController.navigateToTopLevel(NavDestination.Settings.route)
+                        settingsContentFocusTrigger++
                     },
                 )
             },

@@ -52,6 +52,7 @@ fun SearchScreen(
     onResultClick: (startIndex: Int, videoId: String) -> Unit,
     modifier: Modifier = Modifier,
     contentFocusTrigger: Int = 0,
+    playerReturnTrigger: Int = 0,
     railFocusRequester: FocusRequester? = null,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -64,6 +65,7 @@ fun SearchScreen(
         onSuggestionClick = { suggestion -> viewModel.onSubmit(suggestion) },
         onResultClick = onResultClick,
         contentFocusTrigger = contentFocusTrigger,
+        playerReturnTrigger = playerReturnTrigger,
         railFocusRequester = railFocusRequester,
         modifier = modifier,
     )
@@ -77,6 +79,7 @@ internal fun SearchScreenContent(
     onSuggestionClick: (String) -> Unit,
     onResultClick: (Int, String) -> Unit,
     contentFocusTrigger: Int,
+    playerReturnTrigger: Int = 0,
     railFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -90,8 +93,10 @@ internal fun SearchScreenContent(
     val firstResultFocusRequester = remember { FocusRequester() }
     val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
 
-    // The video last clicked into, restored on a plain remount (e.g. pressing BACK from the
-    // player) so focus lands back on it instead of defaulting to the first result. The actual
+    // The video last clicked into, restored on a genuine return from the player (not merely
+    // *focusing* Search in the rail to preview it, which also navigates here -- see
+    // KaraloNavRailContent -- producing a remount that would otherwise be indistinguishable from a
+    // real return) so focus lands back on it instead of defaulting to the first result. The actual
     // scroll-then-focus happens inside SearchResultsGrid -- see its own restore effect -- since
     // only it has the LazyGridState and item list needed to bring an off-screen card into view
     // before a bare requestFocus() on it would silently do nothing.
@@ -101,14 +106,20 @@ internal fun SearchScreenContent(
         lastPlayedVideoId = videoId
         onResultClick(index, videoId)
     }
+    var consumedPlayerReturnTrigger by rememberSaveable { mutableIntStateOf(0) }
+    val canRestoreLastPlayed = playerReturnTrigger > consumedPlayerReturnTrigger
+    LaunchedEffect(playerReturnTrigger) {
+        if (playerReturnTrigger > consumedPlayerReturnTrigger) {
+            consumedPlayerReturnTrigger = playerReturnTrigger
+        }
+    }
 
-    val canRestoreLastPlayed =
-        rememberSearchFocusState(
-            uiState = uiState,
-            contentFocusTrigger = contentFocusTrigger,
-            focusRequester = focusRequester,
-            firstResultFocusRequester = firstResultFocusRequester,
-        )
+    rememberSearchFocusState(
+        uiState = uiState,
+        contentFocusTrigger = contentFocusTrigger,
+        focusRequester = focusRequester,
+        firstResultFocusRequester = firstResultFocusRequester,
+    )
 
     Column(
         modifier =
@@ -169,19 +180,13 @@ internal fun SearchScreenContent(
 }
 
 /**
- * Owns every piece of state that decides *where* focus moves within this screen (aside from
- * restoring focus to a specific last-played item, which needs the grid's own LazyGridState and
- * item list -- see SearchResultsGrid's own restore effect), kept out of [SearchScreenContent]
- * purely to keep that function's own complexity down.
- *
- * Two cases, in priority order: (1) a genuine Loading -> Results transition (a real query
- * submission during this screen's lifetime) focuses the first result; (2) an explicit rail-click
- * selection -- a fresh [contentFocusTrigger] -- focuses the query field (no results yet) or the
- * first result (results already showing).
- *
- * Returns whether restoring focus to the last-played item is currently allowed: false while an
- * explicit rail-click trigger (2) hasn't been consumed yet, since that always takes priority over
- * restoring the last-played video.
+ * Owns the two remaining pieces of state that decide *where* focus moves within this screen (the
+ * last-played-item restoration lives directly in [SearchScreenContent] and SearchResultsGrid
+ * instead, driven by a genuine return from the player rather than either case here), kept out of
+ * [SearchScreenContent] purely to keep that function's own complexity down: (1) a genuine Loading
+ * -> Results transition (a real query submission during this screen's lifetime) focuses the first
+ * result; (2) an explicit rail-click selection -- a fresh [contentFocusTrigger] -- focuses the
+ * query field (no results yet) or the first result (results already showing).
  */
 @Composable
 private fun rememberSearchFocusState(
@@ -189,7 +194,7 @@ private fun rememberSearchFocusState(
     contentFocusTrigger: Int,
     focusRequester: FocusRequester,
     firstResultFocusRequester: FocusRequester,
-): Boolean {
+) {
     val isShowingResults = uiState is SearchUiState.Results
     var previousIsShowingResults by remember { mutableStateOf(isShowingResults) }
     var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
@@ -212,8 +217,6 @@ private fun rememberSearchFocusState(
             }
         }
     }
-
-    return contentFocusTrigger <= consumedFocusTrigger
 }
 
 @Composable
