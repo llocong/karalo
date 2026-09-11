@@ -1,5 +1,8 @@
 package com.karalo.feature.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +20,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -31,7 +35,6 @@ import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
 import com.karalo.core.ui.components.LoadingIndicator
 import com.karalo.feature.search.domain.SearchResultItem
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // Safe-zone content margins recommended by the TV layout guidelines
@@ -49,11 +52,46 @@ private val SHELF_CARD_GUTTER = 20.dp
 private val SHELF_ROW_VERTICAL_PADDING = 20.dp
 private val SHELF_LOADING_HEIGHT = 200.dp
 
-private const val SCROLL_SETTLE_DELAY_MS = 200L
-
 private const val TOP_PICKS_TITLE = "Top Picks"
 private const val POP_TITLE = "Pop"
 private const val ROCK_TITLE = "Rock"
+
+/**
+ * A [BringIntoViewSpec] that pivots on the *center* of both the focused card and the viewport,
+ * producing YouTube-on-Google-TV-style carousel scrolling: the focused card is kept centered while
+ * scrolling through the middle of the row. This mirrors the shape of the platform's own internal
+ * `PivotBringIntoViewSpec` (used by default on TV via [LocalBringIntoViewSpec], but package-private
+ * so not reusable here) except with both the "parent" and "child" pivot fractions at 0.5 instead of
+ * 0.3/0 -- i.e. the item's own center aligned to the viewport's center, not its leading edge
+ * aligned 30% in from the start.
+ *
+ * Because a scrollable can never actually scroll past its real content bounds, the "desired"
+ * offset this produces for the first couple of cards is more negative than the row's true start
+ * (clamped there, so they stay pinned at the row's own start padding), and for the last couple of
+ * cards exceeds the row's max scroll extent (clamped there instead) -- giving the
+ * "pinned at start / centered through the middle / pinned at end" behavior with no extra per-card
+ * state or hardcoded index thresholds.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private object CenteredBringIntoViewSpec : BringIntoViewSpec {
+    override fun calculateScrollDistance(
+        offset: Float,
+        size: Float,
+        containerSize: Float,
+    ): Float {
+        val centeredTargetForLeadingEdge = (containerSize - size) / 2f
+        // Defensive fallback mirroring the platform spec's own guard: only matters if a focused
+        // card is ever wider than the viewport itself (never true for this shelf's fixed-width
+        // cards on a TV-sized screen), aligning the trailing edge instead of requesting an
+        // unsatisfiable centered position.
+        val spaceAvailable = containerSize - centeredTargetForLeadingEdge
+        return if (size <= containerSize && spaceAvailable < size) {
+            offset - (containerSize - size)
+        } else {
+            offset - centeredTargetForLeadingEdge
+        }
+    }
+}
 
 @Composable
 fun HomeScreen(
@@ -106,6 +144,7 @@ internal fun HomeScreenContent(
  * cards guidelines (developer.android.com/design/ui/tv/guides/components/cards), reusing the same
  * [FocusableCard] as the search results grid.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeShelf(
     title: String,
@@ -148,45 +187,27 @@ private fun HomeShelf(
                             .padding(horizontal = SAFE_ZONE_HORIZONTAL),
                 )
             is ShelfUiState.Loaded ->
-                LazyRow(
-                    state = listState,
-                    contentPadding =
-                        PaddingValues(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SHELF_ROW_VERTICAL_PADDING),
-                    horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
-                ) {
-                    itemsIndexed(state.items) { index, item ->
-                        FocusableCard(
-                            title = formatVideoTitle(item.title),
-                            subtitle = null,
-                            thumbnailUrl = item.thumbnailUrl,
-                            durationSeconds = item.durationSeconds,
-                            onClick = { onResultClick(state.items, index) },
-                            modifier =
-                                Modifier
-                                    .width(SHELF_CARD_WIDTH)
-                                    .onFocusChanged {
-                                        // Guarantees the row's own start padding is fully restored
-                                        // when navigating back to its first card, rather than
-                                        // relying on the default focus-scroll heuristic to land
-                                        // exactly back at a zero offset. hasFocus (not isFocused)
-                                        // since the actual focus target is a descendant of this
-                                        // modifier (ClassicCard's own internal Surface), not this
-                                        // exact node.
-                                        if (it.hasFocus && index == 0) {
-                                            coroutineScope.launch {
-                                                // The list's own default focus-scroll (bringing the
-                                                // newly-focused card into view) runs concurrently and
-                                                // otherwise wins this race, leaving a residual scroll
-                                                // offset that hides the row's start padding -- letting
-                                                // it settle first, then animating the rest of the way
-                                                // to a true zero offset, guarantees the padding is
-                                                // always restored without an abrupt final snap.
-                                                delay(SCROLL_SETTLE_DELAY_MS)
-                                                listState.animateScrollToItem(0)
-                                            }
-                                        }
-                                    },
-                        )
+                // Scoped to just this LazyRow (not the outer Column above) so it only overrides
+                // the row's own horizontal focus-follow scrolling, leaving the shelf's vertical
+                // bring-into-view behavior (the onFocusChanged block above) on the platform
+                // default.
+                CompositionLocalProvider(LocalBringIntoViewSpec provides CenteredBringIntoViewSpec) {
+                    LazyRow(
+                        state = listState,
+                        contentPadding =
+                            PaddingValues(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SHELF_ROW_VERTICAL_PADDING),
+                        horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
+                    ) {
+                        itemsIndexed(state.items) { index, item ->
+                            FocusableCard(
+                                title = formatVideoTitle(item.title),
+                                subtitle = null,
+                                thumbnailUrl = item.thumbnailUrl,
+                                durationSeconds = item.durationSeconds,
+                                onClick = { onResultClick(state.items, index) },
+                                modifier = Modifier.width(SHELF_CARD_WIDTH),
+                            )
+                        }
                     }
                 }
         }
