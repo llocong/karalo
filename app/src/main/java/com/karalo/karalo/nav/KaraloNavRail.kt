@@ -30,6 +30,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,7 +86,10 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
  * content, dip into the rail only when needed" pattern. Merely *focusing* an item here (e.g. while
  * arrowing through the rail) immediately navigates to and previews that destination via
  * [onHomeClick]/[onSearchClick]/[onSettingsClick] -- *clicking* (selecting) an item instead moves
- * focus on into that destination's own content, via [onHomeSelect]/[onSearchSelect].
+ * focus on into that destination's own content, via [onHomeSelect]/[onSearchSelect]. Pressing
+ * RIGHT while an item is focused (i.e. the drawer is open) behaves the same as clicking it -- see
+ * [KaraloNavItem]'s own key handling -- since RIGHT is the natural "go into the content" direction
+ * once the drawer has expanded to reveal it there.
  *
  * Items are hand-rolled on top of [Surface] rather than using the library's own
  * [androidx.tv.material3.NavigationDrawerItem]: that component's width animation and its label's
@@ -191,7 +199,22 @@ private fun NavigationDrawerScope.KaraloNavItem(
     Surface(
         selected = selected,
         onClick = onClick,
-        modifier = modifier.width(width).height(ITEM_HEIGHT),
+        modifier =
+            modifier
+                .width(width)
+                .height(ITEM_HEIGHT)
+                // While the drawer is open, RIGHT dives into the destination's content just like
+                // pressing the OK/Center button does -- a focused rail item is, by construction,
+                // only reachable while the drawer is open (see the drawerState effect above), so
+                // no extra "is the drawer open" check is needed here.
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
+                        onClick()
+                        true
+                    } else {
+                        false
+                    }
+                },
         shape = SelectableSurfaceDefaults.shape(shape = RoundedCornerShape(percent = 50)),
         colors = karaloNavItemColors(),
         // Surface's default 1.1x focused-scale pivots around the item's own center, which sits at
