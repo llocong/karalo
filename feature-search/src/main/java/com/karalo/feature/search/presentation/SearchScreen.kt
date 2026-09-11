@@ -162,6 +162,16 @@ internal fun SearchScreenContent(
                 SuggestionsList(
                     suggestions = uiState.suggestions,
                     onSuggestionClick = { suggestion ->
+                        // Claimed synchronously, before the state change below even reaches this
+                        // composition: submitting immediately swaps this whole suggestions list out
+                        // for a Loading/Results branch instead, disposing the just-clicked row's
+                        // focus node out from under real focus. Left alone, that leaves nothing in
+                        // Search's own content still focused, and the drawer's own rail behind it
+                        // is the nearest fallback focus target -- briefly opening the drawer until
+                        // the eventual Loading -> Results transition claims focus back into content
+                        // (see the isShowingResults effect below). Grabbing the query field here
+                        // instead keeps focus inside this screen's content the whole time.
+                        focusRequester.requestFocus()
                         // Display the cleaned-up text (matching the suggestion row itself), but
                         // still submit the raw suggestion — see formatSuggestion's own doc.
                         text = formatSuggestion(suggestion)
