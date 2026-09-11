@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -47,6 +49,9 @@ const val NAV_TAG_SETTINGS = "nav_settings"
 // collapsed to icons-only, per the nav-drawer guide's three-section layout (logo header / nav
 // items / bottom actions) -- developer.android.com/design/ui/tv/guides/components/navigation-drawer.
 private val HEADER_TO_ITEMS_SPACING = 48.dp
+
+// Bigger than a regular nav icon -- this is the brand mark, not just another rail item.
+private val LOGO_SIZE = 40.dp
 
 /**
  * The drawer's contents: a logo header, the primary destinations, and a settings action pinned to
@@ -74,11 +79,16 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
     val isHomeFocused by homeInteractionSource.collectIsFocusedAsState()
     val isSettingsFocused by settingsInteractionSource.collectIsFocusedAsState()
+    val homeFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(isSearchFocused, isHomeFocused, isSettingsFocused) {
         val anyFocused = isSearchFocused || isHomeFocused || isSettingsFocused
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
     }
+
+    // Home is the app's start destination, so it should own initial D-pad focus even though
+    // Search is listed first.
+    LaunchedEffect(Unit) { homeFocusRequester.requestFocus() }
 
     Column(
         modifier =
@@ -111,7 +121,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             leadingContent = { Icon(imageVector = Icons.Filled.Home, contentDescription = null) },
             colors = karaloNavItemColors(),
             interactionSource = homeInteractionSource,
-            modifier = Modifier.testTag(NAV_TAG_HOME).padding(top = 8.dp),
+            modifier = Modifier.testTag(NAV_TAG_HOME).focusRequester(homeFocusRequester).padding(top = 8.dp),
         ) {
             Text("Home", style = MaterialTheme.typography.labelMedium)
         }
@@ -141,7 +151,7 @@ private fun NavigationDrawerScope.KaraloNavHeader() {
         Image(
             painter = painterResource(R.drawable.ic_karalo_logo),
             contentDescription = null,
-            modifier = Modifier.size(NavigationDrawerItemDefaults.IconSize),
+            modifier = Modifier.size(LOGO_SIZE),
         )
         AnimatedVisibility(
             visible = hasFocus,
