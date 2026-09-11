@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -106,6 +107,23 @@ internal fun HomeScreenContent(
     var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
     val topPicksLoaded = (uiState.topPicks as? ShelfUiState.Loaded)?.takeIf { it.items.isNotEmpty() }
 
+    // The video last clicked into, across any shelf -- restored on a plain remount (e.g. pressing
+    // BACK from the player) so focus lands back on it instead of defaulting to the first card.
+    // Persisted across the Compose-Navigation dispose/recreate cycle this screen goes through on
+    // every re-entry, same as consumedFocusTrigger above. The actual scroll-then-focus happens
+    // inside whichever HomeShelf's own items contain a match -- see its restore effect -- since
+    // only that shelf has the LazyListState and item list needed to bring an off-screen card into
+    // view before a bare requestFocus() on it would silently do nothing.
+    var lastPlayedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+    val restoreFocusRequester = remember { FocusRequester() }
+    val trackedOnResultClick: (List<SearchResultItem>, Int) -> Unit = { items, index ->
+        lastPlayedVideoId = items[index].videoId
+        onResultClick(items, index)
+    }
+    // An explicit rail-click trigger (below) always takes priority over restoring the last-played
+    // video.
+    val canRestoreLastPlayed = firstVideoFocusTrigger <= consumedFocusTrigger
+
     if (claimInitialPlaceholderFocus) {
         LaunchedEffect(Unit) { rootFocusRequester.requestFocus() }
     }
@@ -138,11 +156,28 @@ internal fun HomeScreenContent(
         HomeShelf(
             title = TOP_PICKS_TITLE,
             state = uiState.topPicks,
-            onResultClick = onResultClick,
+            onResultClick = trackedOnResultClick,
             firstItemFocusRequester = firstVideoFocusRequester,
+            restoreFocusVideoId = lastPlayedVideoId,
+            restoreFocusRequester = restoreFocusRequester,
+            canRestoreFocus = canRestoreLastPlayed,
         )
-        HomeShelf(title = POP_TITLE, state = uiState.pop, onResultClick = onResultClick)
-        HomeShelf(title = ROCK_TITLE, state = uiState.rock, onResultClick = onResultClick)
+        HomeShelf(
+            title = POP_TITLE,
+            state = uiState.pop,
+            onResultClick = trackedOnResultClick,
+            restoreFocusVideoId = lastPlayedVideoId,
+            restoreFocusRequester = restoreFocusRequester,
+            canRestoreFocus = canRestoreLastPlayed,
+        )
+        HomeShelf(
+            title = ROCK_TITLE,
+            state = uiState.rock,
+            onResultClick = trackedOnResultClick,
+            restoreFocusVideoId = lastPlayedVideoId,
+            restoreFocusRequester = restoreFocusRequester,
+            canRestoreFocus = canRestoreLastPlayed,
+        )
         Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
     }
 }
@@ -159,6 +194,9 @@ private fun HomeShelf(
     state: ShelfUiState,
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
+    restoreFocusVideoId: String? = null,
+    restoreFocusRequester: FocusRequester? = null,
+    canRestoreFocus: Boolean = false,
 ) {
     val coroutineScope = rememberCoroutineScope()
     // Requests the whole shelf (title included) into view -- not just the focused card -- when
@@ -166,6 +204,20 @@ private fun HomeShelf(
     // its title again rather than stopping as soon as the card itself is visible.
     val shelfBringIntoViewRequester = remember { BringIntoViewRequester() }
     val listState = rememberLazyListState()
+
+    // Restoring focus to an item further along the row than what's initially composed requires
+    // scrolling it into view first -- requestFocus() on a FocusRequester with no attached node
+    // (e.g. an item the LazyRow hasn't composed yet) is a silent no-op.
+    val loadedItemsToRestoreIn = (state as? ShelfUiState.Loaded)?.items.takeIf { canRestoreFocus }
+    if (restoreFocusRequester != null && restoreFocusVideoId != null && loadedItemsToRestoreIn != null) {
+        val restoreTargetIndex = loadedItemsToRestoreIn.indexOfFirst { it.videoId == restoreFocusVideoId }
+        LaunchedEffect(restoreFocusVideoId, restoreTargetIndex) {
+            if (restoreTargetIndex >= 0) {
+                listState.scrollToItem(restoreTargetIndex)
+                restoreFocusRequester.requestFocus()
+            }
+        }
+    }
 
     Column(
         modifier =
@@ -208,12 +260,13 @@ private fun HomeShelf(
                         horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
                     ) {
                         itemsIndexed(state.items) { index, item ->
-                            val focusModifier =
-                                if (index == 0 && firstItemFocusRequester != null) {
-                                    Modifier.focusRequester(firstItemFocusRequester)
-                                } else {
-                                    Modifier
-                                }
+                            var focusModifier: Modifier = Modifier
+                            if (index == 0 && firstItemFocusRequester != null) {
+                                focusModifier = focusModifier.focusRequester(firstItemFocusRequester)
+                            }
+                            if (restoreFocusRequester != null && item.videoId == restoreFocusVideoId) {
+                                focusModifier = focusModifier.focusRequester(restoreFocusRequester)
+                            }
                             FocusableCard(
                                 title = formatVideoTitle(item.title),
                                 subtitle = null,

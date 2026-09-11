@@ -86,39 +86,26 @@ internal fun SearchScreenContent(
     val firstSuggestionFocusRequester = remember { FocusRequester() }
     val firstResultFocusRequester = remember { FocusRequester() }
     val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
-    val isShowingResults = uiState is SearchUiState.Results
 
-    // Auto-focuses the first result only on a genuine Loading -> Results transition (a real query
-    // submission during this screen's lifetime) -- seeding `previousIsShowingResults` from the
-    // *current* value means mounting directly into an already-loaded Results state (e.g. merely
-    // *focusing*, not selecting, the Search nav item to preview it -- see KaraloNavRailContent)
-    // never steals focus away from the rail.
-    var previousIsShowingResults by remember { mutableStateOf(isShowingResults) }
-    LaunchedEffect(isShowingResults) {
-        if (isShowingResults && !previousIsShowingResults) {
-            firstResultFocusRequester.requestFocus()
-        }
-        previousIsShowingResults = isShowingResults
+    // The video last clicked into, restored on a plain remount (e.g. pressing BACK from the
+    // player) so focus lands back on it instead of defaulting to the first result. The actual
+    // scroll-then-focus happens inside SearchResultsGrid -- see its own restore effect -- since
+    // only it has the LazyGridState and item list needed to bring an off-screen card into view
+    // before a bare requestFocus() on it would silently do nothing.
+    var lastPlayedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+    val restoreFocusRequester = remember { FocusRequester() }
+    val trackedOnResultClick: (Int, String) -> Unit = { index, videoId ->
+        lastPlayedVideoId = videoId
+        onResultClick(index, videoId)
     }
 
-    // Bumped when the user *selects* (clicks) the Search nav item -- see KaraloNavRailContent --
-    // asking this screen to grab focus: the query field if there's no existing result, or the
-    // first result if one is already showing. Persisted across the Compose-Navigation
-    // dispose/recreate cycle that happens every time this screen is re-entered so a later,
-    // unrelated recomposition -- or merely *focusing* Search in the rail, not selecting it -- never
-    // mistakes an already-consumed trigger value for a fresh one.
-    var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(contentFocusTrigger) {
-        if (contentFocusTrigger > consumedFocusTrigger) {
-            consumedFocusTrigger = contentFocusTrigger
-            val resultsWithItems = (uiState as? SearchUiState.Results)?.takeIf { it.items.isNotEmpty() }
-            if (resultsWithItems != null) {
-                firstResultFocusRequester.requestFocus()
-            } else {
-                focusRequester.requestFocus()
-            }
-        }
-    }
+    val canRestoreLastPlayed =
+        rememberSearchFocusState(
+            uiState = uiState,
+            contentFocusTrigger = contentFocusTrigger,
+            focusRequester = focusRequester,
+            firstResultFocusRequester = firstResultFocusRequester,
+        )
 
     Column(
         modifier =
@@ -155,12 +142,63 @@ internal fun SearchScreenContent(
             is SearchUiState.Results ->
                 SearchResultsGrid(
                     items = uiState.items,
-                    onResultClick = onResultClick,
+                    onResultClick = trackedOnResultClick,
                     firstItemFocusRequester = firstResultFocusRequester,
+                    restoreFocusVideoId = lastPlayedVideoId,
+                    restoreFocusRequester = restoreFocusRequester,
+                    canRestoreFocus = canRestoreLastPlayed,
                 )
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)
         }
     }
+}
+
+/**
+ * Owns every piece of state that decides *where* focus moves within this screen (aside from
+ * restoring focus to a specific last-played item, which needs the grid's own LazyGridState and
+ * item list -- see SearchResultsGrid's own restore effect), kept out of [SearchScreenContent]
+ * purely to keep that function's own complexity down.
+ *
+ * Two cases, in priority order: (1) a genuine Loading -> Results transition (a real query
+ * submission during this screen's lifetime) focuses the first result; (2) an explicit rail-click
+ * selection -- a fresh [contentFocusTrigger] -- focuses the query field (no results yet) or the
+ * first result (results already showing).
+ *
+ * Returns whether restoring focus to the last-played item is currently allowed: false while an
+ * explicit rail-click trigger (2) hasn't been consumed yet, since that always takes priority over
+ * restoring the last-played video.
+ */
+@Composable
+private fun rememberSearchFocusState(
+    uiState: SearchUiState,
+    contentFocusTrigger: Int,
+    focusRequester: FocusRequester,
+    firstResultFocusRequester: FocusRequester,
+): Boolean {
+    val isShowingResults = uiState is SearchUiState.Results
+    var previousIsShowingResults by remember { mutableStateOf(isShowingResults) }
+    var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
+
+    LaunchedEffect(isShowingResults) {
+        if (isShowingResults && !previousIsShowingResults) {
+            firstResultFocusRequester.requestFocus()
+        }
+        previousIsShowingResults = isShowingResults
+    }
+
+    LaunchedEffect(contentFocusTrigger) {
+        if (contentFocusTrigger > consumedFocusTrigger) {
+            consumedFocusTrigger = contentFocusTrigger
+            val resultsWithItems = (uiState as? SearchUiState.Results)?.takeIf { it.items.isNotEmpty() }
+            if (resultsWithItems != null) {
+                firstResultFocusRequester.requestFocus()
+            } else {
+                focusRequester.requestFocus()
+            }
+        }
+    }
+
+    return contentFocusTrigger <= consumedFocusTrigger
 }
 
 @Composable

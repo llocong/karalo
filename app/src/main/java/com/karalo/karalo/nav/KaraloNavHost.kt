@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,50 +50,60 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // preview it never steals focus away from the rail itself.
     var isFirstEverHomeEntry by remember { mutableStateOf(true) }
 
-    val screens: @Composable () -> Unit = {
-        NavHost(
-            navController = navController,
-            startDestination = NavDestination.Home.route,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            composable(NavDestination.Home.route) {
-                HomeScreen(
-                    onResultClick = { startIndex, videoId ->
-                        navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
-                    },
-                    firstVideoFocusTrigger = homeContentFocusTrigger,
-                    claimInitialPlaceholderFocus = isFirstEverHomeEntry,
-                )
-                if (isFirstEverHomeEntry) {
-                    LaunchedEffect(Unit) { isFirstEverHomeEntry = false }
+    // Wrapped in movableContentOf (rather than a plain lambda) because this same content is
+    // called from two different structural positions below -- as NavigationDrawer's content slot
+    // while the rail is shown, or directly when it's hidden for immersive playback. A plain lambda
+    // invoked from two different call sites is, from Compose's point of view, two unrelated
+    // subtrees: every navigation to or from the player would otherwise dispose and recreate the
+    // whole NavHost (and hence Home/Search's own state, rememberSaveable included) from scratch.
+    // movableContentOf instead relocates the existing composition node, preserving its state.
+    val screens =
+        remember {
+            movableContentOf {
+                NavHost(
+                    navController = navController,
+                    startDestination = NavDestination.Home.route,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    composable(NavDestination.Home.route) {
+                        HomeScreen(
+                            onResultClick = { startIndex, videoId ->
+                                navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
+                            },
+                            firstVideoFocusTrigger = homeContentFocusTrigger,
+                            claimInitialPlaceholderFocus = isFirstEverHomeEntry,
+                        )
+                        if (isFirstEverHomeEntry) {
+                            LaunchedEffect(Unit) { isFirstEverHomeEntry = false }
+                        }
+                    }
+                    composable(NavDestination.Search.route) {
+                        SearchScreen(
+                            onResultClick = { startIndex, videoId ->
+                                navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
+                            },
+                            contentFocusTrigger = searchContentFocusTrigger,
+                        )
+                    }
+                    composable(NavDestination.Settings.route) {
+                        SettingsScreen()
+                    }
+                    composable(
+                        route = NavDestination.Player.route,
+                        arguments =
+                            listOf(
+                                navArgument(PLAYER_ARG_START_INDEX) { type = NavType.IntType },
+                                navArgument(PLAYER_ARG_START_VIDEO_ID) {
+                                    type = NavType.StringType
+                                    nullable = true
+                                },
+                            ),
+                    ) {
+                        PlayerScreen()
+                    }
                 }
             }
-            composable(NavDestination.Search.route) {
-                SearchScreen(
-                    onResultClick = { startIndex, videoId ->
-                        navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
-                    },
-                    contentFocusTrigger = searchContentFocusTrigger,
-                )
-            }
-            composable(NavDestination.Settings.route) {
-                SettingsScreen()
-            }
-            composable(
-                route = NavDestination.Player.route,
-                arguments =
-                    listOf(
-                        navArgument(PLAYER_ARG_START_INDEX) { type = NavType.IntType },
-                        navArgument(PLAYER_ARG_START_VIDEO_ID) {
-                            type = NavType.StringType
-                            nullable = true
-                        },
-                    ),
-            ) {
-                PlayerScreen()
-            }
         }
-    }
 
     if (showNavRail) {
         val drawerState = rememberDrawerState(DrawerValue.Closed)
