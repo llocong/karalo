@@ -55,10 +55,15 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.karalo.core.ui.R
 import com.karalo.core.ui.theme.KaraloLogoTextStyle
+import kotlinx.coroutines.delay
 
 const val NAV_TAG_HOME = "nav_home"
 const val NAV_TAG_SEARCH = "nav_search"
 const val NAV_TAG_SETTINGS = "nav_settings"
+
+// How long focus has to stay on one rail item before its "focus to preview" navigation actually
+// fires -- see the LaunchedEffects below for why this matters.
+private const val FOCUS_PREVIEW_DEBOUNCE_MS = 150L
 
 // Generous gap below the logo header so the nav items sit well clear of it once the drawer is
 // collapsed to icons-only, per the nav-drawer guide's three-section layout (logo header / nav
@@ -142,11 +147,35 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
     }
 
-    // Focusing an item -- without clicking it -- immediately navigates to and previews that
-    // destination, matching a common TV "focus to preview" pattern.
-    LaunchedEffect(isSearchFocused) { if (isSearchFocused) onSearchClick() }
-    LaunchedEffect(isHomeFocused) { if (isHomeFocused) onHomeClick() }
-    LaunchedEffect(isSettingsFocused) { if (isSettingsFocused) onSettingsClick() }
+    // Focusing an item -- without clicking it -- navigates to and previews that destination,
+    // matching a common TV "focus to preview" pattern. Debounced by a short delay rather than
+    // firing the instant focus lands: previewing a destination means a real NavHost navigate()
+    // call, and NavHost only ever keeps one destination's composable subtree alive -- so it fully
+    // disposes the screen being left and rebuilds the one being entered (shelves, lazy rows, cards,
+    // images, focus nodes) from scratch. Scanning across several rail items quickly (holding
+    // DOWN/UP, or just arrowing through in succession) would otherwise pay that full rebuild cost
+    // once per item passed over, not just once for wherever the user actually stops -- each of
+    // these LaunchedEffects is individually keyed on its own isXFocused, so Compose already cancels
+    // a still-pending delay the instant focus moves off that item again, meaning only the item the
+    // user actually settles on for a moment ever triggers the expensive navigation.
+    LaunchedEffect(isSearchFocused) {
+        if (isSearchFocused) {
+            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
+            onSearchClick()
+        }
+    }
+    LaunchedEffect(isHomeFocused) {
+        if (isHomeFocused) {
+            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
+            onHomeClick()
+        }
+    }
+    LaunchedEffect(isSettingsFocused) {
+        if (isSettingsFocused) {
+            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
+            onSettingsClick()
+        }
+    }
 
     val activity = LocalContext.current as? Activity
 
