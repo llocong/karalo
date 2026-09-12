@@ -45,6 +45,16 @@ class SearchViewModel
         // different, so suggestions resume for further edits.
         private var lastSubmittedQuery: String? = null
 
+        // A second, more general guard alongside lastSubmittedQuery above: that one only catches a
+        // fetch racing against a submit of the *same* text (e.g. pressing Enter on what's already
+        // typed). Picking a suggestion submits *different* text than the raw query a fetch may
+        // already be in flight for (e.g. typing "Eminem" starts a fetch for "Eminem", then picking
+        // the "Eminem Rap God" chip before that fetch resolves) — lastSubmittedQuery alone can't
+        // catch that, since the two strings never match. Incremented on every submit; a fetch only
+        // applies its result if this hasn't changed since it started, i.e. nothing was submitted
+        // (of *any* text) while it was in flight.
+        private var submitGeneration = 0
+
         init {
             viewModelScope.launch {
                 queryInput
@@ -67,6 +77,7 @@ class SearchViewModel
         fun onSubmit(rawQuery: String = queryInput.value) {
             if (rawQuery.isBlank()) return
             lastSubmittedQuery = rawQuery
+            submitGeneration++
             viewModelScope.launch {
                 _uiState.value = SearchUiState.Loading(rawQuery)
                 when (val result = searchYouTube(rawQuery)) {
@@ -84,10 +95,18 @@ class SearchViewModel
 
         private suspend fun loadSuggestions(rawQuery: String) {
             if (rawQuery.isBlank() || rawQuery == lastSubmittedQuery) return
-            when (val result = getSearchSuggestions(rawQuery)) {
-                is AppResult.Success -> _uiState.value = SearchUiState.Suggesting(rawQuery, result.data)
-                // Suggestions are a nice-to-have — a failure here shouldn't block typing/searching.
-                is AppResult.Failure -> _uiState.value = SearchUiState.Suggesting(rawQuery, emptyList())
+            val generationAtStart = submitGeneration
+            val suggestions =
+                when (val result = getSearchSuggestions(rawQuery)) {
+                    is AppResult.Success -> result.data
+                    // Suggestions are a nice-to-have — a failure here shouldn't block typing/searching.
+                    is AppResult.Failure -> emptyList()
+                }
+            // Re-checked after the suspend call above, not just at entry: onSubmit (of this exact
+            // text or, just as importantly, any other) may have happened while the fetch was in
+            // flight, already moving the UI state past Suggesting — see submitGeneration's own doc.
+            if (submitGeneration == generationAtStart) {
+                _uiState.value = SearchUiState.Suggesting(rawQuery, suggestions)
             }
         }
 

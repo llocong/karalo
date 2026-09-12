@@ -11,8 +11,11 @@ import com.karalo.feature.search.domain.SearchYouTubeUseCase
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -86,6 +89,35 @@ class SearchViewModelTest {
             advanceUntilIdle()
 
             assertEquals(SearchUiState.Results("Test Song", items), viewModel.uiState.value)
+        }
+
+    @Test
+    fun `submitting a suggestion does not get clobbered by an in-flight fetch for the raw query`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            // Reproduces the real bug: the debounced suggestions fetch for the raw typed text
+            // ("Eminem") is still in flight (its own network call hasn't resolved yet) when the
+            // user picks a *different*-text suggestion chip ("Eminem Rap God"). lastSubmittedQuery
+            // alone can't catch this, since the fetch's own text never matches the submitted one --
+            // the stale suggestions result must still not overwrite the Results state once it
+            // eventually lands.
+            val items = listOf(SearchResultItem("id1", "Song", "Channel", null, 200))
+            val suggestionsResult = CompletableDeferred<AppResult<List<String>>>()
+            coEvery { getSuggestions("Eminem") } coAnswers { suggestionsResult.await() }
+            coEvery { searchYouTube("Eminem Rap God") } returns AppResult.Success(items)
+            val viewModel = createViewModel()
+
+            viewModel.onQueryChanged("Eminem")
+            advanceTimeBy(301L) // let the debounce fire, starting (but not resolving) the fetch
+            runCurrent()
+
+            viewModel.onSubmit("Eminem Rap God")
+            advanceUntilIdle()
+
+            // The stale fetch resolves only now, well after the submit already produced Results.
+            suggestionsResult.complete(AppResult.Success(listOf("eminem")))
+            advanceUntilIdle()
+
+            assertEquals(SearchUiState.Results("Eminem Rap God", items), viewModel.uiState.value)
         }
 
     @Test
