@@ -37,9 +37,11 @@ import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
 // HomeScreen.kt/SearchResultsRow.kt).
 private val SAFE_ZONE_HORIZONTAL = 58.dp
 
-// Gap below the search bar -- within the spec's ~60-80dp range.
-private val SUGGESTIONS_ROW_TOP_GAP = 72.dp
-private val CHIP_ROW_BOTTOM_PADDING = 16.dp
+// Symmetric top/bottom padding -- matches SearchResultsRow's own ROW_VERTICAL_PADDING. The row is
+// now vertically centered by its caller (see SearchScreenContent's Suggesting branch) rather than
+// pinned just below the search bar, so this only needs to give the chips themselves some breathing
+// room, not carve out a fixed gap below the bar.
+private val CHIP_ROW_VERTICAL_PADDING = 20.dp
 private val CHIP_GUTTER = 12.dp
 private val CHIP_HORIZONTAL_PADDING = 20.dp
 private val CHIP_VERTICAL_PADDING = 10.dp
@@ -85,10 +87,8 @@ internal fun SuggestionChipsRow(
             state = listState,
             contentPadding =
                 PaddingValues(
-                    start = SAFE_ZONE_HORIZONTAL,
-                    end = SAFE_ZONE_HORIZONTAL,
-                    top = SUGGESTIONS_ROW_TOP_GAP,
-                    bottom = CHIP_ROW_BOTTOM_PADDING,
+                    horizontal = SAFE_ZONE_HORIZONTAL,
+                    vertical = CHIP_ROW_VERTICAL_PADDING,
                 ),
             horizontalArrangement = Arrangement.spacedBy(CHIP_GUTTER),
             modifier =

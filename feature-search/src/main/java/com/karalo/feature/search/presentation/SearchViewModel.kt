@@ -41,8 +41,13 @@ class SearchViewModel
         // Guards against a stale in-flight suggestions fetch (debounced, so it can still resolve
         // shortly after onSubmit) overwriting the Results/Loading/Error state that submitting the
         // same text already produced — otherwise the UI can flicker back from "results" to
-        // "suggestions" a moment after the user hits search. Cleared once the user types something
-        // different, so suggestions resume for further edits.
+        // "suggestions" a moment after the user hits search. Deliberately only ever *set* here (by
+        // onSubmit) and compared by value in loadSuggestions below, never cleared on a differing
+        // onQueryChanged: the query field itself can echo a spurious onValueChange callback with
+        // stale text shortly after we set it programmatically (e.g. right after picking a
+        // suggestion) — clearing this on any differing text used to make that echo wipe out the
+        // guard right when it's needed most. A genuine edit to different text already compares
+        // unequal on its own, so nothing here needs to actively "resume" it.
         private var lastSubmittedQuery: String? = null
 
         // A second, more general guard alongside lastSubmittedQuery above: that one only catches a
@@ -66,9 +71,6 @@ class SearchViewModel
 
         fun onQueryChanged(rawQuery: String) {
             queryInput.value = rawQuery
-            if (rawQuery != lastSubmittedQuery) {
-                lastSubmittedQuery = null
-            }
             if (rawQuery.isBlank()) {
                 _uiState.value = SearchUiState.Idle
             }

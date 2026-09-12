@@ -77,7 +77,14 @@ internal fun SearchScreenContent(
     // plain String) so the cursor position can be controlled explicitly -- see onSuggestionClick's
     // own comment for why that matters.
     var textFieldValue by
-        remember { mutableStateOf(TextFieldValue(formatSuggestion(rawQueryOf(uiState)))) }
+        remember {
+            // Cursor explicitly placed at the end of this seed text (rather than relying on
+            // TextFieldValue's default TextRange.Zero) -- otherwise a remount that reseeds this with
+            // non-empty restored text (e.g. navigating back from the player, then pressing UP back
+            // to the field) leaves the cursor sitting at the very start of the query instead.
+            val seedText = formatSuggestion(rawQueryOf(uiState))
+            mutableStateOf(TextFieldValue(seedText, selection = TextRange(seedText.length)))
+        }
     val focusRequester = remember { FocusRequester() }
     val firstSuggestionFocusRequester = remember { FocusRequester() }
     val firstResultFocusRequester = remember { FocusRequester() }
@@ -163,33 +170,41 @@ internal fun SearchScreenContent(
         when (uiState) {
             is SearchUiState.Idle -> Unit
             is SearchUiState.Suggesting ->
-                SuggestionChipsRow(
-                    suggestions = uiState.suggestions,
-                    onSuggestionClick = { suggestion ->
-                        // Claimed synchronously, before the state change below even reaches this
-                        // composition: submitting immediately swaps this whole suggestions row out
-                        // for a Loading/Results branch instead, disposing the just-clicked chip's
-                        // focus node out from under real focus. Left alone, that leaves nothing in
-                        // Search's own content still focused, and the drawer's own rail behind it
-                        // is the nearest fallback focus target -- briefly opening the drawer until
-                        // the eventual Loading -> Results transition claims focus back into content
-                        // (see the isShowingResults effect below). Grabbing the query field here
-                        // instead keeps focus inside this screen's content the whole time.
-                        focusRequester.requestFocus()
-                        // Display the cleaned-up text (matching the chip itself), but still submit
-                        // the raw suggestion — see formatSuggestion's own doc. Cursor explicitly
-                        // placed at the end of the new text (a plain `text = ...` on a
-                        // TextFieldValue would otherwise carry the *previous* value's cursor
-                        // offset/selection forward unchanged, which can land it mid-string).
-                        val newText = formatSuggestion(suggestion)
-                        textFieldValue = TextFieldValue(newText, selection = TextRange(newText.length))
-                        onSuggestionClick(suggestion)
-                    },
-                    firstItemFocusRequester = firstSuggestionFocusRequester,
-                    focusFirstItemTrigger = focusFirstSuggestionTrigger,
-                    queryFieldFocusRequester = focusRequester,
-                    railFocusRequester = railFocusRequester,
-                )
+                // Vertically centered in the remaining space below the search bar, matching the
+                // Results branch below, so the row sits visually between the field and where the
+                // results row will appear rather than hugging the top of that space.
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SuggestionChipsRow(
+                        suggestions = uiState.suggestions,
+                        onSuggestionClick = { suggestion ->
+                            // Claimed synchronously, before the state change below even reaches this
+                            // composition: submitting immediately swaps this whole suggestions row out
+                            // for a Loading/Results branch instead, disposing the just-clicked chip's
+                            // focus node out from under real focus. Left alone, that leaves nothing in
+                            // Search's own content still focused, and the drawer's own rail behind it
+                            // is the nearest fallback focus target -- briefly opening the drawer until
+                            // the eventual Loading -> Results transition claims focus back into content
+                            // (see the isShowingResults effect below). Grabbing the query field here
+                            // instead keeps focus inside this screen's content the whole time.
+                            focusRequester.requestFocus()
+                            // Display the cleaned-up text (matching the chip itself), but still submit
+                            // the raw suggestion — see formatSuggestion's own doc. Cursor explicitly
+                            // placed at the end of the new text (a plain `text = ...` on a
+                            // TextFieldValue would otherwise carry the *previous* value's cursor
+                            // offset/selection forward unchanged, which can land it mid-string).
+                            val newText = formatSuggestion(suggestion)
+                            textFieldValue = TextFieldValue(newText, selection = TextRange(newText.length))
+                            onSuggestionClick(suggestion)
+                        },
+                        firstItemFocusRequester = firstSuggestionFocusRequester,
+                        focusFirstItemTrigger = focusFirstSuggestionTrigger,
+                        queryFieldFocusRequester = focusRequester,
+                        railFocusRequester = railFocusRequester,
+                    )
+                }
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
             is SearchUiState.Results ->
                 // Vertically centered in the remaining space below the search bar, rather than
