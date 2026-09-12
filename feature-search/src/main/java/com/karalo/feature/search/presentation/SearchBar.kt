@@ -3,6 +3,7 @@ package com.karalo.feature.search.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +30,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
@@ -53,8 +55,8 @@ private const val SEARCH_PLACEHOLDER = "Search for a song or artist"
  */
 @Composable
 internal fun SearchBar(
-    text: String,
-    onTextChange: (String) -> Unit,
+    textFieldValue: TextFieldValue,
+    onTextFieldValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
     hasSuggestions: Boolean,
@@ -75,8 +77,8 @@ internal fun SearchBar(
         )
         Box(modifier = Modifier.width(MIC_TO_FIELD_GAP))
         SearchQueryField(
-            text = text,
-            onTextChange = onTextChange,
+            textFieldValue = textFieldValue,
+            onTextFieldValueChange = onTextFieldValueChange,
             onSubmit = onSubmit,
             focusRequester = focusRequester,
             hasSuggestions = hasSuggestions,
@@ -132,14 +134,16 @@ private fun MicButton(
                     }
                 },
     ) {
-        Icon(imageVector = Icons.Filled.Mic, contentDescription = "Voice search")
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(imageVector = Icons.Filled.Mic, contentDescription = "Voice search")
+        }
     }
 }
 
 @Composable
 private fun SearchQueryField(
-    text: String,
-    onTextChange: (String) -> Unit,
+    textFieldValue: TextFieldValue,
+    onTextFieldValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
     hasSuggestions: Boolean,
@@ -147,12 +151,18 @@ private fun SearchQueryField(
     micFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
+    val isEmpty = textFieldValue.text.isEmpty()
     // Uses titleMedium (the Plain/Manrope role) rather than a Brand/Fredoka style: an editable
     // text field needs a plain, highly-legible face for arbitrary typed text, not the expressive
     // display font reserved for headlines.
+    //
+    // The TextFieldValue overload (rather than the plain String one) is deliberate: it's the only
+    // way to control cursor *position* explicitly, needed so that setting the field's text from a
+    // picked suggestion (see SearchScreenContent's onSuggestionClick) can place the cursor at the
+    // end of the new text rather than wherever it happened to land from the previous value.
     BasicTextField(
-        value = text,
-        onValueChange = onTextChange,
+        value = textFieldValue,
+        onValueChange = onTextFieldValueChange,
         singleLine = true,
         textStyle = MaterialTheme.typography.titleMedium.copy(color = SearchTypedText),
         cursorBrush = SolidColor(SearchTypedText),
@@ -160,7 +170,7 @@ private fun SearchQueryField(
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.CenterStart) {
-                if (text.isEmpty()) {
+                if (isEmpty) {
                     Text(
                         text = SEARCH_PLACEHOLDER,
                         style = MaterialTheme.typography.titleMedium,
@@ -186,7 +196,7 @@ private fun SearchQueryField(
                     } else if (hasSuggestions && keyEvent.key == Key.DirectionDown) {
                         onDownToSuggestions()
                         true
-                    } else if (text.isEmpty() && keyEvent.key == Key.DirectionLeft) {
+                    } else if (isEmpty && keyEvent.key == Key.DirectionLeft) {
                         micFocusRequester.requestFocus()
                         true
                     } else {

@@ -56,6 +56,7 @@ fun SearchResultsRow(
     restoreFocusRequester: FocusRequester? = null,
     canRestoreFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
+    queryFieldFocusRequester: FocusRequester? = null,
 ) {
     val listState = rememberLazyListState()
 
@@ -81,7 +82,25 @@ fun SearchResultsRow(
             // handled explicitly above (fresh results, an explicit rail select, and restoring the
             // last-played item) -- see SearchResultsRowFocusEffects' own comments for why adding it
             // back would reintroduce a focus race.
-            modifier = modifier.focusGroup(),
+            modifier =
+                modifier
+                    .focusGroup()
+                    // UP from any card always returns to the query field. Left to Compose's default
+                    // spatial focus search, this was landing on the mic button instead when the
+                    // *first* card was focused (it sits closer to the row's left edge than the
+                    // field does) -- made deterministic here instead, on one ancestor covering every
+                    // card, matching SuggestionChipsRow's identical UP-to-field override.
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown &&
+                            keyEvent.key == Key.DirectionUp &&
+                            queryFieldFocusRequester != null
+                        ) {
+                            queryFieldFocusRequester.requestFocus()
+                            true
+                        } else {
+                            false
+                        }
+                    },
         ) {
             itemsIndexed(items) { index, item ->
                 var focusModifier: Modifier = Modifier

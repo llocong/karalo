@@ -1,7 +1,9 @@
 package com.karalo.feature.search.presentation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.Key
@@ -19,6 +22,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.karalo.core.ui.components.ErrorState
@@ -67,9 +72,12 @@ internal fun SearchScreenContent(
 ) {
     // Lifted out of SearchQueryField so a suggestion click (which bypasses onQueryChanged) can
     // also update the field's displayed text — see onSuggestionClick below. Seeded with the
-    // cleaned-up text since this recomposes fresh (losing any prior `text` edits) whenever the
-    // screen re-enters composition, e.g. navigating back from the player.
-    var text by remember { mutableStateOf(formatSuggestion(rawQueryOf(uiState))) }
+    // cleaned-up text since this recomposes fresh (losing any prior edits) whenever the screen
+    // re-enters composition, e.g. navigating back from the player. A TextFieldValue (rather than a
+    // plain String) so the cursor position can be controlled explicitly -- see onSuggestionClick's
+    // own comment for why that matters.
+    var textFieldValue by
+        remember { mutableStateOf(TextFieldValue(formatSuggestion(rawQueryOf(uiState)))) }
     val focusRequester = remember { FocusRequester() }
     val firstSuggestionFocusRequester = remember { FocusRequester() }
     val firstResultFocusRequester = remember { FocusRequester() }
@@ -127,10 +135,10 @@ internal fun SearchScreenContent(
                 }.padding(vertical = SAFE_ZONE_VERTICAL),
     ) {
         SearchBar(
-            text = text,
-            onTextChange = {
-                text = it
-                onQueryChanged(it)
+            textFieldValue = textFieldValue,
+            onTextFieldValueChange = {
+                textFieldValue = it
+                onQueryChanged(it.text)
             },
             onSubmit = onSubmit,
             focusRequester = focusRequester,
@@ -156,8 +164,12 @@ internal fun SearchScreenContent(
                         // instead keeps focus inside this screen's content the whole time.
                         focusRequester.requestFocus()
                         // Display the cleaned-up text (matching the chip itself), but still submit
-                        // the raw suggestion — see formatSuggestion's own doc.
-                        text = formatSuggestion(suggestion)
+                        // the raw suggestion — see formatSuggestion's own doc. Cursor explicitly
+                        // placed at the end of the new text (a plain `text = ...` on a
+                        // TextFieldValue would otherwise carry the *previous* value's cursor
+                        // offset/selection forward unchanged, which can land it mid-string).
+                        val newText = formatSuggestion(suggestion)
+                        textFieldValue = TextFieldValue(newText, selection = TextRange(newText.length))
                         onSuggestionClick(suggestion)
                     },
                     firstItemFocusRequester = firstSuggestionFocusRequester,
@@ -166,16 +178,24 @@ internal fun SearchScreenContent(
                 )
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
             is SearchUiState.Results ->
-                SearchResultsRow(
-                    items = uiState.items,
-                    onResultClick = trackedOnResultClick,
-                    firstItemFocusRequester = firstResultFocusRequester,
-                    focusFirstItemTrigger = contentFocusTrigger,
-                    restoreFocusVideoId = lastPlayedVideoId,
-                    restoreFocusRequester = restoreFocusRequester,
-                    canRestoreFocus = canRestoreLastPlayed,
-                    railFocusRequester = railFocusRequester,
-                )
+                // Vertically centered in the remaining space below the search bar, rather than
+                // sitting flush beneath it like the suggestions row does.
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SearchResultsRow(
+                        items = uiState.items,
+                        onResultClick = trackedOnResultClick,
+                        firstItemFocusRequester = firstResultFocusRequester,
+                        focusFirstItemTrigger = contentFocusTrigger,
+                        restoreFocusVideoId = lastPlayedVideoId,
+                        restoreFocusRequester = restoreFocusRequester,
+                        canRestoreFocus = canRestoreLastPlayed,
+                        railFocusRequester = railFocusRequester,
+                        queryFieldFocusRequester = focusRequester,
+                    )
+                }
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)
         }
     }
