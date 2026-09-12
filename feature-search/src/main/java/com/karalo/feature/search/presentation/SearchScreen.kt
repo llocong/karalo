@@ -152,8 +152,19 @@ internal fun SearchScreenContent(
         SearchBar(
             textFieldValue = textFieldValue,
             onTextFieldValueChange = {
+                // BasicTextField can echo a spurious onValueChange carrying the *same* text back
+                // to us shortly after we set textFieldValue programmatically (e.g. right after
+                // picking a suggestion, see onSuggestionClick below) -- forwarding that to
+                // onQueryChanged would feed it into the debounced suggestions pipeline as if the
+                // user had typed it, which can resurrect the Suggesting state over Results/Loading
+                // a moment later. Only text that actually *differs* from what's already held is a
+                // genuine edit -- a cursor-only move (arrow keys) shares this same shape and is
+                // correctly ignored here too, since it never changes the query.
+                val isGenuineEdit = it.text != textFieldValue.text
                 textFieldValue = it
-                onQueryChanged(it.text)
+                if (isGenuineEdit) {
+                    onQueryChanged(it.text)
+                }
             },
             onSubmit = onSubmit,
             focusRequester = focusRequester,

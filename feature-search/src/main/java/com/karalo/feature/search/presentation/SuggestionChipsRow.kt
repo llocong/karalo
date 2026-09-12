@@ -37,10 +37,9 @@ import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
 // HomeScreen.kt/SearchResultsRow.kt).
 private val SAFE_ZONE_HORIZONTAL = 58.dp
 
-// Gap below the search bar -- within the spec's ~60-80dp range. Deliberately a fixed gap rather
-// than centered in the remaining space: the chips should read as sitting right below the field
-// (between it and where the results row will appear), not drift down toward mid-screen.
-private val SUGGESTIONS_ROW_TOP_GAP = 72.dp
+// Gap below the search bar -- deliberately tight so the chips read as sitting right below the
+// field (between it and where the results row will appear), not drift down toward mid-screen.
+private val SUGGESTIONS_ROW_TOP_GAP = 24.dp
 private val CHIP_ROW_BOTTOM_PADDING = 16.dp
 private val CHIP_GUTTER = 12.dp
 private val CHIP_HORIZONTAL_PADDING = 20.dp
