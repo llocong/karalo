@@ -150,6 +150,20 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
 
     val activity = LocalContext.current as? Activity
 
+    // Hoisted here and passed down, rather than each item (and the header) independently calling
+    // animateDpAsState(targetValue = if (hasFocus) ...) itself: hasFocus flips for all of them at
+    // once (it's "is any rail item focused", not per-item), so four independent Animatable-backed
+    // tweens were previously restarting in lockstep on every focus move onto/off the rail -- four
+    // times the animation bookkeeping and four separate graphicsLayer recompositions per frame for
+    // what is, visually, one single collapse/expand. A single shared value read by all four keeps
+    // the exact same look for a quarter of the per-frame cost.
+    val width by
+        animateDpAsState(
+            targetValue = if (hasFocus) ITEM_EXPANDED_WIDTH else ITEM_COLLAPSED_WIDTH,
+            label = "navRailWidth",
+        )
+    val revealFraction = revealFractionOf(width)
+
     Column(
         modifier =
             Modifier
@@ -175,7 +189,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                     }
                 },
     ) {
-        KaraloNavHeader()
+        KaraloNavHeader(width = width, revealFraction = revealFraction)
         Spacer(modifier = Modifier.height(HEADER_TO_ITEMS_SPACING))
 
         KaraloNavItem(
@@ -184,6 +198,8 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             icon = Icons.Filled.Search,
             label = "Search",
             interactionSource = searchInteractionSource,
+            width = width,
+            revealFraction = revealFraction,
             modifier = Modifier.testTag(NAV_TAG_SEARCH).focusRequester(searchFocusRequester),
             blockDirectionUp = true,
         )
@@ -194,6 +210,8 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             icon = Icons.Filled.Home,
             label = "Home",
             interactionSource = homeInteractionSource,
+            width = width,
+            revealFraction = revealFraction,
             modifier =
                 Modifier
                     .testTag(NAV_TAG_HOME)
@@ -209,6 +227,8 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             icon = Icons.Filled.Settings,
             label = "Settings",
             interactionSource = settingsInteractionSource,
+            width = width,
+            revealFraction = revealFraction,
             modifier = Modifier.testTag(NAV_TAG_SETTINGS).focusRequester(settingsFocusRequester),
         )
     }
@@ -221,18 +241,11 @@ private fun NavigationDrawerScope.KaraloNavItem(
     icon: ImageVector,
     label: String,
     interactionSource: MutableInteractionSource,
+    width: Dp,
+    revealFraction: Float,
     modifier: Modifier = Modifier,
     blockDirectionUp: Boolean = false,
 ) {
-    val width by
-        animateDpAsState(
-            targetValue = if (hasFocus) ITEM_EXPANDED_WIDTH else ITEM_COLLAPSED_WIDTH,
-            label = "navItemWidth",
-        )
-    // How far along the width tween currently is (0 = fully collapsed, 1 = fully expanded) --
-    // used to fade the label in lockstep with the width itself, see the KDoc above.
-    val revealFraction = revealFractionOf(width)
-
     Surface(
         selected = selected,
         onClick = onClick,
@@ -302,14 +315,10 @@ private fun NavigationDrawerScope.KaraloNavItem(
 
 /** App logo + wordmark, centered on the same vertical line as the nav item icons below it. */
 @Composable
-private fun NavigationDrawerScope.KaraloNavHeader() {
-    val width by
-        animateDpAsState(
-            targetValue = if (hasFocus) ITEM_EXPANDED_WIDTH else ITEM_COLLAPSED_WIDTH,
-            label = "headerWidth",
-        )
-    val revealFraction = revealFractionOf(width)
-
+private fun KaraloNavHeader(
+    width: Dp,
+    revealFraction: Float,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
