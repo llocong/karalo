@@ -1,18 +1,8 @@
 package com.karalo.feature.search.presentation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,28 +14,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
 
-// Safe-zone content margins recommended by the TV layout guidelines
-// (developer.android.com/design/ui/tv/guides/styles/layouts).
-private val SAFE_ZONE_HORIZONTAL = 58.dp
+// Safe-zone vertical content margin recommended by the TV layout guidelines
+// (developer.android.com/design/ui/tv/guides/styles/layouts) -- horizontal is applied per-child
+// instead (on the search bar and each row's own contentPadding), see the Column's own comment below.
 private val SAFE_ZONE_VERTICAL = 28.dp
-private val SEARCH_FIELD_CORNER_RADIUS = 12.dp
 
 @Composable
 fun SearchScreen(
@@ -144,7 +126,7 @@ internal fun SearchScreenContent(
                     }
                 }.padding(vertical = SAFE_ZONE_VERTICAL),
     ) {
-        SearchQueryField(
+        SearchBar(
             text = text,
             onTextChange = {
                 text = it
@@ -154,17 +136,18 @@ internal fun SearchScreenContent(
             focusRequester = focusRequester,
             hasSuggestions = hasSuggestions,
             onDownToSuggestions = { firstSuggestionFocusRequester.requestFocus() },
+            railFocusRequester = railFocusRequester,
         )
 
         when (uiState) {
             is SearchUiState.Idle -> Unit
             is SearchUiState.Suggesting ->
-                SuggestionsList(
+                SuggestionChipsRow(
                     suggestions = uiState.suggestions,
                     onSuggestionClick = { suggestion ->
                         // Claimed synchronously, before the state change below even reaches this
-                        // composition: submitting immediately swaps this whole suggestions list out
-                        // for a Loading/Results branch instead, disposing the just-clicked row's
+                        // composition: submitting immediately swaps this whole suggestions row out
+                        // for a Loading/Results branch instead, disposing the just-clicked chip's
                         // focus node out from under real focus. Left alone, that leaves nothing in
                         // Search's own content still focused, and the drawer's own rail behind it
                         // is the nearest fallback focus target -- briefly opening the drawer until
@@ -172,12 +155,14 @@ internal fun SearchScreenContent(
                         // (see the isShowingResults effect below). Grabbing the query field here
                         // instead keeps focus inside this screen's content the whole time.
                         focusRequester.requestFocus()
-                        // Display the cleaned-up text (matching the suggestion row itself), but
-                        // still submit the raw suggestion — see formatSuggestion's own doc.
+                        // Display the cleaned-up text (matching the chip itself), but still submit
+                        // the raw suggestion — see formatSuggestion's own doc.
                         text = formatSuggestion(suggestion)
                         onSuggestionClick(suggestion)
                     },
                     firstItemFocusRequester = firstSuggestionFocusRequester,
+                    queryFieldFocusRequester = focusRequester,
+                    railFocusRequester = railFocusRequester,
                 )
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
             is SearchUiState.Results ->
@@ -238,91 +223,6 @@ private fun rememberSearchFocusState(
             }
         }
     }
-}
-
-@Composable
-private fun SearchQueryField(
-    text: String,
-    onTextChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    focusRequester: FocusRequester,
-    hasSuggestions: Boolean,
-    onDownToSuggestions: () -> Unit,
-) {
-    // Uses titleMedium (the Plain/Manrope role) rather than a Brand/Fredoka style: an editable
-    // text field needs a plain, highly-legible face for arbitrary typed text, not the expressive
-    // display font reserved for headlines.
-    BasicTextField(
-        value = text,
-        onValueChange = onTextChange,
-        singleLine = true,
-        textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onBackground),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.onBackground),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = SAFE_ZONE_HORIZONTAL)
-                .testTag(SEARCH_QUERY_FIELD_TAG)
-                .focusRequester(focusRequester)
-                .onPreviewKeyEvent { keyEvent ->
-                    if (hasSuggestions && keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionDown) {
-                        onDownToSuggestions()
-                        true
-                    } else {
-                        false
-                    }
-                }.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(SEARCH_FIELD_CORNER_RADIUS))
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-    )
-}
-
-const val SEARCH_QUERY_FIELD_TAG = "search_query_field"
-
-@Composable
-private fun SuggestionsList(
-    suggestions: List<String>,
-    onSuggestionClick: (String) -> Unit,
-    firstItemFocusRequester: FocusRequester,
-) {
-    if (suggestions.isEmpty()) return
-    LazyColumn(contentPadding = PaddingValues(start = SAFE_ZONE_HORIZONTAL, end = SAFE_ZONE_HORIZONTAL, top = 16.dp)) {
-        itemsIndexed(suggestions) { index, suggestion ->
-            SuggestionRow(
-                suggestion = suggestion,
-                onClick = { onSuggestionClick(suggestion) },
-                modifier = if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SuggestionRow(
-    suggestion: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Text(
-        text = formatSuggestion(suggestion),
-        style = MaterialTheme.typography.bodyLarge,
-        color =
-            if (isFocused) {
-                MaterialTheme.colorScheme.background
-            } else {
-                MaterialTheme.colorScheme.onBackground
-            },
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .onFocusChanged { isFocused = it.isFocused }
-                .clickable(onClick = onClick)
-                .background(if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-    )
 }
 
 private fun rawQueryOf(uiState: SearchUiState): String =
