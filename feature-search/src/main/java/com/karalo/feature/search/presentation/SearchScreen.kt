@@ -81,7 +81,15 @@ internal fun SearchScreenContent(
     val focusRequester = remember { FocusRequester() }
     val firstSuggestionFocusRequester = remember { FocusRequester() }
     val firstResultFocusRequester = remember { FocusRequester() }
-    val hasSuggestions = uiState is SearchUiState.Suggesting && uiState.suggestions.isNotEmpty()
+    // Bumped each time DOWN is pressed from the query field -- left to SuggestionChipsRow's/
+    // SearchResultsRow's own focusFirstItem(OnDown)Trigger handling to actually move focus, rather
+    // than requesting it directly here, since only they own the LazyListState needed to scroll a
+    // possibly-scrolled-away first item back into view first (see their own comments for why a
+    // bare requestFocus() isn't enough). Which one applies depends on what's currently showing --
+    // exactly one of the two is ever non-zero-and-fresh at a time, so bumping both unconditionally
+    // is harmless (the other row isn't even composed to react to its own bump).
+    var focusFirstSuggestionTrigger by remember { mutableIntStateOf(0) }
+    var focusFirstResultTrigger by remember { mutableIntStateOf(0) }
 
     // The video last clicked into, restored on a genuine return from the player (not merely
     // *focusing* Search in the rail to preview it, which also navigates here -- see
@@ -142,8 +150,13 @@ internal fun SearchScreenContent(
             },
             onSubmit = onSubmit,
             focusRequester = focusRequester,
-            hasSuggestions = hasSuggestions,
-            onDownToSuggestions = { firstSuggestionFocusRequester.requestFocus() },
+            onDownPressed = {
+                when (uiState) {
+                    is SearchUiState.Suggesting -> focusFirstSuggestionTrigger++
+                    is SearchUiState.Results -> focusFirstResultTrigger++
+                    else -> Unit
+                }
+            },
             railFocusRequester = railFocusRequester,
         )
 
@@ -173,6 +186,7 @@ internal fun SearchScreenContent(
                         onSuggestionClick(suggestion)
                     },
                     firstItemFocusRequester = firstSuggestionFocusRequester,
+                    focusFirstItemTrigger = focusFirstSuggestionTrigger,
                     queryFieldFocusRequester = focusRequester,
                     railFocusRequester = railFocusRequester,
                 )
@@ -194,6 +208,7 @@ internal fun SearchScreenContent(
                         canRestoreFocus = canRestoreLastPlayed,
                         railFocusRequester = railFocusRequester,
                         queryFieldFocusRequester = focusRequester,
+                        focusFirstItemOnDownTrigger = focusFirstResultTrigger,
                     )
                 }
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)

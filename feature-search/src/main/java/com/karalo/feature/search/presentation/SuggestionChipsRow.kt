@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,11 +55,27 @@ internal fun SuggestionChipsRow(
     suggestions: List<String>,
     onSuggestionClick: (String) -> Unit,
     firstItemFocusRequester: FocusRequester,
+    focusFirstItemTrigger: Int = 0,
     queryFieldFocusRequester: FocusRequester?,
     railFocusRequester: FocusRequester?,
 ) {
     if (suggestions.isEmpty()) return
     val listState = rememberLazyListState()
+
+    // Pressing DOWN from the query field bumps this to ask for the first chip -- a bare
+    // requestFocus() on it (see the modifier below) is a silent no-op once the row has been
+    // scrolled away from index 0 (a genuinely lazy LazyRow disposes off-screen chips), e.g. having
+    // arrowed right through suggestions, then back up to the field, then down again. Scrolling
+    // back to 0 first, exactly like SearchResultsRow's own focusFirstItemTrigger handling, fixes
+    // that. No rememberSaveable-persisted "consumed" bookkeeping needed here (unlike that one):
+    // this trigger is purely a same-session keypress echo, not something that can go stale across
+    // an external remount, so a plain per-composition counter starting fresh at 0 is enough.
+    LaunchedEffect(focusFirstItemTrigger) {
+        if (focusFirstItemTrigger > 0) {
+            listState.scrollToItem(0)
+            firstItemFocusRequester.requestFocus()
+        }
+    }
 
     // Same YouTube-on-Google-TV-style carousel scrolling as the Home shelves and SearchResultsRow:
     // keeps the focused chip centered while scrolling through the middle of the row, pinned at the

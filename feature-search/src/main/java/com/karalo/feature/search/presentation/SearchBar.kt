@@ -59,8 +59,7 @@ internal fun SearchBar(
     onTextFieldValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
-    hasSuggestions: Boolean,
-    onDownToSuggestions: () -> Unit,
+    onDownPressed: () -> Unit,
     railFocusRequester: FocusRequester?,
     modifier: Modifier = Modifier,
     onMicClick: () -> Unit = {},
@@ -81,8 +80,7 @@ internal fun SearchBar(
             onTextFieldValueChange = onTextFieldValueChange,
             onSubmit = onSubmit,
             focusRequester = focusRequester,
-            hasSuggestions = hasSuggestions,
-            onDownToSuggestions = onDownToSuggestions,
+            onDownPressed = onDownPressed,
             micFocusRequester = micFocusRequester,
             modifier = Modifier.weight(1f),
         )
@@ -146,8 +144,7 @@ private fun SearchQueryField(
     onTextFieldValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
-    hasSuggestions: Boolean,
-    onDownToSuggestions: () -> Unit,
+    onDownPressed: () -> Unit,
     micFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
@@ -189,12 +186,15 @@ private fun SearchQueryField(
                 // where moving it left has no effect -- so Compose's default focus search never
                 // even gets a chance to reach the mic button via LEFT. Intercepted here instead,
                 // gated on the field being empty (the only state where redirecting LEFT away can
-                // never interrupt a legitimate in-progress cursor move).
+                // never interrupt a legitimate in-progress cursor move). DOWN is always consumed
+                // (unconditionally, not just when suggestions exist) -- singleLine so BasicTextField
+                // has no use for it itself, and the caller decides what (if anything) it means for
+                // the current state (focus the first suggestion chip, the first result, or nothing).
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.type != KeyEventType.KeyDown) {
                         false
-                    } else if (hasSuggestions && keyEvent.key == Key.DirectionDown) {
-                        onDownToSuggestions()
+                    } else if (keyEvent.key == Key.DirectionDown) {
+                        onDownPressed()
                         true
                     } else if (isEmpty && keyEvent.key == Key.DirectionLeft) {
                         micFocusRequester.requestFocus()

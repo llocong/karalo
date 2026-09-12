@@ -57,6 +57,7 @@ fun SearchResultsRow(
     canRestoreFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
     queryFieldFocusRequester: FocusRequester? = null,
+    focusFirstItemOnDownTrigger: Int = 0,
 ) {
     val listState = rememberLazyListState()
 
@@ -69,6 +70,22 @@ fun SearchResultsRow(
         restoreFocusRequester = restoreFocusRequester,
         canRestoreFocus = canRestoreFocus,
     )
+
+    // Pressing DOWN from the query field (after having gone UP from this row back to it) bumps
+    // this to ask for the first card again -- a bare requestFocus() on it (see the modifier below)
+    // is a silent no-op once the row has been scrolled away from index 0 (a genuinely lazy LazyRow
+    // disposes off-screen cards). Scrolling back to 0 first fixes that, matching
+    // SuggestionChipsRow's identical DOWN-from-field handling. No rememberSaveable-persisted
+    // "consumed" bookkeeping needed here (unlike focusFirstItemTrigger above): this is purely a
+    // same-session keypress echo, not something that can go stale across an external remount.
+    if (firstItemFocusRequester != null) {
+        LaunchedEffect(focusFirstItemOnDownTrigger) {
+            if (focusFirstItemOnDownTrigger > 0) {
+                listState.scrollToItem(0)
+                firstItemFocusRequester.requestFocus()
+            }
+        }
+    }
 
     // Same YouTube-on-Google-TV-style carousel scrolling as the Home shelves: keeps the focused
     // card centered horizontally while scrolling through the middle of the results, pinned at the
