@@ -33,7 +33,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `loads all three shelves independently on init`() =
+    fun `loads all three shelves on init`() =
         runTest(mainDispatcherExtension.testDispatcher) {
             val topPicks = listOf(SearchResultItem("id1", "Song 1", "Channel", null, 200))
             val pop = listOf(SearchResultItem("id2", "Song 2", "Channel", null, 180))

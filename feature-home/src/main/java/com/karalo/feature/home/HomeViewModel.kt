@@ -32,9 +32,20 @@ class HomeViewModel
         val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
         init {
-            loadShelf(TOP_PICKS_QUERY) { state -> _uiState.update { it.copy(topPicks = state) } }
-            loadShelf(POP_QUERY) { state -> _uiState.update { it.copy(pop = state) } }
-            loadShelf(ROCK_QUERY) { state -> _uiState.update { it.copy(rock = state) } }
+            // Sequential, not launched independently per shelf: each search (and the YouTube
+            // "proof of origin" token it mints along the way, via a single shared, main-thread-
+            // bound WebView -- see WebViewPoTokenProvider) is real, non-trivial network+parse
+            // work, confirmed on a real TV to take 1-3.5s per shelf. Firing all three at once
+            // used to mean three of these racing simultaneously right as Home first composes,
+            // which measurably caused hundreds of skipped frames on a real (2GB RAM) reference
+            // TV. Loading one at a time trades faster *aggregate* completion for the row that's
+            // actually responsive the whole way through -- each shelf still appears as soon as
+            // its own search finishes, just without the pile-up.
+            viewModelScope.launch {
+                loadShelf(TOP_PICKS_QUERY) { state -> _uiState.update { it.copy(topPicks = state) } }
+                loadShelf(POP_QUERY) { state -> _uiState.update { it.copy(pop = state) } }
+                loadShelf(ROCK_QUERY) { state -> _uiState.update { it.copy(rock = state) } }
+            }
         }
 
         /** Sets up the player's Next/Previous queue from the shelf the user picked an item from. */
@@ -42,17 +53,15 @@ class HomeViewModel
             searchSessionHolder.setLastResults(shelfItems.map { it.toPlayableItemRef() })
         }
 
-        private fun loadShelf(
+        private suspend fun loadShelf(
             query: String,
             updateState: (ShelfUiState) -> Unit,
         ) {
-            viewModelScope.launch {
-                when (val result = searchYouTube(query)) {
-                    is AppResult.Success -> updateState(ShelfUiState.Loaded(result.data))
-                    is AppResult.Failure -> {
-                        logger.log("Home shelf failed for \"$query\": ${result.error}")
-                        updateState(ShelfUiState.Error)
-                    }
+            when (val result = searchYouTube(query)) {
+                is AppResult.Success -> updateState(ShelfUiState.Loaded(result.data))
+                is AppResult.Failure -> {
+                    logger.log("Home shelf failed for \"$query\": ${result.error}")
+                    updateState(ShelfUiState.Error)
                 }
             }
         }

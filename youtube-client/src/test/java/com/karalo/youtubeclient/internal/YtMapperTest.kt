@@ -54,18 +54,14 @@ private fun videoStream(
 
 class YtMapperTest {
     @Test
-    fun `toVideoSummary maps every field, preferring the largest thumbnail`() {
+    fun `toVideoSummary maps every field`() {
         val item =
             streamInfoItem(
                 url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                 name = "A Title",
                 uploaderName = "A Channel",
                 duration = 212,
-                thumbnails =
-                    listOf(
-                        Image("small.jpg", 90, 120, Image.ResolutionLevel.LOW),
-                        Image("large.jpg", 720, 1280, Image.ResolutionLevel.HIGH),
-                    ),
+                thumbnails = listOf(Image("only.jpg", 720, 1280, Image.ResolutionLevel.HIGH)),
             )
 
         val result = YtMapper.toVideoSummary(item)
@@ -73,8 +69,41 @@ class YtMapperTest {
         assertEquals("dQw4w9WgXcQ", result.videoId)
         assertEquals("A Title", result.title)
         assertEquals("A Channel", result.channelName)
-        assertEquals("large.jpg", result.thumbnailUrl)
+        assertEquals("only.jpg", result.thumbnailUrl)
         assertEquals(212L, result.durationSeconds)
+    }
+
+    @Test
+    fun `toVideoSummary prefers a small-but-sufficient thumbnail over a needlessly larger one`() {
+        val item =
+            streamInfoItem(
+                thumbnails =
+                    listOf(
+                        Image("tiny.jpg", 90, 120, Image.ResolutionLevel.LOW),
+                        Image("justRight.jpg", 360, 640, Image.ResolutionLevel.MEDIUM),
+                        Image("huge.jpg", 720, 1280, Image.ResolutionLevel.HIGH),
+                    ),
+            )
+
+        val result = YtMapper.toVideoSummary(item)
+
+        assertEquals("justRight.jpg", result.thumbnailUrl)
+    }
+
+    @Test
+    fun `toVideoSummary falls back to the largest thumbnail when every option is below the decode-size floor`() {
+        val item =
+            streamInfoItem(
+                thumbnails =
+                    listOf(
+                        Image("tiny.jpg", 90, 120, Image.ResolutionLevel.LOW),
+                        Image("stillTiny.jpg", 180, 320, Image.ResolutionLevel.MEDIUM),
+                    ),
+            )
+
+        val result = YtMapper.toVideoSummary(item)
+
+        assertEquals("stillTiny.jpg", result.thumbnailUrl)
     }
 
     @Test

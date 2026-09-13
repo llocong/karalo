@@ -2,6 +2,7 @@ package com.karalo.youtubeclient.internal
 
 import com.karalo.youtubeclient.model.YtStreamInfo
 import com.karalo.youtubeclient.model.YtVideoSummary
+import org.schabi.newpipe.extractor.Image
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
@@ -15,14 +16,32 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
  * risks); these have changed across NewPipeExtractor releases before.
  */
 internal object YtMapper {
+    // Every consumer of thumbnailUrl in this app (confirmed: only FocusableCard's ~240dp-wide
+    // shelf/search-result cards, via TvCarousel -- the Player screen carries this field through
+    // as unused metadata, never renders it) displays a small card, never a large/full-screen
+    // image. Picking the *smallest* available thumbnail that still clears a decode height with
+    // comfortable margin for a focused (1.1x-scaled) card on a real TV avoids needlessly
+    // downloading and decoding a much larger (often 720p+) image just to shrink it down --
+    // real, measurable jank on a real (2GB RAM) reference TV, especially once TvCarousel's wider
+    // cache window (see core-ui's TvCarousel.md) means many more cards are composed/prefetching
+    // at once than before. Falls back to the largest available if every option is smaller than
+    // this threshold, never worse than the previous always-largest behavior in that edge case.
+    private const val MIN_THUMBNAIL_HEIGHT_PX = 320
+
     fun toVideoSummary(item: StreamInfoItem): YtVideoSummary =
         YtVideoSummary(
             videoId = extractVideoId(item.url),
             title = item.name.orEmpty(),
             channelName = item.uploaderName.orEmpty(),
-            thumbnailUrl = item.thumbnails?.maxByOrNull { it.height }?.url,
+            thumbnailUrl = item.thumbnails?.selectThumbnailUrl(),
             durationSeconds = item.duration.takeIf { it >= 0 },
         )
+
+    private fun List<Image>.selectThumbnailUrl(): String? =
+        filter { it.height >= MIN_THUMBNAIL_HEIGHT_PX }
+            .minByOrNull { it.height }
+            ?.url
+            ?: maxByOrNull { it.height }?.url
 
     fun toStreamInfo(streamInfo: StreamInfo): YtStreamInfo? {
         // Prefer adaptive (DASH/HLS) over "progressive" (muxed) streams: YouTube's progressive
