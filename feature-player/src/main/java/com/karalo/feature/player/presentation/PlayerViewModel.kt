@@ -81,6 +81,15 @@ class PlayerViewModel
             if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
         }
 
+        /**
+         * Called when the player screen's lifecycle stops (HOME press, switching to another app,
+         * screen off) -- this ViewModel is nav-entry-scoped, not Activity-scoped, so it otherwise
+         * has no way to know the app left the foreground and would keep playing audio unattended.
+         */
+        fun pausePlayback() {
+            exoPlayer.pause()
+        }
+
         fun next() {
             if (!queue.hasNext) return
             queue = queue.next()

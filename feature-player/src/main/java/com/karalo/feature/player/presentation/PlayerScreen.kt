@@ -4,6 +4,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,6 +26,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.ui.PlayerView
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.ErrorState
@@ -70,6 +74,21 @@ fun PlayerScreen(
 
     LaunchedEffect(controlsVisible) {
         if (controlsVisible) playFocusRequester.requestFocus()
+    }
+
+    // This screen's ExoPlayer is nav-entry-scoped (see PlayerViewModel), not tied to the
+    // Activity, so it otherwise keeps playing audio after HOME/backgrounding/switching apps --
+    // pausing on ON_STOP is what actually stops it in those cases.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) {
+                    viewModel.pausePlayback()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
