@@ -248,8 +248,6 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                     .padding(top = 8.dp),
         )
 
-        Box(modifier = Modifier.weight(1f))
-
         KaraloNavItem(
             selected = currentRoute == NavDestination.Settings.route,
             onClick = onSettingsSelect,
@@ -258,7 +256,11 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             interactionSource = settingsInteractionSource,
             width = width,
             revealFraction = revealFraction,
-            modifier = Modifier.testTag(NAV_TAG_SETTINGS).focusRequester(settingsFocusRequester),
+            modifier =
+                Modifier
+                    .testTag(NAV_TAG_SETTINGS)
+                    .focusRequester(settingsFocusRequester)
+                    .padding(top = 8.dp),
         )
     }
 }

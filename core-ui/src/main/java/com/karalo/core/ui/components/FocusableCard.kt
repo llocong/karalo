@@ -174,6 +174,15 @@ fun FocusableCard(
             }
             Text(
                 text = title,
+                // Explicit, unlike the library default: androidx.tv.material3.Text falls back to
+                // LocalContentColor when neither this param nor the style itself sets one, and
+                // LocalContentColor's own library default is plain black -- normally invisible
+                // because androidx.tv.material3's Surface/Card provide a real one derived from the
+                // container color, but this component deliberately doesn't use Surface/Card (see
+                // this file's own doc for why), so nothing here overrides that black default
+                // without setting it explicitly. onSurface pairs with this card's own containerColor
+                // (colorScheme.surface/surfaceVariant), matching the subtitle/duration Text below.
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 2,
                 minLines = 2,
