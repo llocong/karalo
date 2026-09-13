@@ -8,7 +8,11 @@ import com.karalo.core.testing.MainDispatcherExtension
 import com.karalo.feature.search.domain.GetSearchSuggestionsUseCase
 import com.karalo.feature.search.domain.SearchResultItem
 import com.karalo.feature.search.domain.SearchYouTubeUseCase
+import com.karalo.feature.search.voice.VoiceSearchManager
+import com.karalo.feature.search.voice.VoiceSearchResult
 import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
@@ -31,9 +35,11 @@ class SearchViewModelTest {
     private val getSuggestions = mockk<GetSearchSuggestionsUseCase>()
     private val searchYouTube = mockk<SearchYouTubeUseCase>()
     private val sessionHolder = mockk<SearchSessionHolder>(relaxed = true)
+    private val voiceSearchManager = mockk<VoiceSearchManager>(relaxed = true)
     private val logger = mockk<Logger>(relaxed = true)
 
-    private fun createViewModel() = SearchViewModel(getSuggestions, searchYouTube, sessionHolder, logger)
+    private fun createViewModel() =
+        SearchViewModel(getSuggestions, searchYouTube, sessionHolder, voiceSearchManager, logger)
 
     @Test
     fun `submitting a query shows results and stores the queue for the player`() =
@@ -146,5 +152,61 @@ class SearchViewModelTest {
             viewModel.onQueryChanged("")
 
             assertEquals(SearchUiState.Idle, viewModel.uiState.value)
+        }
+
+    @Test
+    fun `preparing voice search when available starts listening and returns an intent`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            every { voiceSearchManager.isAvailable() } returns true
+            val viewModel = createViewModel()
+
+            val intent = viewModel.prepareVoiceSearchIntent()
+
+            assertTrue(intent != null)
+            assertEquals(VoiceSearchState.Listening, viewModel.voiceSearchState.value)
+        }
+
+    @Test
+    fun `preparing voice search when unavailable surfaces an error and returns no intent`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            every { voiceSearchManager.isAvailable() } returns false
+            val viewModel = createViewModel()
+
+            val intent = viewModel.prepareVoiceSearchIntent()
+
+            assertEquals(null, intent)
+            assertTrue(viewModel.voiceSearchState.value is VoiceSearchState.Error)
+        }
+
+    @Test
+    fun `a successful voice result populates the query and submits it exactly once`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val items = listOf(SearchResultItem("id1", "Song", "Channel", null, 200))
+            every { voiceSearchManager.parseResult(any(), any()) } returns VoiceSearchResult.Success("Taylor Swift")
+            coEvery { searchYouTube("Taylor Swift") } returns AppResult.Success(items)
+            val viewModel = createViewModel()
+
+            val recognizedText = viewModel.onVoiceSearchActivityResult(resultCode = 0, data = null)
+            advanceUntilIdle()
+
+            assertEquals("Taylor Swift", recognizedText)
+            assertEquals(SearchUiState.Results("Taylor Swift", items), viewModel.uiState.value)
+            assertEquals(VoiceSearchState.Idle, viewModel.voiceSearchState.value)
+            coVerify(exactly = 1) { searchYouTube("Taylor Swift") }
+        }
+
+    @Test
+    fun `a cancelled voice search returns to idle without submitting anything`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            every { voiceSearchManager.parseResult(any(), any()) } returns VoiceSearchResult.Cancelled
+            val viewModel = createViewModel()
+
+            val recognizedText = viewModel.onVoiceSearchActivityResult(resultCode = 0, data = null)
+            advanceUntilIdle()
+
+            assertEquals(null, recognizedText)
+            assertEquals(SearchUiState.Idle, viewModel.uiState.value)
+            assertEquals(VoiceSearchState.Idle, viewModel.voiceSearchState.value)
+            coVerify(exactly = 0) { searchYouTube(any()) }
         }
 }

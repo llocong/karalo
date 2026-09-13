@@ -1,5 +1,6 @@
 package com.karalo.feature.search.presentation
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.karalo.core.common.logging.Logger
@@ -9,8 +10,11 @@ import com.karalo.core.common.session.SearchSessionHolder
 import com.karalo.feature.search.domain.GetSearchSuggestionsUseCase
 import com.karalo.feature.search.domain.SearchResultItem
 import com.karalo.feature.search.domain.SearchYouTubeUseCase
+import com.karalo.feature.search.voice.VoiceSearchManager
+import com.karalo.feature.search.voice.VoiceSearchResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +26,8 @@ import javax.inject.Inject
 
 private const val SUGGESTIONS_DEBOUNCE_MS = 300L
 private const val GENERIC_ERROR_MESSAGE = "Couldn't load results. Check your connection and try again."
+private const val VOICE_SEARCH_UNAVAILABLE_MESSAGE = "Voice search isn't available on this device."
+private const val VOICE_SEARCH_ERROR_RESET_DELAY_MS = 3_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -31,10 +37,18 @@ class SearchViewModel
         private val getSearchSuggestions: GetSearchSuggestionsUseCase,
         private val searchYouTube: SearchYouTubeUseCase,
         private val searchSessionHolder: SearchSessionHolder,
+        private val voiceSearchManager: VoiceSearchManager,
         private val logger: Logger,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
         val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+
+        private val _voiceSearchState = MutableStateFlow<VoiceSearchState>(VoiceSearchState.Idle)
+        val voiceSearchState: StateFlow<VoiceSearchState> = _voiceSearchState.asStateFlow()
+
+        // Guards a delayed auto-reset of a voice search Error against a newer voice search
+        // attempt starting (and possibly setting its own Error) in the meantime.
+        private var voiceSearchGeneration = 0
 
         private val queryInput = MutableStateFlow("")
 
@@ -91,6 +105,61 @@ class SearchViewModel
                         logger.log("Search failed for \"$rawQuery\": ${result.error}")
                         _uiState.value = SearchUiState.Error(rawQuery, GENERIC_ERROR_MESSAGE)
                     }
+                }
+            }
+        }
+
+        /**
+         * Call when the mic button is pressed. Returns an intent to launch via an Activity
+         * Result API to start the system's speech-recognition UI, or null if unavailable (in
+         * which case [voiceSearchState] carries an [VoiceSearchState.Error] for the UI to show;
+         * keyboard search remains unaffected either way).
+         */
+        fun prepareVoiceSearchIntent(): Intent? {
+            voiceSearchGeneration++
+            if (!voiceSearchManager.isAvailable()) {
+                showVoiceSearchError(VOICE_SEARCH_UNAVAILABLE_MESSAGE)
+                return null
+            }
+            _voiceSearchState.value = VoiceSearchState.Listening
+            return voiceSearchManager.createRecognizerIntent()
+        }
+
+        /**
+         * Call with the Activity Result of the intent from [prepareVoiceSearchIntent]. Returns
+         * the recognized text on success (so the caller can also sync its own displayed text
+         * field), or null for a cancellation/no-match/error, in which case the existing query is
+         * left untouched.
+         */
+        fun onVoiceSearchActivityResult(
+            resultCode: Int,
+            data: Intent?,
+        ): String? =
+            when (val result = voiceSearchManager.parseResult(resultCode, data)) {
+                is VoiceSearchResult.Success -> {
+                    _voiceSearchState.value = VoiceSearchState.Idle
+                    onQueryChanged(result.text)
+                    onSubmit(result.text)
+                    result.text
+                }
+                VoiceSearchResult.NoMatch, VoiceSearchResult.Cancelled -> {
+                    _voiceSearchState.value = VoiceSearchState.Idle
+                    null
+                }
+            }
+
+        /** Call if launching the intent from [prepareVoiceSearchIntent] itself throws. */
+        fun onVoiceSearchLaunchFailed() {
+            showVoiceSearchError(VOICE_SEARCH_UNAVAILABLE_MESSAGE)
+        }
+
+        private fun showVoiceSearchError(message: String) {
+            _voiceSearchState.value = VoiceSearchState.Error(message)
+            val generationAtStart = voiceSearchGeneration
+            viewModelScope.launch {
+                delay(VOICE_SEARCH_ERROR_RESET_DELAY_MS)
+                if (voiceSearchGeneration == generationAtStart) {
+                    _voiceSearchState.value = VoiceSearchState.Idle
                 }
             }
         }
