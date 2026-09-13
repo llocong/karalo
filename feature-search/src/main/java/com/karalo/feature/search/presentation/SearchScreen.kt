@@ -101,10 +101,13 @@ internal fun SearchScreenContent(
     // The video last clicked into, restored on a genuine return from the player (not merely
     // *focusing* Search in the rail to preview it, which also navigates here -- see
     // KaraloNavRailContent -- producing a remount that would otherwise be indistinguishable from a
-    // real return) so focus lands back on it instead of defaulting to the first result. The actual
-    // scroll-then-focus happens inside SearchResultsRow -- see its own restore effect -- since
-    // only it has the LazyListState and item list needed to bring an off-screen card into view
-    // before a bare requestFocus() on it would silently do nothing.
+    // real return) so focus lands back on it instead of defaulting to the first result.
+    // Modifier.focusRestorer() alone is *not* enough for this (confirmed via a real-device
+    // end-to-end test, see TvCarouselFocusRestorationRoundTripTest): its restore only walks the
+    // currently-composed focus targets, so a result far enough into the row to not be composed yet
+    // after this screen's own dispose/recreate cycle would silently fall back to the first result
+    // instead. SearchResultsRow's restoreFocusItemKey (forwarded to TvCarousel) covers exactly this
+    // case.
     var lastPlayedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
     val restoreFocusRequester = remember { FocusRequester() }
     val trackedOnResultClick: (Int, String) -> Unit = { index, videoId ->
@@ -225,9 +228,8 @@ internal fun SearchScreenContent(
                         onResultClick = trackedOnResultClick,
                         firstItemFocusRequester = firstResultFocusRequester,
                         focusFirstItemTrigger = contentFocusTrigger,
-                        restoreFocusVideoId = lastPlayedVideoId,
+                        restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
                         restoreFocusRequester = restoreFocusRequester,
-                        canRestoreFocus = canRestoreLastPlayed,
                         railFocusRequester = railFocusRequester,
                         queryFieldFocusRequester = focusRequester,
                         focusFirstItemOnDownTrigger = focusFirstResultTrigger,

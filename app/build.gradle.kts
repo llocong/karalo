@@ -94,6 +94,7 @@ dependencies {
 
     implementation(libs.tv.material)
     implementation(libs.navigation.compose)
+    implementation(libs.coil.compose)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

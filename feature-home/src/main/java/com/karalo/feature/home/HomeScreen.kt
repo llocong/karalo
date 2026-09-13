@@ -1,33 +1,25 @@
 package com.karalo.feature.home
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -39,6 +31,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
@@ -46,9 +40,9 @@ import androidx.tv.material3.Text
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
 import com.karalo.core.ui.components.LoadingIndicator
-import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
+import com.karalo.core.ui.components.TvCarousel
+import com.karalo.core.ui.components.TvCarouselImagePrefetch
 import com.karalo.feature.search.domain.SearchResultItem
-import kotlinx.coroutines.launch
 
 // Safe-zone content margins recommended by the TV layout guidelines
 // (developer.android.com/design/ui/tv/guides/styles/layouts). The bottom gets extra breathing
@@ -61,9 +55,8 @@ private val BOTTOM_SPACER_HEIGHT = SAFE_ZONE_VERTICAL + SAFE_ZONE_BOTTOM_EXTRA
 private val SHELF_SPACING = 32.dp
 private val SHELF_TITLE_SPACING = 20.dp
 private val SHELF_CARD_WIDTH = 240.dp
-private val SHELF_CARD_GUTTER = 20.dp
-private val SHELF_ROW_VERTICAL_PADDING = 20.dp
 private val SHELF_LOADING_HEIGHT = 200.dp
+private const val THUMBNAIL_ASPECT_RATIO = 16f / 9f
 
 private const val TOP_PICKS_TITLE = "Top Picks"
 private const val POP_TITLE = "Pop"
@@ -105,6 +98,32 @@ internal fun HomeScreenContent(
     railFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
+    // The video last clicked into, restored on a genuine return from the player (not merely
+    // *focusing* Home in the rail to preview it, which also navigates here -- see
+    // KaraloNavRailContent -- producing a remount that would otherwise be indistinguishable from a
+    // real return) so focus lands back on it instead of defaulting to the first card.
+    // Modifier.focusRestorer() alone is *not* enough for this (confirmed via a real-device
+    // end-to-end test): its restore only walks the currently-composed focus targets, so a card far
+    // enough into a shelf to not be composed yet after this screen's own dispose/recreate cycle
+    // would silently fall back to the first card instead. TvCarousel's restoreFocusItemKey covers
+    // exactly this case -- see its own doc.
+    var lastPlayedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+    val restoreFocusRequester = remember { FocusRequester() }
+    val trackedOnResultClick: (List<SearchResultItem>, Int) -> Unit = { items, index ->
+        lastPlayedVideoId = items[index].videoId
+        onResultClick(items, index)
+    }
+    // Restoring only on a genuine, not-yet-consumed playerReturnTrigger (rather than e.g. "no
+    // fresh select pending") matters because merely *focusing* Home in the rail to preview it
+    // also navigates here (see KaraloNavRailContent), producing a remount that would otherwise be
+    // indistinguishable from a real return from the player.
+    var consumedPlayerReturnTrigger by rememberSaveable { mutableIntStateOf(0) }
+    val canRestoreLastPlayed = playerReturnTrigger > consumedPlayerReturnTrigger
+    LaunchedEffect(playerReturnTrigger) {
+        if (playerReturnTrigger > consumedPlayerReturnTrigger) {
+            consumedPlayerReturnTrigger = playerReturnTrigger
+        }
+    }
     val firstVideoFocusRequester = remember { FocusRequester() }
     // Neutral focus target claimed the instant this screen mounts on the app's true first-ever
     // launch, purely to keep focus off the nav rail (Compose's fallback focus-search would
@@ -131,31 +150,6 @@ internal fun HomeScreenContent(
     // never mistakes an already-consumed trigger value for a fresh one.
     var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
     val topPicksLoaded = (uiState.topPicks as? ShelfUiState.Loaded)?.takeIf { it.items.isNotEmpty() }
-
-    // The video last clicked into, across any shelf -- restored on a plain remount (e.g. pressing
-    // BACK from the player) so focus lands back on it instead of defaulting to the first card.
-    // Persisted across the Compose-Navigation dispose/recreate cycle this screen goes through on
-    // every re-entry, same as consumedFocusTrigger above. The actual scroll-then-focus happens
-    // inside whichever HomeShelf's own items contain a match -- see its restore effect -- since
-    // only that shelf has the LazyListState and item list needed to bring an off-screen card into
-    // view before a bare requestFocus() on it would silently do nothing.
-    var lastPlayedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
-    val restoreFocusRequester = remember { FocusRequester() }
-    val trackedOnResultClick: (List<SearchResultItem>, Int) -> Unit = { items, index ->
-        lastPlayedVideoId = items[index].videoId
-        onResultClick(items, index)
-    }
-    // Restoring only on a genuine, not-yet-consumed playerReturnTrigger (rather than e.g. "no
-    // fresh select pending") matters because merely *focusing* Home in the rail to preview it
-    // also navigates here (see KaraloNavRailContent), producing a remount that would otherwise be
-    // indistinguishable from a real return from the player.
-    var consumedPlayerReturnTrigger by rememberSaveable { mutableIntStateOf(0) }
-    val canRestoreLastPlayed = playerReturnTrigger > consumedPlayerReturnTrigger
-    LaunchedEffect(playerReturnTrigger) {
-        if (playerReturnTrigger > consumedPlayerReturnTrigger) {
-            consumedPlayerReturnTrigger = playerReturnTrigger
-        }
-    }
 
     // Reacts to a fresh (not-yet-consumed) select trigger in two steps rather than one: claim the
     // root placeholder immediately if Top Picks hasn't loaded yet, then hand off to the real first
@@ -231,27 +225,25 @@ internal fun HomeScreenContent(
             state = uiState.topPicks,
             onResultClick = trackedOnResultClick,
             firstItemFocusRequester = firstVideoFocusRequester,
-            restoreFocusVideoId = lastPlayedVideoId,
+            focusFirstItemTrigger = firstVideoFocusTrigger,
+            restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
             restoreFocusRequester = restoreFocusRequester,
-            canRestoreFocus = canRestoreLastPlayed,
             railFocusRequester = railFocusRequester,
         )
         HomeShelf(
             title = POP_TITLE,
             state = uiState.pop,
             onResultClick = trackedOnResultClick,
-            restoreFocusVideoId = lastPlayedVideoId,
+            restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
             restoreFocusRequester = restoreFocusRequester,
-            canRestoreFocus = canRestoreLastPlayed,
             railFocusRequester = railFocusRequester,
         )
         HomeShelf(
             title = ROCK_TITLE,
             state = uiState.rock,
             onResultClick = trackedOnResultClick,
-            restoreFocusVideoId = lastPlayedVideoId,
+            restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
             restoreFocusRequester = restoreFocusRequester,
-            canRestoreFocus = canRestoreLastPlayed,
             railFocusRequester = railFocusRequester,
         )
         Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
@@ -261,48 +253,49 @@ internal fun HomeScreenContent(
 /**
  * A titled, horizontally-scrollable row of video cards -- the "Standard Card" pattern from the TV
  * cards guidelines (developer.android.com/design/ui/tv/guides/components/cards), reusing the same
- * [FocusableCard] as the search results grid.
+ * [FocusableCard] as the search results grid. The scrolling/focus-management engine itself lives
+ * in [TvCarousel]; this composable owns only the title and Loading/Error/Loaded state handling.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeShelf(
     title: String,
     state: ShelfUiState,
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
-    restoreFocusVideoId: String? = null,
+    focusFirstItemTrigger: Int = 0,
+    restoreFocusItemKey: String? = null,
     restoreFocusRequester: FocusRequester? = null,
-    canRestoreFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
 ) {
-    val coroutineScope = rememberCoroutineScope()
     // Requests the whole shelf (title included) into view -- not just the focused card -- when
     // any card in this shelf gains focus, so scrolling back up to an earlier shelf always reveals
     // its title again rather than stopping as soon as the card itself is visible.
     val shelfBringIntoViewRequester = remember { BringIntoViewRequester() }
-    val listState = rememberLazyListState()
+    var shelfHasFocus by remember { mutableStateOf(false) }
+    // Keyed on shelfHasFocus rather than launched ad hoc from onFocusChanged via
+    // rememberCoroutineScope(): a plain scope.launch{} there would start a new, uncancelled
+    // bringIntoView() coroutine on every focus change within the shelf (moving between its own
+    // cards re-fires onFocusChanged with hasFocus already true -> true, but a *loss* of focus
+    // followed by regaining it would stack jobs). Keying a LaunchedEffect on the boolean instead
+    // means Compose itself cancels any still-running call before starting the next one.
+    LaunchedEffect(shelfHasFocus) {
+        if (shelfHasFocus) shelfBringIntoViewRequester.bringIntoView()
+    }
 
-    // Restoring focus to an item further along the row than what's initially composed requires
-    // scrolling it into view first -- requestFocus() on a FocusRequester with no attached node
-    // (e.g. an item the LazyRow hasn't composed yet) is a silent no-op.
-    val loadedItemsToRestoreIn = (state as? ShelfUiState.Loaded)?.items.takeIf { canRestoreFocus }
-    if (restoreFocusRequester != null && restoreFocusVideoId != null && loadedItemsToRestoreIn != null) {
-        val restoreTargetIndex = loadedItemsToRestoreIn.indexOfFirst { it.videoId == restoreFocusVideoId }
-        LaunchedEffect(restoreFocusVideoId, restoreTargetIndex) {
-            if (restoreTargetIndex >= 0) {
-                listState.scrollToItem(restoreTargetIndex)
-                restoreFocusRequester.requestFocus()
+    val density = LocalDensity.current
+    val prefetchSizePx =
+        remember(density) {
+            with(density) {
+                val widthPx = SHELF_CARD_WIDTH.roundToPx()
+                IntSize(widthPx, (widthPx / THUMBNAIL_ASPECT_RATIO).toInt())
             }
         }
-    }
 
     Column(
         modifier =
             Modifier
                 .bringIntoViewRequester(shelfBringIntoViewRequester)
-                .onFocusChanged {
-                    if (it.hasFocus) coroutineScope.launch { shelfBringIntoViewRequester.bringIntoView() }
-                },
+                .onFocusChanged { shelfHasFocus = it.hasFocus },
     ) {
         Text(
             text = title,
@@ -325,75 +318,29 @@ private fun HomeShelf(
                             .padding(horizontal = SAFE_ZONE_HORIZONTAL),
                 )
             is ShelfUiState.Loaded ->
-                // Scoped to just this LazyRow (not the outer Column above) so it only overrides
-                // the row's own horizontal focus-follow scrolling, leaving the shelf's vertical
-                // bring-into-view behavior (the onFocusChanged block above) on the platform
-                // default.
-                CompositionLocalProvider(LocalBringIntoViewSpec provides CenteredBringIntoViewSpec) {
-                    LazyRow(
-                        state = listState,
-                        contentPadding =
-                            PaddingValues(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SHELF_ROW_VERTICAL_PADDING),
-                        horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
-                    ) {
-                        itemsIndexed(state.items) { index, item ->
-                            val focusModifier =
-                                shelfItemFocusModifier(
-                                    index = index,
-                                    videoId = item.videoId,
-                                    firstItemFocusRequester = firstItemFocusRequester,
-                                    restoreFocusRequester = restoreFocusRequester,
-                                    restoreFocusVideoId = restoreFocusVideoId,
-                                    railFocusRequester = railFocusRequester,
-                                )
-                            FocusableCard(
-                                title = formatVideoTitle(item.title),
-                                subtitle = null,
-                                thumbnailUrl = item.thumbnailUrl,
-                                durationSeconds = item.durationSeconds,
-                                onClick = { onResultClick(state.items, index) },
-                                modifier = Modifier.width(SHELF_CARD_WIDTH).then(focusModifier),
-                            )
-                        }
-                    }
+                TvCarousel(
+                    items = state.items,
+                    key = { it.videoId },
+                    firstItemFocusRequester = firstItemFocusRequester,
+                    focusFirstItemTrigger = focusFirstItemTrigger,
+                    leftEdgeFocusRequester = railFocusRequester,
+                    restoreFocusItemKey = restoreFocusItemKey,
+                    restoreFocusRequester = restoreFocusRequester,
+                    imagePrefetch =
+                        TvCarouselImagePrefetch(
+                            thumbnailUrl = { it.thumbnailUrl },
+                            sizePx = prefetchSizePx,
+                        ),
+                ) { index, item, itemModifier ->
+                    FocusableCard(
+                        title = formatVideoTitle(item.title),
+                        subtitle = null,
+                        thumbnailUrl = item.thumbnailUrl,
+                        durationSeconds = item.durationSeconds,
+                        onClick = { onResultClick(state.items, index) },
+                        modifier = Modifier.width(SHELF_CARD_WIDTH).then(itemModifier),
+                    )
                 }
         }
     }
-}
-
-/**
- * The focus-related modifiers for one shelf card, kept out of [HomeShelf] itself purely to keep
- * that function's own complexity down.
- */
-private fun shelfItemFocusModifier(
-    index: Int,
-    videoId: String,
-    firstItemFocusRequester: FocusRequester?,
-    restoreFocusRequester: FocusRequester?,
-    restoreFocusVideoId: String?,
-    railFocusRequester: FocusRequester?,
-): Modifier {
-    var modifier: Modifier = Modifier
-    if (index == 0 && firstItemFocusRequester != null) {
-        modifier = modifier.focusRequester(firstItemFocusRequester)
-    }
-    if (restoreFocusRequester != null && videoId == restoreFocusVideoId) {
-        modifier = modifier.focusRequester(restoreFocusRequester)
-    }
-    // Pressing LEFT on any shelf's first card always opens the drawer with the Home item
-    // focused -- not just Top Picks' -- overriding Compose's default focus search, which would
-    // otherwise land on whichever rail item happens to sit spatially closest (e.g. Settings, for
-    // the last shelf).
-    if (index == 0 && railFocusRequester != null) {
-        modifier =
-            modifier.onPreviewKeyEvent { keyEvent ->
-                if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionLeft) {
-                    railFocusRequester.requestFocus()
-                    true
-                } else {
-                    false
-                }
-            }
-    }
-    return modifier
 }

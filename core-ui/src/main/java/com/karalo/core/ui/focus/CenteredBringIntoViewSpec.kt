@@ -1,8 +1,13 @@
 package com.karalo.core.ui.focus
 
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+
+private const val SCROLL_ANIMATION_DURATION_MS = 250
 
 /**
  * A [BringIntoViewSpec] that pivots on the *center* of both the focused item and the viewport,
@@ -24,6 +29,16 @@ import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
  */
 @OptIn(ExperimentalFoundationApi::class)
 object CenteredBringIntoViewSpec : BringIntoViewSpec {
+    // scrollAnimationSpec is annotated @Deprecated ("customization is no longer supported") but is
+    // still what actually drives the scroll: `ContentInViewNode.launchAnimation()` (Compose
+    // Foundation, confirmed by reading its source) builds its animation from
+    // `requireBringIntoViewSpec().scrollAnimationSpec` verbatim. Its default is a fast, no-bounce
+    // `spring()` -- on a real TV remote this reads as an instant jump rather than visible motion,
+    // which itself presents as stutter. A longer, eased tween makes the centering glide legible.
+    @Suppress("DEPRECATION")
+    override val scrollAnimationSpec: AnimationSpec<Float> =
+        tween(durationMillis = SCROLL_ANIMATION_DURATION_MS, easing = FastOutSlowInEasing)
+
     override fun calculateScrollDistance(
         offset: Float,
         size: Float,
