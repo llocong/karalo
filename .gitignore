@@ -1,0 +1,69 @@
+# Gradle
+.gradle/
+build/
+*/build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Local configuration
+local.properties
+**/local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+
+# Signing / secrets — NEVER commit these
+*.jks
+*.keystore
+keystore.properties
+**/keystore.properties
+# app/google-services.json is intentionally NOT ignored: it's a checked-in placeholder so the
+# build works with zero setup (see docs/firebase-setup.md). If you replace it locally with your
+# real Firebase config, do not `git add`/commit that change.
+
+# macOS
+.DS_Store
+
+# Log files
+*.log
+
+# Kotlin
+.kotlin/
+
+# ktlint / detekt reports
+**/reports/
+
+# Coverage
+**/coverage/
+
+# NDK
+.externalNativeBuild
+.cxx
+
+# VS Code
+.vscode/
+
+# Fastlane / misc CI artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output

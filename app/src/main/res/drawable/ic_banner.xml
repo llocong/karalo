@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Placeholder Google TV launcher banner (required 320x180 aspect). Replace with real brand
+  artwork before a store-quality release — see README "Known placeholders".
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:pathData="M0,0h320v180h-320z"
+        android:fillColor="#0E0E12" />
+    <path
+        android:pathData="M40,90 L80,60 L80,120 Z"
+        android:fillColor="#BB86FC" />
+    <path
+        android:pathData="M100,70h140v14h-140z"
+        android:fillColor="#F2F2F5" />
+    <path
+        android:pathData="M100,96h100v14h-100z"
+        android:fillColor="#B3B3BC" />
+</vector>

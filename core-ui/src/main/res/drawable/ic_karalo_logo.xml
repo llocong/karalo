@@ -1,0 +1,40 @@
+<!-- Karalo "mic in screen" mark (Direction A from the Karalo Karaoke Branding board). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path
+        android:pathData="M28,6 H68 A22,22 0 0 1 90,28 V68 A22,22 0 0 1 68,90 H28 A22,22 0 0 1 6,68 V28 A22,22 0 0 1 28,6 Z"
+        android:fillColor="#7C3AED" />
+    <path
+        android:pathData="M36,24 H60 A10,10 0 0 1 70,34 V44 A10,10 0 0 1 60,54 H36 A10,10 0 0 1 26,44 V34 A10,10 0 0 1 36,24 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#F5F3F7"
+        android:strokeWidth="3.5" />
+    <path
+        android:pathData="M48,26 H48 A8,8 0 0 1 56,34 V38 A8,8 0 0 1 48,46 H48 A8,8 0 0 1 40,38 V34 A8,8 0 0 1 48,26 Z"
+        android:fillColor="#F5F3F7" />
+    <path
+        android:pathData="M42,32 L54,32"
+        android:strokeColor="#7C3AED"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M42,38 L54,38"
+        android:strokeColor="#7C3AED"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M43,46 H53 A2,2 0 0 1 55,48 A2,2 0 0 1 53,50 H43 A2,2 0 0 1 41,48 A2,2 0 0 1 43,46 Z"
+        android:fillColor="#FF5D8F" />
+    <path
+        android:pathData="M43,50 L53,50 L51,70 L45,70 Z"
+        android:fillColor="#F5F3F7" />
+    <path
+        android:pathData="M63,66 A7,7 0 1 1 77,66 A7,7 0 1 1 63,66 Z"
+        android:fillColor="#FF5D8F" />
+    <path
+        android:pathData="M67.5,62.5 L67.5,69.5 L73,66 Z"
+        android:fillColor="#0B0710" />
+</vector>

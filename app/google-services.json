@@ -1,0 +1,30 @@
+{
+  "_comment": "PLACEHOLDER — not a real Firebase project. Lets the Google Services / Crashlytics Gradle plugins run with zero setup. Replace locally with your own project's file to enable real Crashlytics reporting (see docs/firebase-setup.md) but do NOT commit that replacement.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "karalo-placeholder",
+    "storage_bucket": "karalo-placeholder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.karalo.karalo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

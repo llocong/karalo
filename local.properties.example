@@ -1,0 +1,11 @@
+# Copy this file to local.properties (gitignored) and fill in what you need.
+# None of these are required to build and run the app in debug.
+
+# Path to your Android SDK — Android Studio fills this in automatically on first sync.
+sdk.dir=/path/to/Android/sdk
+
+# Only needed to produce a *signed* release build locally (matches release.yml's secrets):
+# RELEASE_KEYSTORE_PATH=/path/to/release.keystore
+# RELEASE_KEYSTORE_PASSWORD=
+# RELEASE_KEY_ALIAS=
+# RELEASE_KEY_PASSWORD=
