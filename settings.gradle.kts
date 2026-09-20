@@ -28,4 +28,5 @@ include(
     ":feature-search",
     ":feature-player",
     ":feature-home",
+    ":baselineprofile",
 )
