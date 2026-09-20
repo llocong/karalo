@@ -6,6 +6,12 @@ const val PLAYER_ARG_START_VIDEO_ID = "startVideoId"
 sealed class NavDestination(
     val route: String,
 ) {
+    /** The single NavHost destination hosting the Home/Search/Settings tab switcher (see
+     * [com.karalo.karalo.nav.MainTabsHost]) -- those three no longer have their own NavHost
+     * routes, since switching between them via a real navigate() call is what forced a full
+     * dispose+rebuild of whichever tab's shelves/carousels/images on every rail landing. */
+    data object Main : NavDestination("main")
+
     data object Home : NavDestination("home")
 
     data object Search : NavDestination("search")

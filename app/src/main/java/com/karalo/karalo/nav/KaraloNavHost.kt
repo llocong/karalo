@@ -8,10 +8,10 @@ import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,17 +21,22 @@ import androidx.navigation.navArgument
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.NavigationDrawer
 import androidx.tv.material3.rememberDrawerState
-import com.karalo.feature.home.HomeScreen
 import com.karalo.feature.player.presentation.PlayerScreen
-import com.karalo.feature.search.presentation.SearchScreen
 
 @Composable
 fun KaraloNavHost(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
+    val isPlayerActive = backStackEntry?.destination?.route == NavDestination.Player.route
     // The nav rail is hidden during immersive playback so the player owns the whole screen.
-    val showNavRail = currentRoute != NavDestination.Player.route
+    val showNavRail = !isPlayerActive
+
+    // Which of Home/Search/Settings is actually shown -- flipped only after the rail's own
+    // 150ms focus-settle debounce (see KaraloNavRailContent), never on every intermediate
+    // focus move. Kept as plain local state (not a NavHost route) precisely so switching is a
+    // cheap state write rather than a NavController.navigate() call -- see MainTabsHost's own
+    // doc for why that distinction is the whole point of this refactor.
+    var activeDestination by rememberSaveable { mutableStateOf(NavDestination.Home.route) }
 
     // Bumped whenever the corresponding nav item is *selected* (clicked), asking that
     // destination's own content to grab focus -- merely focusing the item (see
@@ -50,17 +55,17 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     // KaraloNavRailContent), producing a remount that looks identical to a real return from
     // Player from the content's own point of view -- without this, that mere preview would also
     // silently steal focus off the rail and onto whatever video was last played there.
-    var previousRoute by remember { mutableStateOf<String?>(null) }
+    var previousIsPlayerActive by remember { mutableStateOf(isPlayerActive) }
     var homePlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var searchPlayerReturnTrigger by remember { mutableIntStateOf(0) }
-    LaunchedEffect(currentRoute) {
-        if (previousRoute == NavDestination.Player.route) {
-            when (currentRoute) {
+    LaunchedEffect(isPlayerActive) {
+        if (previousIsPlayerActive && !isPlayerActive) {
+            when (activeDestination) {
                 NavDestination.Home.route -> homePlayerReturnTrigger++
                 NavDestination.Search.route -> searchPlayerReturnTrigger++
             }
         }
-        previousRoute = currentRoute
+        previousIsPlayerActive = isPlayerActive
     }
 
     // Hoisted above the show/hide branch below so both the rail (which drives it on focus) and
@@ -76,25 +81,12 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
     val searchRailFocusRequester = remember { FocusRequester() }
     val settingsRailFocusRequester = remember { FocusRequester() }
 
-    // True only for Home's very first-ever composition (the app's initial launch). Home uses this
-    // to decide whether it's safe to unconditionally claim a neutral placeholder focus target while
-    // Top Picks is still loading -- doing that on every mount (including a mere rail focus-preview,
-    // which also navigates here, see KaraloNavRailContent) would steal real focus off the rail item
-    // the instant it's merely focused, not clicked.
-    var isFirstEverHomeEntry by remember { mutableStateOf(true) }
-
-    // Navigating to the route that's already current serves no purpose -- there's nowhere to
-    // actually go -- but doing it anyway (e.g. every time a rail item is merely re-focused while
-    // already on its destination) is exactly what triggers Navigation-Compose's
-    // popUpTo(saveState=true)+restoreState=true dispose/restore cycle non-deterministically: this
-    // is the root cause behind several hard-to-reproduce focus bugs (a rail item's own destination
-    // content randomly losing/mishandling pending focus state right as the drawer opens/closes).
-    // Skipping the call entirely when already there sidesteps that instability altogether, rather
-    // than working around its symptoms.
-    fun navigateToTopLevelIfNeeded(route: String) {
-        if (currentRoute != route) {
-            navController.navigateToTopLevel(route)
-        }
+    // Activates a tab via a plain state write instead of a NavController.navigate() call -- see
+    // MainTabsHost's own doc for why that's the entire point of this refactor. Setting it to a
+    // value equal to its own current value (e.g. re-focusing a rail item already active) is a
+    // no-op: Compose skips recomposition on an unchanged MutableState write.
+    fun activateTopLevel(route: String) {
+        activeDestination = route
     }
 
     // Wrapped in movableContentOf (rather than a plain lambda) because this same content is
@@ -109,35 +101,26 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
             movableContentOf {
                 NavHost(
                     navController = navController,
-                    startDestination = NavDestination.Home.route,
+                    startDestination = NavDestination.Main.route,
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    composable(NavDestination.Home.route) {
-                        LaunchedEffect(Unit) { isFirstEverHomeEntry = false }
-                        HomeScreen(
-                            onResultClick = { startIndex, videoId ->
+                    composable(NavDestination.Main.route) {
+                        MainTabsHost(
+                            activeDestination = activeDestination,
+                            onHomeResultClick = { startIndex, videoId ->
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
-                            firstVideoFocusTrigger = homeContentFocusTrigger,
-                            playerReturnTrigger = homePlayerReturnTrigger,
-                            claimInitialPlaceholderFocus = isFirstEverHomeEntry,
-                            railFocusRequester = homeRailFocusRequester,
-                        )
-                    }
-                    composable(NavDestination.Search.route) {
-                        SearchScreen(
-                            onResultClick = { startIndex, videoId ->
+                            onSearchResultClick = { startIndex, videoId ->
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
-                            contentFocusTrigger = searchContentFocusTrigger,
-                            playerReturnTrigger = searchPlayerReturnTrigger,
-                            railFocusRequester = searchRailFocusRequester,
-                        )
-                    }
-                    composable(NavDestination.Settings.route) {
-                        SettingsScreen(
-                            contentFocusTrigger = settingsContentFocusTrigger,
-                            railFocusRequester = settingsRailFocusRequester,
+                            homeContentFocusTrigger = homeContentFocusTrigger,
+                            homePlayerReturnTrigger = homePlayerReturnTrigger,
+                            homeRailFocusRequester = homeRailFocusRequester,
+                            searchContentFocusTrigger = searchContentFocusTrigger,
+                            searchPlayerReturnTrigger = searchPlayerReturnTrigger,
+                            searchRailFocusRequester = searchRailFocusRequester,
+                            settingsContentFocusTrigger = settingsContentFocusTrigger,
+                            settingsRailFocusRequester = settingsRailFocusRequester,
                         )
                     }
                     composable(
@@ -163,24 +146,24 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
             drawerState = drawerState,
             drawerContent = {
                 KaraloNavRailContent(
-                    currentRoute = currentRoute,
+                    currentRoute = activeDestination,
                     drawerState = drawerState,
                     homeFocusRequester = homeRailFocusRequester,
                     searchFocusRequester = searchRailFocusRequester,
                     settingsFocusRequester = settingsRailFocusRequester,
-                    onHomeClick = { navigateToTopLevelIfNeeded(NavDestination.Home.route) },
-                    onSearchClick = { navigateToTopLevelIfNeeded(NavDestination.Search.route) },
-                    onSettingsClick = { navigateToTopLevelIfNeeded(NavDestination.Settings.route) },
+                    onHomeClick = { activateTopLevel(NavDestination.Home.route) },
+                    onSearchClick = { activateTopLevel(NavDestination.Search.route) },
+                    onSettingsClick = { activateTopLevel(NavDestination.Settings.route) },
                     onHomeSelect = {
-                        navigateToTopLevelIfNeeded(NavDestination.Home.route)
+                        activateTopLevel(NavDestination.Home.route)
                         homeContentFocusTrigger++
                     },
                     onSearchSelect = {
-                        navigateToTopLevelIfNeeded(NavDestination.Search.route)
+                        activateTopLevel(NavDestination.Search.route)
                         searchContentFocusTrigger++
                     },
                     onSettingsSelect = {
-                        navigateToTopLevelIfNeeded(NavDestination.Settings.route)
+                        activateTopLevel(NavDestination.Settings.route)
                         settingsContentFocusTrigger++
                     },
                 )
@@ -189,13 +172,5 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
         )
     } else {
         screens()
-    }
-}
-
-private fun NavHostController.navigateToTopLevel(route: String) {
-    navigate(route) {
-        popUpTo(graph.startDestinationId) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
     }
 }
