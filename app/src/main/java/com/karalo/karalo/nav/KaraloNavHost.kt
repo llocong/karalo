@@ -21,10 +21,19 @@ import androidx.navigation.navArgument
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.NavigationDrawer
 import androidx.tv.material3.rememberDrawerState
+import com.karalo.core.common.model.PlayableItemRef
+import com.karalo.core.common.session.SearchSessionHolder
+import com.karalo.core.karaoke.domain.KaraokeSessionHolder
+import com.karalo.core.karaoke.domain.NowPlaying
 import com.karalo.feature.player.presentation.PlayerScreen
 
 @Composable
-fun KaraloNavHost(modifier: Modifier = Modifier) {
+fun KaraloNavHost(
+    karaokeSessionHolder: KaraokeSessionHolder,
+    searchSessionHolder: SearchSessionHolder,
+    sessionJoinUrl: String?,
+    modifier: Modifier = Modifier,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val isPlayerActive = backStackEntry?.destination?.route == NavDestination.Player.route
@@ -66,6 +75,23 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
             }
         }
         previousIsPlayerActive = isPlayerActive
+    }
+
+    // Flow A (remote-first): a phone added the very first song, or the queue resumed after the
+    // waiting screen, while nobody navigated to Player manually -- KaraokeSessionHolder emits once
+    // per such transition (see its own doc). Reuses the exact existing SearchSessionHolder + nav
+    // mechanism Home/Search already use for a manual click, just triggered from here instead --
+    // confirmed by inspecting PlayerViewModel.buildInitialQueue: a 1-item list written into
+    // SearchSessionHolder before navigating flows through it completely unchanged.
+    LaunchedEffect(karaokeSessionHolder) {
+        karaokeSessionHolder.autoStartRequests.collect { nowPlaying ->
+            if (!isPlayerActive) {
+                searchSessionHolder.setLastResults(listOf(nowPlaying.toPlayableItemRef()))
+                navController.navigate(
+                    NavDestination.Player.createRoute(startIndex = 0, startVideoId = nowPlaying.videoId),
+                )
+            }
+        }
     }
 
     // Hoisted above the show/hide branch below so both the rail (which drives it on focus) and
@@ -166,6 +192,7 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
                         activateTopLevel(NavDestination.Settings.route)
                         settingsContentFocusTrigger++
                     },
+                    sessionJoinUrl = sessionJoinUrl,
                 )
             },
             content = screens,
@@ -174,3 +201,14 @@ fun KaraloNavHost(modifier: Modifier = Modifier) {
         screens()
     }
 }
+
+private const val MILLIS_PER_SECOND = 1000L
+
+private fun NowPlaying.toPlayableItemRef() =
+    PlayableItemRef(
+        videoId = videoId,
+        title = title,
+        channelName = channelName,
+        thumbnailUrl = thumbnailUrl,
+        durationMs = durationSeconds?.let { it.toLong() * MILLIS_PER_SECOND },
+    )

@@ -10,34 +10,80 @@ bar only). No microphone/scoring, no accounts, no monetization.
 
 ## Architecture
 
-Clean Architecture + MVVM across 9 Gradle modules:
+Clean Architecture + MVVM across the Android app's Gradle modules, plus an independent backend
+service (`backend/`, see "Karaoke remote control" below):
 
 ```
-:app  ──▶ :feature-search, :feature-player, :feature-home, :core-ui, :core-common
+:app  ──▶ :feature-search, :feature-player, :feature-home, :core-ui, :core-common, :core-karaoke
 :feature-search ──▶ :youtube-client, :core-ui, :core-common
-:feature-player ──▶ :youtube-client, :core-ui, :core-common
+:feature-player ──▶ :youtube-client, :core-ui, :core-common, :core-karaoke
 :feature-home   ──▶ :core-ui, :core-common
+:core-karaoke   ──▶ :core-network, :core-common
 :youtube-client ──▶ :core-network, :core-common
 :core-network   ──▶ :core-common
 :core-ui        ──▶ :core-common
 :core-common    ──▶ (no module deps)
-:core-testing   ──▶ shared MockK/JUnit5 fixtures + FakeYouTubeClient (test-only)
+:core-testing   ──▶ shared MockK/JUnit5 fixtures + FakeYouTubeClient/FakeKaraokeRepository (test-only)
 ```
 
 | Module | What it is |
 |---|---|
 | `:app` | App shell — `MainActivity`, Compose Navigation host, left nav rail, DI wiring, TV manifest, media-key dispatch. |
 | `:core-common` | Dispatcher qualifiers, `AppResult`/`AppError`, `Logger` facade, `SearchSessionHolder`, `MediaKeyRouter` — cross-cutting types every other module can depend on. |
-| `:core-ui` | Compose-for-TV theme + reusable focusable components (`FocusableCard`, `KaraloButton`, loading/error states). |
+| `:core-ui` | Compose-for-TV theme + reusable focusable components (`FocusableCard`, `KaraloButton`, loading/error states, `KaraokeQrCode`). |
 | `:core-network` | Shared OkHttp client (timeouts, logging interceptor). |
+| `:core-karaoke` | Karaoke session/queue domain + backend REST/WebSocket client — see "Karaoke remote control" below. |
 | `:youtube-client` | The only module allowed to depend on NewPipeExtractor — see "How search & playback work" below. |
 | `:feature-search` | Search domain/data/presentation — the "karaoke " prefix, suggestions, results grid. |
-| `:feature-player` | Player domain/data/presentation — queue navigation, ExoPlayer integration, controls overlay. |
+| `:feature-player` | Player domain/data/presentation — queue navigation, ExoPlayer integration, controls overlay, karaoke queue/waiting-screen integration. |
 | `:feature-home` | Static v1 empty-state screen. |
-| `:core-testing` | Shared test fixtures (`MainDispatcherExtension`, `FakeYouTubeClient`). |
+| `:core-testing` | Shared test fixtures (`MainDispatcherExtension`, `FakeYouTubeClient`, `FakeKaraokeRepository`). |
+| `backend/` | Independent Ktor service (session/queue/participants, mobile web app) — not part of the Android multi-module build; wired in via `includeBuild`. |
 
 See `docs/adr/` for the reasoning behind the major choices (Compose for TV over Leanback, Media3,
-unofficial extraction over the official YouTube API, module boundaries).
+unofficial extraction over the official YouTube API, module boundaries, the karaoke backend).
+
+## Karaoke remote control
+
+Phones join the TV's karaoke session by scanning a QR code shown in the nav drawer, over the
+player, or on the "waiting for the next song" screen — no app install, no account. From a plain
+mobile browser they enter a name, search, and add songs to a shared queue that plays automatically
+when nothing else is. Clicking a Home/Search result on the TV directly always plays instantly
+("Play Now") without disturbing that queue; it resumes exactly where it was afterwards.
+
+This is powered by a small self-hosted backend (`backend/`, Ktor + SQLite) that the TV and phones
+both talk to — the backend is the single source of truth for the session, participants, and queue;
+phones never talk to the TV directly. See
+`docs/adr/0005-karaoke-remote-control-session-and-backend.md` for the full design and its
+documented MVP-vs-follow-up boundaries (LAN-only, trust-on-first-use TV pairing, no schema
+migrations yet).
+
+### Running the backend locally
+
+```
+./gradlew :backend:run
+```
+
+This starts the Ktor server on `0.0.0.0:8080` by default (override with the `PORT`/`HOST` env
+vars; see `backend/src/main/kotlin/com/karalo/backend/config/AppConfig.kt`). Find your machine's
+LAN IP (e.g. `ipconfig getifaddr en0` on macOS) — the TV and any phones need to reach that address
+on the same Wi-Fi network. macOS will prompt to allow inbound connections the first time; accept
+it.
+
+Point the Android app at that backend before building, via env vars (mirroring the existing
+`RELEASE_KEYSTORE_*` convention — see `core-karaoke/build.gradle.kts`):
+
+```
+export KARALO_BACKEND_BASE_URL=http://<your-lan-ip>:8080
+export KARALO_BACKEND_WS_URL=ws://<your-lan-ip>:8080
+./gradlew :app:assembleDebug
+```
+
+Without these set, the app falls back to a placeholder LAN address that simply won't connect —
+manual TV playback (Home/Search → Play Now) works with no backend running at all; only the
+queue/QR/remote-add features need one reachable.
+
+Backend-only tests: `./gradlew :backend:test`.
 
 ## How search & playback work
 
@@ -116,8 +162,14 @@ merge, branch protection settings to configure once).
   YouTube changes its internal APIs, and carries ToS/account-risk that's out of scope for this
   app to mitigate. Play Store distribution is not attempted for this reason; releases ship as
   GitHub Releases (see `.github/workflows/release.yml`).
-- **No persistence.** Search results/queue live only in memory for the current app session — no
-  watch history, no resume-across-restarts. See `docs/adr/0003-no-persistence-in-v1.md`.
+- **No persistence beyond the karaoke feature.** Search results/queue for manual playback live
+  only in memory for the current app session — no watch history, no resume-across-restarts. See
+  `docs/adr/0003-no-persistence-in-v1.md`. The karaoke feature's own persistent queue lives on the
+  backend, not the TV; see `docs/adr/0005-karaoke-remote-control-session-and-backend.md`.
+- **Karaoke backend is LAN-only and self-hosted.** No public hosting/domain is configured; TV
+  pairing is trust-on-first-use (acceptable only because the backend isn't internet-exposed in
+  this pass); the mobile queue page uses up/down buttons rather than drag-and-drop reorder. See
+  the ADR for the full list of documented MVP-vs-follow-up boundaries.
 - **No system media integration.** Hardware/remote media keys are handled directly by
   `MainActivity` (see `com.karalo.core.common.mediakeys`), not via a `MediaSession`, so there's no
   lock-screen/notification playback UI or guaranteed Google Assistant voice control.

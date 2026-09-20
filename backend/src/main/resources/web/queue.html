@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Queue</title>
+  <link rel="stylesheet" href="/shared.css" />
+</head>
+<body>
+  <h1>🎶 Queue</h1>
+  <div id="nowPlaying"></div>
+  <div class="player-controls">
+    <button id="pauseResumeButton" class="icon-button" aria-label="Pause">
+      <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button id="skipButton" class="icon-button secondary" aria-label="Skip">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+  </div>
+  <div id="queueList"></div>
+  <script src="/shared.js"></script>
+  <script src="/queue.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The karaoke backend (see docs/adr/0005-karaoke-remote-control-session-and-backend.md) is a
+  self-hosted, LAN-only Ktor service with no TLS in this MVP: its base URL is a plain,
+  build-time-configured LAN address (KARALO_BACKEND_BASE_URL), not a fixed domain, so it can't be
+  allow-listed by hostname here. Cleartext is permitted app-wide rather than scoped to one domain;
+  all other network traffic (YouTube extraction, Firebase) is HTTPS-only and unaffected. Without
+  this, Android's default Network Security Config (targetSdk 28+) silently blocks every request
+  to the backend.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

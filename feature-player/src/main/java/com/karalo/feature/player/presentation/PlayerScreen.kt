@@ -2,7 +2,9 @@ package com.karalo.feature.player.presentation
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +26,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -32,6 +35,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.ui.PlayerView
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.ErrorState
+import com.karalo.core.ui.components.KaraokeQrCode
 import com.karalo.core.ui.components.LoadingIndicator
 import kotlinx.coroutines.delay
 
@@ -127,41 +131,87 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        when {
-            uiState.error != null ->
-                ErrorState(
-                    message = uiState.error.orEmpty(),
-                    modifier = Modifier.fillMaxSize(),
-                )
-            uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
-        }
+        PlayerOverlays(
+            uiState = uiState,
+            controlsVisible = controlsVisible,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            playFocusRequester = playFocusRequester,
+            onPlayPauseClick = {
+                controlsVisible = true
+                viewModel.togglePlayPause()
+            },
+            onNextClick = {
+                controlsVisible = true
+                viewModel.next()
+            },
+            onPreviousClick = {
+                controlsVisible = true
+                viewModel.previous()
+            },
+            onSeek = viewModel::seekTo,
+            onHideControls = { controlsVisible = false },
+        )
+    }
+}
 
-        if (controlsVisible) {
-            PlayerControlsOverlay(
-                title = formatVideoTitle(uiState.currentItem?.title.orEmpty()),
-                isPlaying = uiState.isPlaying,
-                hasNext = uiState.hasNext,
-                hasPrevious = uiState.hasPrevious,
-                positionMs = positionMs,
-                durationMs = durationMs,
-                playFocusRequester = playFocusRequester,
-                onPlayPauseClick = {
-                    controlsVisible = true
-                    viewModel.togglePlayPause()
-                },
-                onNextClick = {
-                    controlsVisible = true
-                    viewModel.next()
-                },
-                onPreviousClick = {
-                    controlsVisible = true
-                    viewModel.previous()
-                },
-                onSeek = viewModel::seekTo,
-                onHideControls = { controlsVisible = false },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
+/**
+ * Everything drawn on top of the raw video surface -- split out of [PlayerScreen] purely to keep
+ * that function's own branching (key handling, lifecycle, progress polling) from compounding with
+ * this content's own (error/loading/QR/waiting-screen/controls), not because this content is
+ * reused anywhere else.
+ */
+@Composable
+private fun BoxScope.PlayerOverlays(
+    uiState: PlayerUiState,
+    controlsVisible: Boolean,
+    positionMs: Long,
+    durationMs: Long,
+    playFocusRequester: FocusRequester,
+    onPlayPauseClick: () -> Unit,
+    onNextClick: () -> Unit,
+    onPreviousClick: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onHideControls: () -> Unit,
+) {
+    when {
+        uiState.error != null -> ErrorState(message = uiState.error.orEmpty(), modifier = Modifier.fillMaxSize())
+        uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+    }
+
+    // Persistent, static, high-contrast -- shown throughout Karaoke Mode regardless of the
+    // controls' own show/hide state (no timeout, per this feature's spec), always at the same
+    // bottom-left spot the waiting screen below also uses. Mutually exclusive with the waiting
+    // screen's own QR instance rather than layering both, avoiding a redundant second bitmap
+    // decode for the same content.
+    if (uiState.sessionJoinUrl != null && !uiState.isWaitingForQueue) {
+        KaraokeQrCode(
+            content = uiState.sessionJoinUrl,
+            sizeDp = KARAOKE_QR_SIZE,
+            modifier = Modifier.align(Alignment.BottomStart).padding(24.dp),
+        )
+    }
+
+    if (uiState.isWaitingForQueue) {
+        KaraokeWaitingScreen(sessionJoinUrl = uiState.sessionJoinUrl, modifier = Modifier.fillMaxSize())
+    }
+
+    if (controlsVisible && !uiState.isWaitingForQueue) {
+        PlayerControlsOverlay(
+            title = formatVideoTitle(uiState.currentItem?.title.orEmpty()),
+            isPlaying = uiState.isPlaying,
+            hasNext = uiState.hasNext,
+            hasPrevious = uiState.hasPrevious,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            playFocusRequester = playFocusRequester,
+            onPlayPauseClick = onPlayPauseClick,
+            onNextClick = onNextClick,
+            onPreviousClick = onPreviousClick,
+            onSeek = onSeek,
+            onHideControls = onHideControls,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 

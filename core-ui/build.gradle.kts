@@ -38,6 +38,7 @@ dependencies {
     implementation(libs.tv.material)
 
     implementation(libs.coil.compose)
+    implementation(libs.zxing.core)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

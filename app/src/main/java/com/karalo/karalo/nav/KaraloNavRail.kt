@@ -54,8 +54,13 @@ import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.karalo.core.ui.R
+import com.karalo.core.ui.components.KaraokeQrCode
 import com.karalo.core.ui.theme.KaraloLogoTextStyle
 import kotlinx.coroutines.delay
+
+// Compact -- the drawer is a narrow icon rail, not full-screen; the spec's 180-240px minimum is
+// specifically for the full-screen player overlay placement (see PlayerScreen), not this one.
+private val DRAWER_QR_SIZE = 96.dp
 
 const val NAV_TAG_HOME = "nav_home"
 const val NAV_TAG_SEARCH = "nav_search"
@@ -134,6 +139,11 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     onHomeSelect: () -> Unit,
     onSearchSelect: () -> Unit,
     onSettingsSelect: () -> Unit,
+    // Null until the karaoke session is known (briefly, at app launch) -- see MainActivity's
+    // startup sequencing. Compact, static, high-contrast card per this feature's "Main app = QR
+    // card at bottom of drawer" requirement -- never shown over the video player (see PlayerScreen
+    // for that placement instead).
+    sessionJoinUrl: String? = null,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
@@ -262,6 +272,30 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                     .focusRequester(settingsFocusRequester)
                     .padding(top = 8.dp),
         )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        if (sessionJoinUrl != null) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 16.dp),
+            ) {
+                KaraokeQrCode(content = sessionJoinUrl, sizeDp = DRAWER_QR_SIZE)
+                if (revealFraction > 0f) {
+                    Text(
+                        text = "Scan to add songs",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        modifier =
+                            Modifier
+                                .padding(top = 8.dp)
+                                .graphicsLayer { alpha = revealFraction },
+                    )
+                }
+            }
+        }
     }
 }
 

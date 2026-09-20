@@ -91,6 +91,7 @@ dependencies {
 
     implementation(project(":core-common"))
     implementation(project(":core-ui"))
+    implementation(project(":core-karaoke"))
     implementation(project(":feature-search"))
     implementation(project(":feature-player"))
     implementation(project(":feature-home"))

@@ -31,6 +31,7 @@ android {
 
 dependencies {
     api(project(":core-common"))
+    api(project(":core-karaoke"))
     api(project(":youtube-client"))
 
     api(libs.junit5.jupiter.api)

@@ -22,6 +22,7 @@ include(
     ":app",
     ":core-common",
     ":core-network",
+    ":core-karaoke",
     ":core-ui",
     ":core-testing",
     ":youtube-client",
@@ -30,3 +31,5 @@ include(
     ":feature-home",
     ":baselineprofile",
 )
+
+includeBuild("backend")
