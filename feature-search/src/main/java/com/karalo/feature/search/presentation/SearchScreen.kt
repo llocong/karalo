@@ -1,5 +1,9 @@
 package com.karalo.feature.search.presentation
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,13 +48,18 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val voiceSearchState by viewModel.voiceSearchState.collectAsState()
 
     SearchScreenContent(
         uiState = uiState,
+        voiceSearchState = voiceSearchState,
         onQueryChanged = viewModel::onQueryChanged,
         onSubmit = viewModel::onSubmit,
         onSuggestionClick = { suggestion -> viewModel.onSubmit(suggestion) },
         onResultClick = onResultClick,
+        prepareVoiceSearchIntent = viewModel::prepareVoiceSearchIntent,
+        onVoiceSearchActivityResult = viewModel::onVoiceSearchActivityResult,
+        onVoiceSearchLaunchFailed = viewModel::onVoiceSearchLaunchFailed,
         contentFocusTrigger = contentFocusTrigger,
         playerReturnTrigger = playerReturnTrigger,
         railFocusRequester = railFocusRequester,
@@ -66,6 +75,10 @@ internal fun SearchScreenContent(
     onSuggestionClick: (String) -> Unit,
     onResultClick: (Int, String) -> Unit,
     contentFocusTrigger: Int,
+    voiceSearchState: VoiceSearchState = VoiceSearchState.Idle,
+    prepareVoiceSearchIntent: () -> Intent? = { null },
+    onVoiceSearchActivityResult: (resultCode: Int, data: Intent?) -> String? = { _, _ -> null },
+    onVoiceSearchLaunchFailed: () -> Unit = {},
     playerReturnTrigger: Int = 0,
     railFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
@@ -129,6 +142,17 @@ internal fun SearchScreenContent(
         firstResultFocusRequester = firstResultFocusRequester,
     )
 
+    // Launches the system's speech-recognition activity and, on a genuine result (not a
+    // cancellation/no-match), mirrors onSuggestionClick's own pattern below: update the locally
+    // displayed text (cursor at the end) to match what the ViewModel already submitted.
+    val voiceSearchLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val recognizedText = onVoiceSearchActivityResult(result.resultCode, result.data)
+            if (recognizedText != null) {
+                textFieldValue = TextFieldValue(recognizedText, selection = TextRange(recognizedText.length))
+            }
+        }
+
     // Horizontal safe-zone inset is applied per-child below (on the query field directly, and as
     // the results row's own contentPadding) rather than here on the whole Column, so a focused
     // edge card in that row can visually scale up into the reserved contentPadding space instead
@@ -179,6 +203,16 @@ internal fun SearchScreenContent(
                 }
             },
             railFocusRequester = railFocusRequester,
+            voiceSearchState = voiceSearchState,
+            onMicClick = {
+                prepareVoiceSearchIntent()?.let { intent ->
+                    try {
+                        voiceSearchLauncher.launch(intent)
+                    } catch (e: ActivityNotFoundException) {
+                        onVoiceSearchLaunchFailed()
+                    }
+                }
+            },
         )
 
         when (uiState) {

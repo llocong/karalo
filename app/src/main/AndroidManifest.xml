@@ -7,6 +7,16 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <!-- Lets PackageManager.resolveActivity() reliably detect the system speech-recognition
+         activity used for voice search (see VoiceSearchManagerImpl) under Android 11+ package
+         visibility rules. No RECORD_AUDIO permission is needed here since that activity, not
+         this app, owns microphone access. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:name=".KaraloApplication"
         android:allowBackup="false"

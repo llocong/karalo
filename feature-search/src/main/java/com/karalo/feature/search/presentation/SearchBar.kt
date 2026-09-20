@@ -46,6 +46,7 @@ private val MIC_TO_FIELD_GAP = 16.dp
 private val SEARCH_FIELD_HORIZONTAL_PADDING = 24.dp
 private val SEARCH_FIELD_VERTICAL_PADDING = 16.dp
 private const val SEARCH_PLACEHOLDER = "Search for a song or artist"
+private const val LISTENING_PLACEHOLDER = "Speak to search..."
 
 /**
  * The search bar row: a circular mic button followed by a pill-shaped query field, filling the
@@ -62,6 +63,7 @@ internal fun SearchBar(
     onDownPressed: () -> Unit,
     railFocusRequester: FocusRequester?,
     modifier: Modifier = Modifier,
+    voiceSearchState: VoiceSearchState = VoiceSearchState.Idle,
     onMicClick: () -> Unit = {},
 ) {
     val micFocusRequester = remember { FocusRequester() }
@@ -71,6 +73,7 @@ internal fun SearchBar(
     ) {
         MicButton(
             onClick = onMicClick,
+            voiceSearchState = voiceSearchState,
             railFocusRequester = railFocusRequester,
             focusRequester = micFocusRequester,
         )
@@ -82,23 +85,31 @@ internal fun SearchBar(
             focusRequester = focusRequester,
             onDownPressed = onDownPressed,
             micFocusRequester = micFocusRequester,
+            isListening = voiceSearchState is VoiceSearchState.Listening,
             modifier = Modifier.weight(1f),
         )
     }
 }
 
 /**
- * A placeholder voice-search entry point -- visual only for now, [onClick] is a no-op until real
- * speech recognition is wired up. Kept as a real, focusable D-pad target rather than excluded from
- * focus order: a TV remote has no touch/click concept, so a "does nothing yet" button still needs
- * to be reachable to be meaningfully a placeholder at all.
+ * The voice-search entry point: triggers the system speech-recognition activity (see
+ * [com.karalo.feature.search.voice.VoiceSearchManager]). Kept as a real, focusable D-pad target
+ * rather than excluded from focus order: a TV remote has no touch/click concept, so any button
+ * needs to be reachable to be usable at all.
  */
 @Composable
 private fun MicButton(
     onClick: () -> Unit,
+    voiceSearchState: VoiceSearchState,
     railFocusRequester: FocusRequester?,
     focusRequester: FocusRequester,
 ) {
+    val contentDescription =
+        when (voiceSearchState) {
+            VoiceSearchState.Listening -> "Voice search, listening"
+            is VoiceSearchState.Error -> "Voice search, unavailable"
+            VoiceSearchState.Idle -> "Voice search"
+        }
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
@@ -133,7 +144,7 @@ private fun MicButton(
                 },
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(imageVector = Icons.Filled.Mic, contentDescription = "Voice search")
+            Icon(imageVector = Icons.Filled.Mic, contentDescription = contentDescription)
         }
     }
 }
@@ -146,12 +157,15 @@ private fun SearchQueryField(
     focusRequester: FocusRequester,
     onDownPressed: () -> Unit,
     micFocusRequester: FocusRequester,
+    isListening: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val isEmpty = textFieldValue.text.isEmpty()
-    // Uses titleMedium (the Plain/Manrope role) rather than a Brand/Fredoka style: an editable
-    // text field needs a plain, highly-legible face for arbitrary typed text, not the expressive
-    // display font reserved for headlines.
+    // Uses labelMedium (the Plain/Manrope role also used by the suggestion chips and the
+    // navigation drawer's item labels) rather than a Brand/Fredoka style: an editable text field
+    // needs a plain, highly-legible face for arbitrary typed text, not the expressive display font
+    // reserved for headlines -- and matching labelMedium here keeps the query field, the
+    // suggestions row, and the drawer all reading at the same face/size.
     //
     // The TextFieldValue overload (rather than the plain String one) is deliberate: it's the only
     // way to control cursor *position* explicitly, needed so that setting the field's text from a
@@ -161,16 +175,19 @@ private fun SearchQueryField(
         value = textFieldValue,
         onValueChange = onTextFieldValueChange,
         singleLine = true,
-        textStyle = MaterialTheme.typography.titleMedium.copy(color = SearchTypedText),
+        textStyle = MaterialTheme.typography.labelMedium.copy(color = SearchTypedText),
         cursorBrush = SolidColor(SearchTypedText),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.CenterStart) {
                 if (isEmpty) {
+                    // While the system speech-recognition activity is listening, this replaces the
+                    // normal placeholder so the user has an immediate, unmissable signal that the
+                    // mic is active -- not relying solely on the mic icon/description change.
                     Text(
-                        text = SEARCH_PLACEHOLDER,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = if (isListening) LISTENING_PLACEHOLDER else SEARCH_PLACEHOLDER,
+                        style = MaterialTheme.typography.labelMedium,
                         color = SearchPlaceholderText,
                     )
                 }
