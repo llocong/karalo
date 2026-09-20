@@ -29,7 +29,11 @@ captures/
 bin/
 gen/
 out/
-release/
+# NOT "release/": an old Eclipse-ADT-era default (alongside bin/gen/out above), meaningless for a
+# Gradle project (build output already lives under build/, ignored above) -- but its unanchored
+# form matched *any* directory named "release" anywhere in the tree, which silently swallowed
+# app/src/release/, a real AGP variant source set (holds the committed Baseline Profile -- see
+# :baselineprofile module and CONTRIBUTING.md "Performance").
 
 # Signing / secrets — NEVER commit these
 *.jks
