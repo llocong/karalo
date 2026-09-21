@@ -5,6 +5,7 @@ import com.karalo.backend.domain.ApiException
 import com.karalo.backend.domain.model.ParticipantJoinRequestDto
 import com.karalo.backend.plugins.CommandRateLimit
 import com.karalo.backend.plugins.JoinRateLimit
+import com.karalo.backend.plugins.RenameRateLimit
 import com.karalo.backend.plugins.SearchRateLimit
 import com.karalo.backend.plugins.SessionLookupRateLimit
 import io.ktor.http.HttpStatusCode
@@ -14,6 +15,7 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -54,6 +56,14 @@ fun Route.participantSessionRoutes(deps: AppDependencies) {
     get("/api/sessions/{sessionId}/me") {
         val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
         call.respond(deps.participantRepository.me(sessionId, call.bearerToken()))
+    }
+
+    rateLimit(RenameRateLimit) {
+        patch("/api/sessions/{sessionId}/me") {
+            val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
+            val body = call.receive<ParticipantJoinRequestDto>()
+            call.respond(deps.participantRepository.rename(sessionId, call.bearerToken(), body.displayName))
+        }
     }
 
     rateLimit(CommandRateLimit) {

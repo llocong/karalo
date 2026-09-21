@@ -16,6 +16,22 @@ import java.util.concurrent.atomic.AtomicBoolean
 // Mirrors the app's `KaraokeQueryFormatter` -- every search is silently prefixed with "karaoke "
 // so results skew toward karaoke versions, same as the TV's own search.
 private const val KARAOKE_QUERY_PREFIX = "karaoke "
+private const val KARAOKE_WORD = "karaoke"
+
+/**
+ * Extracted as a pure top-level function (rather than left inline in [BackendYouTubeSearch.search])
+ * specifically so it's directly unit-testable without a live network call -- mirrors why
+ * `formatVideoTitle` was pulled out the same way. Treats the bare word "karaoke" (no trailing
+ * content) as already-prefixed too, not just anything starting with "karaoke " -- this is exactly
+ * the TV Home screen's own "Top Picks" shelf query (`TOP_PICKS_QUERY = "karaoke"` in
+ * `feature-home/HomeViewModel.kt`), and without this the mobile web's "Top Picks" playlist would
+ * silently search "karaoke karaoke" instead of the same "karaoke" the TV actually searches.
+ */
+internal fun applyKaraokePrefix(query: String): String {
+    val trimmed = query.trim()
+    val alreadyPrefixed = trimmed.equals(KARAOKE_WORD, ignoreCase = true) || trimmed.startsWith(KARAOKE_QUERY_PREFIX, ignoreCase = true)
+    return if (alreadyPrefixed) trimmed else KARAOKE_QUERY_PREFIX + trimmed
+}
 
 /**
  * Serves the mobile web page's search requests using the SAME underlying approach as the TV's
@@ -46,9 +62,7 @@ class BackendYouTubeSearch(
 
     fun search(query: String): List<Result> =
         try {
-            val trimmed = query.trim()
-            val karaokeQuery = if (trimmed.startsWith(KARAOKE_QUERY_PREFIX, ignoreCase = true)) trimmed else KARAOKE_QUERY_PREFIX + trimmed
-            val queryHandler = service.searchQHFactory.fromQuery(karaokeQuery)
+            val queryHandler = service.searchQHFactory.fromQuery(applyKaraokePrefix(query))
             SearchInfo
                 .getInfo(service, queryHandler)
                 .relatedItems

@@ -12,7 +12,6 @@
   const miniPlayerSubtitle = document.getElementById("miniPlayerSubtitle");
   const nowPlayingThumb = document.getElementById("nowPlayingThumb");
   const nowPlayingTitle = document.getElementById("nowPlayingTitle");
-  const nowPlayingArtist = document.getElementById("nowPlayingArtist");
   const nowPlayingSungBy = document.getElementById("nowPlayingSungBy");
   const upNextCount = document.getElementById("upNextCount");
   const queueListEl = document.getElementById("queueList");
@@ -62,12 +61,10 @@
     if (nowPlaying) {
       nowPlayingThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
       nowPlayingTitle.textContent = nowPlaying.title;
-      nowPlayingArtist.textContent = nowPlaying.channelName || "";
       nowPlayingSungBy.textContent = nowPlaying.addedByDisplayName ? `Sung by ${nowPlaying.addedByDisplayName}` : "";
     } else {
       nowPlayingThumb.innerHTML = "";
       nowPlayingTitle.textContent = "Nothing playing";
-      nowPlayingArtist.textContent = "";
       nowPlayingSungBy.textContent = "";
     }
   }

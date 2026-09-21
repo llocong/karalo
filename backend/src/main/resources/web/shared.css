@@ -17,6 +17,16 @@ body {
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
+  /* Without this, tapping a clickable text row (song row, playlist tile, back-header...) can be
+     interpreted by the mobile browser as a text-selection gesture instead of a click -- this is
+     an app-like UI, not a text/content page, so selection is disabled everywhere except inputs. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* ---------- Brand: logo + wordmark ---------- */
@@ -154,6 +164,46 @@ button {
 }
 .song-row.adding { opacity: 0.5; }
 
+/* ---------- Playlists (Main Page) ---------- */
+.playlist-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.playlist-tile {
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-end;
+  padding: 14px;
+  cursor: pointer;
+}
+.playlist-tile .name {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--text);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.playlist-back-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  /* Lives inside .main-header now (sticky with the search pill/logo while the song list scrolls
+     underneath), so the top gap comes from that flex column's own 20px gap, not this padding --
+     matching that 20px on the bottom (with none on top) is what keeps the gap above and below the
+     text equal, the same way .main-header's fixed 16px bottom padding stacks with this element's
+     own bottom padding to also total 20px below. */
+  padding: 0 4px 4px;
+}
+.playlist-back-header svg { flex-shrink: 0; }
+
 /* ---------- Mini-player bar ---------- */
 .mini-player {
   position: fixed;
@@ -247,7 +297,6 @@ button {
 .now-playing-card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .now-playing-card .meta { flex: 1; min-width: 0; }
 .now-playing-card .title { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 15px; }
-.now-playing-card .artist { font-size: 13px; color: var(--muted); }
 .now-playing-card .sung-by { font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 2px; }
 
 .transport {
@@ -361,3 +410,74 @@ button {
   font-size: 14px;
   font-weight: 600;
 }
+
+/* ---------- Modal (Change Nickname) ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+.modal-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header .heading {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+}
+.modal-header button { padding: 4px; }
+.modal-input-wrap { position: relative; }
+.modal-input-wrap input { padding-right: 44px; }
+.modal-input-wrap .clear-button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px;
+}
+.modal-counter {
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -8px;
+}
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+.modal-actions button {
+  flex: 1;
+  padding: 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 15px;
+  text-align: center;
+}
+.modal-actions .secondary {
+  background: none;
+  border: 1.5px solid var(--text);
+  color: var(--text);
+}
+.modal-actions .primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+.modal-actions .primary:disabled { opacity: 0.5; }

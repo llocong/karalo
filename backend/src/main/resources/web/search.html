@@ -45,6 +45,10 @@
       font-family: 'Manrope', sans-serif;
       font-weight: 700;
       font-size: 16px;
+      /* No top padding: .main-header's own 16px bottom padding already separates the search pill
+         from this heading, so matching that with 16px on the bottom is what makes the gap above
+         and below the text equal -- padding split evenly here would double-count the top gap. */
+      padding: 0 4px 16px;
     }
   </style>
 </head>
@@ -52,7 +56,7 @@
   <div class="app-shell">
     <div class="main-header">
       <div class="app-header">
-        <div class="brand">
+        <div class="brand" id="brandHome" style="cursor:pointer">
           <svg width="26" height="26" viewBox="0 0 96 96" fill="none">
             <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
             <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
@@ -64,16 +68,24 @@
           </svg>
           <div class="wordmark" style="font-size:18px">Karalo</div>
         </div>
-        <div class="avatar" id="avatar"></div>
+        <div class="avatar" id="avatar" style="cursor:pointer"></div>
       </div>
 
       <div class="search-pill">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#A79BB5" stroke-width="2.2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
         <input type="text" id="query" placeholder="Search a song or artist" autofocus />
       </div>
+
+      <!-- Lives in the non-scrolling header (not .scroll-area) so it stays put -- sticky with the
+           search pill and logo -- while the playlist's song list scrolls underneath it. -->
+      <div id="playlistHeader" class="playlist-back-header" style="display:none"></div>
     </div>
 
     <div class="scroll-area">
+      <div id="playlistsSection" style="display:none">
+        <div class="section-heading">Playlists</div>
+        <div id="playlistsGrid" class="playlist-grid"></div>
+      </div>
       <div id="results" class="song-list"></div>
     </div>
   </div>
@@ -89,7 +101,7 @@
 
   <div class="queue-sheet" id="queueSheet">
     <div class="queue-sheet-inner">
-      <div class="sheet-header">
+      <div class="sheet-header" id="sheetHeader" style="cursor:pointer">
         <div class="heading">Now Playing</div>
         <button id="collapseSheetButton" aria-label="Collapse">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="#A79BB5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -101,7 +113,6 @@
           <div class="thumb" id="nowPlayingThumb"></div>
           <div class="meta">
             <div class="title" id="nowPlayingTitle">Nothing playing</div>
-            <div class="artist" id="nowPlayingArtist"></div>
             <div class="sung-by" id="nowPlayingSungBy"></div>
           </div>
         </div>
@@ -121,6 +132,28 @@
           <div class="count" id="upNextCount"></div>
         </div>
         <div class="queue-list" id="queueList" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="nicknameOverlay" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="heading">Change your Nickname</div>
+        <button id="nicknameCloseButton" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-input-wrap">
+        <input type="text" id="nicknameInput" class="pill-input" maxlength="16" />
+        <button class="clear-button" id="nicknameClearButton" aria-label="Clear">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-counter" id="nicknameCounter">0 / 16</div>
+      <div class="modal-actions">
+        <button class="secondary" id="nicknameCancelButton">Cancel</button>
+        <button class="primary" id="nicknameConfirmButton">Confirm</button>
       </div>
     </div>
   </div>

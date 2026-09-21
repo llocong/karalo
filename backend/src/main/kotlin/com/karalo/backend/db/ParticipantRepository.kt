@@ -15,16 +15,33 @@ import java.time.Instant
 import java.util.UUID
 
 private val CONTROL_CHARS = Regex("\\p{Cntrl}")
+private const val JOIN_DISPLAY_NAME_MAX_LENGTH = 40
+private const val RENAME_DISPLAY_NAME_MAX_LENGTH = 16
+
+/**
+ * Pure (top-level, not a method) so it's unit-testable without a DB transaction -- mirrors why
+ * `applyKaraokePrefix` was pulled out the same way. Shared by [ParticipantRepository.join] (a
+ * 40-char cap, kept as-is for existing joiners) and [ParticipantRepository.rename] (a 16-char cap,
+ * matching the mobile web's Karafun-style nickname modal), rather than duplicating the same
+ * strip/trim/bounds-check logic twice with two different limits.
+ */
+internal fun normalizeDisplayName(
+    raw: String,
+    maxLength: Int,
+): String {
+    val displayName = raw.replace(CONTROL_CHARS, "").trim()
+    if (displayName.isEmpty() || displayName.length > maxLength) {
+        throw ApiException.Validation("displayName must be 1-$maxLength characters")
+    }
+    return displayName
+}
 
 class ParticipantRepository {
     fun join(
         sessionId: String,
         rawDisplayName: String,
     ): ParticipantJoinResponseDto {
-        val displayName = rawDisplayName.replace(CONTROL_CHARS, "").trim()
-        if (displayName.isEmpty() || displayName.length > 40) {
-            throw ApiException.Validation("displayName must be 1-40 characters")
-        }
+        val displayName = normalizeDisplayName(rawDisplayName, JOIN_DISPLAY_NAME_MAX_LENGTH)
         return transaction {
             val participantId = UUID.randomUUID().toString()
             val rawToken = TokenGenerator.generate()
@@ -68,6 +85,25 @@ class ParticipantRepository {
     ): MeDto {
         val (participantId, displayName) = requireParticipantAuth(sessionId, presentedToken)
         return MeDto(participantId = participantId, displayName = displayName, sessionId = sessionId)
+    }
+
+    /**
+     * Updates the authenticated participant's own display name -- does NOT retroactively change
+     * `addedByDisplayName` on queue items already added under the old name, matching how that
+     * column is a denormalized snapshot taken at add-time, not a live reference (see
+     * [com.karalo.backend.routes.queueRoutes]).
+     */
+    fun rename(
+        sessionId: String,
+        presentedToken: String?,
+        rawDisplayName: String,
+    ): MeDto {
+        val displayName = normalizeDisplayName(rawDisplayName, RENAME_DISPLAY_NAME_MAX_LENGTH)
+        return transaction {
+            val (participantId, _) = requireParticipantAuth(sessionId, presentedToken)
+            Participants.update({ Participants.id eq participantId }) { it[Participants.displayName] = displayName }
+            MeDto(participantId = participantId, displayName = displayName, sessionId = sessionId)
+        }
     }
 
     /** Accepts either a participant token OR the owning TV's secret — used by the shared queue-read endpoint. */
