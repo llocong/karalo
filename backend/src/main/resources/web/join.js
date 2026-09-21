@@ -31,7 +31,10 @@
   }
 
   subtitle.textContent = `${lookup.data.participantCount} ${lookup.data.participantCount === 1 ? "person" : "people"} already here`;
-  form.style.display = "block";
+  // "flex", not "block" -- .join-sheet's CSS gap (the spacing between the label/input/button)
+  // only takes effect on a flex/grid container, and this inline style otherwise wins over the
+  // stylesheet's `display: flex` since inline styles always beat external rules.
+  form.style.display = "flex";
 
   joinButton.addEventListener("click", async () => {
     const displayName = nameInput.value.trim();

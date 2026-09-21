@@ -9,32 +9,43 @@
   <link rel="stylesheet" href="/shared.css" />
   <style>
     body {
+      /* `100vh` is the mobile browser's "large viewport" -- as tall as the screen would be with
+         the address bar fully collapsed, which is taller than what's actually on screen right
+         after load. `100dvh` tracks the actually-visible viewport instead (100vh above it is
+         just the fallback for browsers that don't support dvh) -- but this alone isn't enough:
+         relying on .join-top/.join-heading's flex-grow to fill that height and CENTER their
+         content is what pushes .join-sheet down by an amount that depends on exactly how tall
+         the visible viewport is measured to be. Instead, .join-top/.join-heading below have no
+         flex-grow of their own -- they take only their natural content height -- and .join-sheet
+         gets `margin-top: auto` so IT'S the one absorbing any leftover space (pinning it to the
+         bottom on a normal/tall screen), while never being pushed past the fold on a short one:
+         worst case, the leftover space is zero and .join-sheet sits directly under the heading. */
       min-height: 100vh;
+      min-height: 100dvh;
       background: radial-gradient(circle at 50% 32%, #4C1D95 0%, #0B0710 70%);
       display: flex;
       flex-direction: column;
     }
     .join-top {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 48px 28px 24px;
+      gap: 40px;
+      padding: 48px 28px 32px;
     }
     .join-top .brand { flex-direction: column; margin-top: 4px; }
     .join-top .wordmark { font-size: 22px; margin-top: 8px; }
     .join-heading {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       gap: 10px;
       text-align: center;
     }
     .join-heading .headline { font-size: 16px; color: #C4B5FD; font-weight: 600; }
     .join-heading .subtitle { font-size: 13px; color: var(--muted); }
     .join-sheet {
+      margin-top: auto;
       background: var(--surface);
       border-top: 1px solid var(--border);
       border-top-left-radius: 24px;
