@@ -61,22 +61,6 @@ function formatDuration(seconds) {
   return `${m}:${s}`;
 }
 
-function tabbar(active) {
-  const params = new URLSearchParams(location.search);
-  const sessionId = params.get("sessionId") || "";
-  const qs = sessionId ? `?sessionId=${sessionId}` : "";
-  const tabs = [
-    { href: `search.html${qs}`, id: "search", label: "Search" },
-    { href: `queue.html${qs}`, id: "queue", label: "Queue" },
-  ];
-  const nav = document.createElement("div");
-  nav.className = "tabbar";
-  tabs.forEach((t) => {
-    const a = document.createElement("a");
-    a.href = t.href;
-    a.textContent = t.label;
-    if (t.id === active) a.className = "active";
-    nav.appendChild(a);
-  });
-  document.body.appendChild(nav);
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }

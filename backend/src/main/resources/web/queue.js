@@ -2,13 +2,19 @@
   const params = new URLSearchParams(location.search);
   const sessionId = params.get("sessionId");
   const participant = sessionId ? loadParticipant(sessionId) : null;
-  if (!sessionId || !participant) {
-    location.href = "index.html";
-    return;
-  }
-  tabbar("queue");
+  // search.js (loaded first on this same page) already owns the actual redirect-away when not
+  // joined -- its location.href assignment doesn't stop this script's synchronous execution, so
+  // this is a quiet bail-out rather than a second competing redirect.
+  if (!sessionId || !participant) return;
 
-  const nowPlayingEl = document.getElementById("nowPlaying");
+  const miniPlayerThumb = document.getElementById("miniPlayerThumb");
+  const miniPlayerTitle = document.getElementById("miniPlayerTitle");
+  const miniPlayerSubtitle = document.getElementById("miniPlayerSubtitle");
+  const nowPlayingThumb = document.getElementById("nowPlayingThumb");
+  const nowPlayingTitle = document.getElementById("nowPlayingTitle");
+  const nowPlayingArtist = document.getElementById("nowPlayingArtist");
+  const nowPlayingSungBy = document.getElementById("nowPlayingSungBy");
+  const upNextCount = document.getElementById("upNextCount");
   const queueListEl = document.getElementById("queueList");
   const pauseResumeButton = document.getElementById("pauseResumeButton");
   const skipButton = document.getElementById("skipButton");
@@ -18,9 +24,14 @@
   let reconnectDelayMs = 1000;
   let dragInProgress = false;
 
-  const PLAY_ICON = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
-  const PAUSE_ICON = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-  const HANDLE_ICON = '<svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
+  const PLAY_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="#0B0710"/></svg>';
+  const PAUSE_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/></svg>';
+  const HANDLE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="6" r="1.4" fill="#63576F"/><circle cx="8" cy="12" r="1.4" fill="#63576F"/><circle cx="8" cy="18" r="1.4" fill="#63576F"/><circle cx="16" cy="6" r="1.4" fill="#63576F"/><circle cx="16" cy="12" r="1.4" fill="#63576F"/><circle cx="16" cy="18" r="1.4" fill="#63576F"/></svg>';
+  const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#0B0710" stroke-width="2.4" stroke-linecap="round"/></svg>';
+
+  function thumbHtml(url) {
+    return url ? `<img src="${url}" alt="" />` : "";
+  }
 
   async function loadSnapshot() {
     // A drag reloads the snapshot itself the instant it ends (see attachDragHandle's pointerup
@@ -42,61 +53,91 @@
     pauseResumeButton.innerHTML = isPaused ? PLAY_ICON : PAUSE_ICON;
     pauseResumeButton.setAttribute("aria-label", isPaused ? "Play" : "Pause");
 
-    if (snapshot.nowPlaying) {
-      nowPlayingEl.innerHTML = `
-        <div class="now-playing">
-          <div class="label">Now Playing${currentPlaybackState === "PAUSED" ? " · Paused" : ""}</div>
-          <div class="title" style="font-size:16px; margin-top:4px">${escapeHtml(snapshot.nowPlaying.title)}</div>
-          ${snapshot.nowPlaying.addedByDisplayName ? `<div class="subtitle">Added by ${escapeHtml(snapshot.nowPlaying.addedByDisplayName)}</div>` : ""}
-        </div>`;
-    } else {
-      nowPlayingEl.innerHTML = `<div class="now-playing"><div class="label">Nothing playing</div></div>`;
-    }
+    renderNowPlaying(snapshot.nowPlaying);
+    renderMiniPlayer(snapshot.nowPlaying);
+    renderQueueList(snapshot.queue);
+  }
 
-    queueListEl.innerHTML = "";
-    snapshot.queue.forEach((item) => {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.dataset.id = item.id;
-      card.innerHTML = `
-        <button class="drag-handle" aria-label="Drag to reorder">${HANDLE_ICON}</button>
-        <img src="${item.thumbnailUrl || ""}" alt="" />
-        <div class="meta">
-          <div class="title">${escapeHtml(item.title)}</div>
-          <div class="subtitle">${escapeHtml(item.addedByDisplayName)} · ${formatDuration(item.durationSeconds)}</div>
-        </div>
-        <button class="secondary" data-action="delete" style="color:var(--danger)">✕</button>
-      `;
-      card.querySelector('[data-action="delete"]').addEventListener("click", () => deleteItem(item.id));
-      attachDragHandle(card.querySelector(".drag-handle"), card);
-      queueListEl.appendChild(card);
-    });
-    if (snapshot.queue.length === 0) {
-      queueListEl.innerHTML = `<p class="subtitle">No songs queued yet — add one from the Search tab.</p>`;
+  function renderNowPlaying(nowPlaying) {
+    if (nowPlaying) {
+      nowPlayingThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
+      nowPlayingTitle.textContent = nowPlaying.title;
+      nowPlayingArtist.textContent = nowPlaying.channelName || "";
+      nowPlayingSungBy.textContent = nowPlaying.addedByDisplayName ? `Sung by ${nowPlaying.addedByDisplayName}` : "";
+    } else {
+      nowPlayingThumb.innerHTML = "";
+      nowPlayingTitle.textContent = "Nothing playing";
+      nowPlayingArtist.textContent = "";
+      nowPlayingSungBy.textContent = "";
     }
+  }
+
+  function renderMiniPlayer(nowPlaying) {
+    if (nowPlaying) {
+      miniPlayerThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
+      miniPlayerTitle.textContent = nowPlaying.title;
+      miniPlayerSubtitle.textContent = "Now playing";
+    } else {
+      miniPlayerThumb.innerHTML = "";
+      miniPlayerTitle.textContent = "Nothing playing";
+      miniPlayerSubtitle.textContent = "Scan the QR code to add a song";
+    }
+  }
+
+  function renderQueueList(queue) {
+    upNextCount.textContent = `${queue.length} ${queue.length === 1 ? "song" : "songs"}`;
+    queueListEl.innerHTML = "";
+    if (queue.length === 0) {
+      queueListEl.innerHTML = `<p class="empty-hint">No songs queued yet — add one from Search.</p>`;
+      return;
+    }
+    queue.forEach((item) => {
+      const wrap = document.createElement("div");
+      wrap.className = "queue-row-wrap";
+      wrap.innerHTML = `
+        <div class="queue-row-delete">${DELETE_ICON}</div>
+        <div class="queue-row" data-id="${item.id}">
+          <div class="thumb">${thumbHtml(item.thumbnailUrl)}</div>
+          <div class="meta">
+            <div class="title">${escapeHtml(item.title)}</div>
+            <div class="sung-by">Sung by ${escapeHtml(item.addedByDisplayName)}</div>
+          </div>
+          <div class="drag-handle" aria-label="Drag to reorder">${HANDLE_ICON}</div>
+        </div>
+      `;
+      const row = wrap.querySelector(".queue-row");
+      attachDragHandle(row.querySelector(".drag-handle"), row);
+      attachSwipeToDelete(row, item.id);
+      queueListEl.appendChild(wrap);
+    });
   }
 
   // Pointer-based (mouse + touch) free reordering: the dragged card is lifted out of the flow
   // (position: fixed, following the pointer) while a same-sized placeholder marks its slot in the
   // list; crossing a sibling's vertical midpoint swaps the placeholder past it. No native HTML5
   // drag-and-drop (unreliable on mobile browsers without a polyfill) and no external sortable
-  // library, per this mobile page's own no-build-step/no-framework approach.
-  function attachDragHandle(handleEl, card) {
+  // library, per this mobile page's own no-build-step/no-framework approach. Operates on the
+  // `.queue-row-wrap` elements (one per queue row) so each row's delete-reveal stays attached to
+  // its row throughout the drag.
+  function attachDragHandle(handleEl, row) {
     handleEl.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      e.stopPropagation();
+      const card = row.parentElement; // .queue-row-wrap
       const rect = card.getBoundingClientRect();
       const placeholder = document.createElement("div");
-      placeholder.className = "card";
+      placeholder.className = "queue-row-wrap";
       placeholder.style.visibility = "hidden";
       placeholder.style.height = `${rect.height}px`;
       placeholder.style.marginBottom = getComputedStyle(card).marginBottom;
       card.after(placeholder);
 
-      card.classList.add("dragging");
       card.style.position = "fixed";
       card.style.top = `${rect.top}px`;
       card.style.left = `${rect.left}px`;
       card.style.width = `${rect.width}px`;
+      card.style.zIndex = 10;
+      card.style.boxShadow = "0 6px 20px rgba(0,0,0,0.5)";
 
       dragInProgress = true;
       const offsetY = e.clientY - rect.top;
@@ -123,14 +164,15 @@
         handleEl.removeEventListener("pointerup", onUp);
         handleEl.removeEventListener("pointercancel", onUp);
         placeholder.replaceWith(card);
-        card.classList.remove("dragging");
         card.style.position = "";
         card.style.top = "";
         card.style.left = "";
         card.style.width = "";
+        card.style.zIndex = "";
+        card.style.boxShadow = "";
         dragInProgress = false;
 
-        const orderedQueueItemIds = Array.from(queueListEl.children).map((el) => el.dataset.id);
+        const orderedQueueItemIds = Array.from(queueListEl.children).map((el) => el.querySelector(".queue-row").dataset.id);
         const result = await apiFetch(`/api/sessions/${sessionId}/queue/reorder`, {
           method: "PATCH",
           sessionId,
@@ -148,9 +190,52 @@
     });
   }
 
+  const SWIPE_DELETE_THRESHOLD_PX = 80;
+
+  // Horizontal swipe-to-delete on the row body itself -- a different element from the
+  // `.drag-handle` used for reordering above, so the two gestures never compete for the same
+  // pointer stream.
+  function attachSwipeToDelete(row, itemId) {
+    let startX = null;
+    let dx = 0;
+
+    row.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".drag-handle")) return;
+      startX = e.clientX;
+      row.setPointerCapture(e.pointerId);
+      row.style.transition = "none";
+    });
+
+    row.addEventListener("pointermove", (e) => {
+      if (startX == null) return;
+      dx = Math.min(0, e.clientX - startX);
+      row.style.transform = `translateX(${dx}px)`;
+    });
+
+    const finish = async (e) => {
+      if (startX == null) return;
+      row.releasePointerCapture(e.pointerId);
+      row.style.transition = "transform 200ms ease-out";
+      if (dx < -SWIPE_DELETE_THRESHOLD_PX) {
+        row.style.transform = "translateX(-100%)";
+        await deleteItem(itemId);
+      } else {
+        row.style.transform = "translateX(0)";
+      }
+      startX = null;
+      dx = 0;
+    };
+
+    row.addEventListener("pointerup", finish);
+    row.addEventListener("pointercancel", finish);
+  }
+
   async function deleteItem(id) {
     const result = await apiFetch(`/api/sessions/${sessionId}/queue/${id}`, { method: "DELETE", sessionId });
-    if (!result.ok) showToast("Couldn't remove that song");
+    if (!result.ok) {
+      showToast("Couldn't remove that song");
+      loadSnapshot();
+    }
   }
 
   pauseResumeButton.addEventListener("click", async () => {
@@ -186,19 +271,11 @@
       case "QUEUE_ITEM_ADDED":
       case "QUEUE_ITEM_REMOVED":
       case "QUEUE_UPDATED":
-        loadSnapshot();
-        break;
       case "NOW_PLAYING_CHANGED":
-        loadSnapshot();
-        break;
       case "SESSION_UPDATED":
         loadSnapshot();
         break;
     }
-  }
-
-  function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
 
   loadSnapshot();

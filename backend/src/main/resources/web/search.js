@@ -1,11 +1,14 @@
 (function () {
   const params = new URLSearchParams(location.search);
   const sessionId = params.get("sessionId");
-  if (!sessionId || !loadParticipant(sessionId)) {
+  const participant = sessionId ? loadParticipant(sessionId) : null;
+  if (!sessionId || !participant) {
     location.href = "index.html";
     return;
   }
-  tabbar("search");
+
+  const avatarEl = document.getElementById("avatar");
+  avatarEl.textContent = (participant.displayName || "?").trim().charAt(0).toUpperCase();
 
   const queryInput = document.getElementById("query");
   const resultsEl = document.getElementById("results");
@@ -24,7 +27,7 @@
   async function runSearch(query) {
     const result = await apiFetch(`/api/sessions/${sessionId}/search?q=${encodeURIComponent(query)}`, { sessionId });
     if (!result.ok) {
-      resultsEl.innerHTML = `<p style="color:var(--danger)">${(result.error && result.error.message) || "Search failed"}</p>`;
+      resultsEl.innerHTML = `<p class="error-text">${(result.error && result.error.message) || "Search failed"}</p>`;
       return;
     }
     renderResults(result.data.results);
@@ -33,24 +36,22 @@
   function renderResults(results) {
     resultsEl.innerHTML = "";
     results.forEach((r) => {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <img src="${r.thumbnailUrl || ""}" alt="" />
+      const row = document.createElement("div");
+      row.className = "song-row";
+      row.innerHTML = `
+        <div class="thumb">${r.thumbnailUrl ? `<img src="${r.thumbnailUrl}" alt="" />` : ""}</div>
         <div class="meta">
           <div class="title">${escapeHtml(r.title)}</div>
-          <div class="subtitle">${escapeHtml(r.channelName)} · ${formatDuration(r.durationSeconds)}</div>
         </div>
-        <button data-video-id="${r.videoId}">Add</button>
       `;
-      card.querySelector("button").addEventListener("click", (e) => addToQueue(r, e.target));
-      resultsEl.appendChild(card);
+      row.addEventListener("click", () => addToQueue(r, row));
+      resultsEl.appendChild(row);
     });
   }
 
-  async function addToQueue(result, buttonEl) {
-    buttonEl.disabled = true;
-    buttonEl.textContent = "Adding…";
+  async function addToQueue(result, rowEl) {
+    if (rowEl.classList.contains("adding")) return;
+    rowEl.classList.add("adding");
     const response = await apiFetch(`/api/sessions/${sessionId}/queue`, {
       method: "POST",
       sessionId,
@@ -62,17 +63,32 @@
         durationSeconds: result.durationSeconds,
       },
     });
+    rowEl.classList.remove("adding");
     if (!response.ok) {
       showToast((response.error && response.error.message) || "Couldn't add song");
-      buttonEl.disabled = false;
-      buttonEl.textContent = "Add";
       return;
     }
-    buttonEl.textContent = "Added ✓";
     showToast(`Added "${result.title}" to the queue`);
   }
 
-  function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  // Mini-player: opens the queue sheet. Its content (thumbnail/title/subtitle) is kept live by
+  // queue.js's render(), which owns the one shared queue snapshot/WebSocket for this page.
+  const miniPlayer = document.getElementById("miniPlayer");
+  const queueSheet = document.getElementById("queueSheet");
+  const collapseSheetButton = document.getElementById("collapseSheetButton");
+
+  function openSheet() {
+    queueSheet.classList.add("open");
+    document.body.style.overflow = "hidden";
   }
+
+  function closeSheet() {
+    queueSheet.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  miniPlayer.addEventListener("click", openSheet);
+  collapseSheetButton.addEventListener("click", closeSheet);
+
+  if (params.get("openQueue") === "1") openSheet();
 })();
