@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -114,6 +115,14 @@ fun FocusableCard(
                 // animation finishes. Keeping this node's bounds fixed for the whole animation (the
                 // scale lives one level in, on a plain visual descendant) gives the scroll a stable
                 // target from the first frame, eliminating that trailing correction.
+                //
+                // canFocus is forced on because clickable's own focusability is "system defined"
+                // (Compose 1.8+): not focusable while the device is in touch mode, mirroring a
+                // View's focusableInTouchMode=false. A device that boots in touch mode (confirmed
+                // on the phone-image TV AVD, or after any tap/click on its screen) then rejects
+                // every requestFocus() onto these cards, leaving Home's initial focus stranded on
+                // its placeholder with no card reachable by D-pad.
+                .focusProperties { canFocus = true }
                 .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
     ) {
         Column(
