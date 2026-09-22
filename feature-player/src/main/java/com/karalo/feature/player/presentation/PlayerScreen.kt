@@ -53,8 +53,10 @@ fun PlayerScreen(
     var durationMs by remember { mutableLongStateOf(0L) }
     var controlsVisible by remember { mutableStateOf(false) }
     var interactionTick by remember { mutableIntStateOf(0) }
+    var revealFocusTarget by remember { mutableStateOf(RevealFocusTarget.PLAY_PAUSE) }
     val rootFocusRequester = remember { FocusRequester() }
     val playFocusRequester = remember { FocusRequester() }
+    val seekFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(viewModel) {
         while (true) {
@@ -77,7 +79,12 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(controlsVisible) {
-        if (controlsVisible) playFocusRequester.requestFocus()
+        if (controlsVisible) {
+            when (revealFocusTarget) {
+                RevealFocusTarget.PLAY_PAUSE -> playFocusRequester.requestFocus()
+                RevealFocusTarget.SEEK_BAR -> seekFocusRequester.requestFocus()
+            }
+        }
     }
 
     // This screen's ExoPlayer is nav-entry-scoped (see PlayerViewModel), not tied to the
@@ -105,6 +112,13 @@ fun PlayerScreen(
                     when (classifyPlayerKeyEvent(keyEvent, controlsVisible)) {
                         PlayerKeyAction.REVEAL_CONTROLS -> {
                             interactionTick++
+                            revealFocusTarget = RevealFocusTarget.PLAY_PAUSE
+                            controlsVisible = true
+                            true
+                        }
+                        PlayerKeyAction.REVEAL_CONTROLS_ON_SEEK_BAR -> {
+                            interactionTick++
+                            revealFocusTarget = RevealFocusTarget.SEEK_BAR
                             controlsVisible = true
                             true
                         }
@@ -137,6 +151,7 @@ fun PlayerScreen(
             positionMs = positionMs,
             durationMs = durationMs,
             playFocusRequester = playFocusRequester,
+            seekFocusRequester = seekFocusRequester,
             onPlayPauseClick = {
                 controlsVisible = true
                 viewModel.togglePlayPause()
@@ -144,10 +159,6 @@ fun PlayerScreen(
             onNextClick = {
                 controlsVisible = true
                 viewModel.next()
-            },
-            onPreviousClick = {
-                controlsVisible = true
-                viewModel.previous()
             },
             onSeek = viewModel::seekTo,
             onHideControls = { controlsVisible = false },
@@ -168,9 +179,9 @@ private fun BoxScope.PlayerOverlays(
     positionMs: Long,
     durationMs: Long,
     playFocusRequester: FocusRequester,
+    seekFocusRequester: FocusRequester,
     onPlayPauseClick: () -> Unit,
     onNextClick: () -> Unit,
-    onPreviousClick: () -> Unit,
     onSeek: (Long) -> Unit,
     onHideControls: () -> Unit,
 ) {
@@ -183,7 +194,8 @@ private fun BoxScope.PlayerOverlays(
     // controls' own show/hide state (no timeout, per this feature's spec), always at the same
     // bottom-left spot the waiting screen below also uses. Mutually exclusive with the waiting
     // screen's own QR instance rather than layering both, avoiding a redundant second bitmap
-    // decode for the same content.
+    // decode for the same content. Same fixed size regardless of play/pause state -- no
+    // playing-specific exception here, matching every other spot this QR appears.
     if (uiState.sessionJoinUrl != null && !uiState.isWaitingForQueue) {
         KaraokeQrCode(
             content = uiState.sessionJoinUrl,
@@ -200,14 +212,13 @@ private fun BoxScope.PlayerOverlays(
         PlayerControlsOverlay(
             title = formatVideoTitle(uiState.currentItem?.title.orEmpty()),
             isPlaying = uiState.isPlaying,
-            hasNext = uiState.hasNext,
-            hasPrevious = uiState.hasPrevious,
+            hasNextInQueue = uiState.hasNextInQueue,
             positionMs = positionMs,
             durationMs = durationMs,
             playFocusRequester = playFocusRequester,
+            seekFocusRequester = seekFocusRequester,
             onPlayPauseClick = onPlayPauseClick,
             onNextClick = onNextClick,
-            onPreviousClick = onPreviousClick,
             onSeek = onSeek,
             onHideControls = onHideControls,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -219,6 +230,9 @@ private enum class PlayerKeyAction {
     /** Controls are hidden — this key reveals them (and is consumed, so it does nothing else). */
     REVEAL_CONTROLS,
 
+    /** Controls are hidden — Left/Right reveal them focused straight on the seek bar. */
+    REVEAL_CONTROLS_ON_SEEK_BAR,
+
     /** Back while controls are visible hides them instead of leaving the player. */
     HIDE_CONTROLS,
 
@@ -226,6 +240,12 @@ private enum class PlayerKeyAction {
     RESET_AUTO_HIDE_TIMER,
 
     IGNORE,
+}
+
+/** Which control grabs focus once [PlayerScreen] reveals the overlay. */
+private enum class RevealFocusTarget {
+    PLAY_PAUSE,
+    SEEK_BAR,
 }
 
 private fun classifyPlayerKeyEvent(
@@ -237,7 +257,7 @@ private fun classifyPlayerKeyEvent(
         Key.DirectionUp, Key.DirectionDown, Key.DirectionCenter, Key.Enter ->
             if (!controlsVisible) PlayerKeyAction.REVEAL_CONTROLS else PlayerKeyAction.RESET_AUTO_HIDE_TIMER
         Key.DirectionLeft, Key.DirectionRight ->
-            if (controlsVisible) PlayerKeyAction.RESET_AUTO_HIDE_TIMER else PlayerKeyAction.IGNORE
+            if (!controlsVisible) PlayerKeyAction.REVEAL_CONTROLS_ON_SEEK_BAR else PlayerKeyAction.RESET_AUTO_HIDE_TIMER
         Key.Back ->
             if (controlsVisible) PlayerKeyAction.HIDE_CONTROLS else PlayerKeyAction.IGNORE
         else -> PlayerKeyAction.IGNORE

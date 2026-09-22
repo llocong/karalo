@@ -50,11 +50,22 @@ class KaraokeSessionHolder
 
         init {
             appScope.launch {
+                // previousNowPlaying is only ever read/written from this single collector, so a
+                // plain local var (no synchronization) is safe here.
+                var previousNowPlaying: NowPlaying? = null
                 karaokeRepository.queueSnapshot
                     .map { it.nowPlaying }
                     .distinctUntilChanged()
                     .collect { nowPlaying ->
-                        if (!isPlayerOnScreen && nowPlaying != null) {
+                        val previous = previousNowPlaying
+                        previousNowPlaying = nowPlaying
+                        // Must be a genuine nothing-playing -> something-playing transition
+                        // (previous == null), not merely *some* change while off-screen -- e.g. a
+                        // manually-selected Play-Now video ending (BACK) hands nowPlaying back to
+                        // the persistent queue's own next item, which is a real (non-null ->
+                        // non-null) change here too, but must NOT reopen Player: the TV user just
+                        // chose to leave.
+                        if (!isPlayerOnScreen && previous == null && nowPlaying != null) {
                             autoStartRequestsFlow.tryEmit(nowPlaying)
                         }
                     }

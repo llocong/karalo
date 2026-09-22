@@ -96,6 +96,30 @@ class KaraokeSessionHolderTest {
         }
 
     @Test
+    fun `a non-null now-playing change while off-screen does not auto-start (Play-Now ending into the queue)`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            // Reproduces backing out of a manually-selected (Play-Now) video while the persistent
+            // queue already has a next item queued: PlayerViewModel.onCleared() ends the Play-Now
+            // session, which hands nowPlaying back to the queue's own next item -- a genuine
+            // non-null -> non-null change while now off-screen (BACK already left Player). This
+            // must NOT re-open Player: the TV user explicitly chose to leave.
+            val repo = FakeRepo()
+            repo.queueSnapshotFlow.value = KaraokeQueueSnapshot("PLAYING", nowPlaying("vid1"), emptyList())
+            val holder = KaraokeSessionHolder(repo, this)
+            holder.isPlayerOnScreen = true
+            val emissions = mutableListOf<NowPlaying>()
+            launch { holder.autoStartRequests.collect { emissions.add(it) } }
+            advanceUntilIdle()
+
+            holder.isPlayerOnScreen = false
+            repo.queueSnapshotFlow.value = KaraokeQueueSnapshot("PLAYING", nowPlaying("vid2"), emptyList())
+            advanceUntilIdle()
+
+            assertEquals(0, emissions.size)
+            coroutineContext.cancelChildren()
+        }
+
+    @Test
     fun `a rapid duplicate now-playing update does not double-fire`() =
         runTest(mainDispatcherExtension.testDispatcher) {
             val repo = FakeRepo()

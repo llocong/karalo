@@ -1,6 +1,8 @@
 package com.karalo.feature.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +16,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,11 +45,16 @@ import com.karalo.core.ui.components.FocusableCard
 import com.karalo.core.ui.components.LoadingIndicator
 import com.karalo.core.ui.components.TvCarousel
 import com.karalo.core.ui.components.TvCarouselImagePrefetch
+import com.karalo.core.ui.focus.InstantBringIntoViewSpec
 import com.karalo.feature.search.domain.SearchResultItem
+import kotlinx.coroutines.delay
 
 // Safe-zone content margins recommended by the TV layout guidelines
 // (developer.android.com/design/ui/tv/guides/styles/layouts). The bottom gets extra breathing
 // room on top of that so the last shelf's focused (scaled-up) card never touches the screen edge.
+// See the firstVideoFocusTrigger effect's own doc for why this retry exists.
+private const val FIRST_VIDEO_FOCUS_RETRY_DELAY_MS = 50L
+
 private val SAFE_ZONE_HORIZONTAL = 58.dp
 private val SAFE_ZONE_VERTICAL = 28.dp
 private val SAFE_ZONE_BOTTOM_EXTRA = 24.dp
@@ -68,8 +76,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     firstVideoFocusTrigger: Int = 0,
     playerReturnTrigger: Int = 0,
+    homeReselectTrigger: Int = 0,
     claimInitialPlaceholderFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
+    firstVideoFocusRequester: FocusRequester? = null,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -82,20 +92,25 @@ fun HomeScreen(
         },
         firstVideoFocusTrigger = firstVideoFocusTrigger,
         playerReturnTrigger = playerReturnTrigger,
+        homeReselectTrigger = homeReselectTrigger,
         claimInitialPlaceholderFocus = claimInitialPlaceholderFocus,
         railFocusRequester = railFocusRequester,
+        firstVideoFocusRequester = firstVideoFocusRequester ?: remember { FocusRequester() },
         modifier = modifier,
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun HomeScreenContent(
     uiState: HomeUiState,
     onResultClick: (List<SearchResultItem>, Int) -> Unit,
     firstVideoFocusTrigger: Int,
     playerReturnTrigger: Int = 0,
+    homeReselectTrigger: Int = 0,
     claimInitialPlaceholderFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
+    firstVideoFocusRequester: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier,
 ) {
     // The video last clicked into, restored on a genuine return from the player (not merely
@@ -124,7 +139,24 @@ internal fun HomeScreenContent(
             consumedPlayerReturnTrigger = playerReturnTrigger
         }
     }
-    val firstVideoFocusRequester = remember { FocusRequester() }
+    // Whichever card most recently *gained focus*, in any shelf -- not just a played one -- kept
+    // up to date continuously via TvCarousel's own onItemFocused (see its doc). This is what lets
+    // re-selecting Home from the rail while it's already the active destination (KaraloNavHost's
+    // onHomeSelect, closing the drawer BACK opened rather than a genuine switch from elsewhere)
+    // restore focus to wherever the user actually was, via the exact same restoreFocusItemKey
+    // mechanism as lastPlayedVideoId above, for the identical reason native focusRestorer isn't
+    // reliable enough on its own here -- confirmed on a real device: a direct requestFocus() onto
+    // an ancestor .focusRestorer() group landed on the group itself (or its fallback) rather than
+    // cascading down to the actual last-focused card.
+    var lastFocusedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var consumedHomeReselectTrigger by rememberSaveable { mutableIntStateOf(0) }
+    val canRestoreLastFocused = homeReselectTrigger > consumedHomeReselectTrigger
+    LaunchedEffect(homeReselectTrigger) {
+        if (homeReselectTrigger > consumedHomeReselectTrigger) {
+            consumedHomeReselectTrigger = homeReselectTrigger
+        }
+    }
+    val trackedOnItemFocused: (Any) -> Unit = { key -> (key as? String)?.let { lastFocusedVideoId = it } }
     // Neutral focus target claimed the instant this screen mounts on the app's true first-ever
     // launch, purely to keep focus off the nav rail (Compose's fallback focus-search would
     // otherwise land there -- see KaraloNavHost) until the first shelf's own first card is ready
@@ -132,9 +164,15 @@ internal fun HomeScreenContent(
     // mount -- including a mere rail focus-preview, which also navigates here (see
     // KaraloNavRailContent) and looks identical to this from Home's own point of view -- would
     // steal real focus off the rail item the instant it's merely focused, not clicked.
-    val rootFocusRequester = remember { FocusRequester() }
+    //
+    // Kept genuinely, independently focusable (plain .focusable(), no .focusRestorer()) rather
+    // than folded into the shelf-group's own restore target below: this placeholder must be able
+    // to actually *hold* focus itself during the gap before Top Picks has loaded, when there may
+    // be no focusable descendant at all yet -- a focusRestorer-bearing group node with no
+    // focusable target of its own would have nothing to fall back to in that exact window.
+    val placeholderFocusRequester = remember { FocusRequester() }
     if (claimInitialPlaceholderFocus) {
-        LaunchedEffect(Unit) { rootFocusRequester.requestFocus() }
+        LaunchedEffect(Unit) { placeholderFocusRequester.requestFocus() }
     }
     // Tracks whether the placeholder is still the thing actually holding focus while a select is
     // pending Top Picks' load (see the select-effect below) -- cleared the moment focus leaves it
@@ -165,10 +203,20 @@ internal fun HomeScreenContent(
             if (topPicksLoaded != null) {
                 consumedFocusTrigger = firstVideoFocusTrigger
                 placeholderClaimPending = false
+                // Retried once, after a short delay, rather than called just once: confirmed on a
+                // real device that the *first* call here can silently do nothing when this trigger
+                // followed a genuine return from Player (select a video -> BACK -> BACK -> RIGHT/
+                // Center on Home's own rail item) -- something in that sequence leaves the rail's
+                // *own* focus landing (persistently, not just a one-frame flicker) on a different
+                // rail item first, and this request loses the race against that instead of ever
+                // reaching this screen's first video. A second attempt a moment later reliably
+                // lands it correctly once that settles.
+                firstVideoFocusRequester.requestFocus()
+                delay(FIRST_VIDEO_FOCUS_RETRY_DELAY_MS)
                 firstVideoFocusRequester.requestFocus()
             } else {
                 placeholderClaimPending = true
-                rootFocusRequester.requestFocus()
+                placeholderFocusRequester.requestFocus()
             }
         }
     }
@@ -180,73 +228,93 @@ internal fun HomeScreenContent(
     // bottom inset, though, is a trailing Spacer *inside* the scrollable content instead of a
     // matching fixed inset -- it should only ever be visible once you've scrolled to the last
     // shelf, not permanently shrink the viewport while you're still at the top.
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(top = SAFE_ZONE_VERTICAL)
-                .focusRequester(rootFocusRequester)
-                // Abandons a still-pending placeholder claim the moment focus actually leaves this
-                // exact node for any reason -- browsing into an already-loaded shelf while Top
-                // Picks is still loading, or BACK moving focus out to the rail -- by marking the
-                // trigger consumed right here instead of waiting for the select-effect above to do
-                // it. Without this, Top Picks finishing its load later (its own delay is random and
-                // independent of the other shelves) would otherwise steal focus back into content
-                // out from under wherever the user has since navigated, undoing their action.
-                .onFocusChanged { focusState ->
-                    if (!focusState.isFocused && placeholderClaimPending) {
-                        placeholderClaimPending = false
-                        consumedFocusTrigger = firstVideoFocusTrigger
-                    }
-                }.focusable()
-                // BACK while browsing opens the drawer with Home's own item focused, instead of
-                // the platform default (which -- since Home has nothing behind it on the back
-                // stack -- would otherwise exit the app). Attached here, on an ancestor of every
-                // shelf's cards, rather than as a BackHandler: NavHost installs its own internal
-                // back handling that, in this app's setup, always wins a BackHandler priority race
-                // regardless of where either one sits in the composition, silently swallowing BACK
-                // before ours ever sees it. Consuming the raw key event here instead pre-empts that
-                // entirely, and naturally only fires while focus is actually inside this content
-                // (once a rail item has focus instead, this modifier is no longer an ancestor of
-                // the focused node, so it's simply not part of the key event's path at all).
-                .onPreviewKeyEvent { keyEvent ->
-                    val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
-                    if (isBackKeyDown && railFocusRequester != null) {
-                        railFocusRequester.requestFocus()
-                        true
-                    } else {
-                        false
-                    }
-                }.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
-    ) {
-        HomeShelf(
-            title = TOP_PICKS_TITLE,
-            state = uiState.topPicks,
-            onResultClick = trackedOnResultClick,
-            firstItemFocusRequester = firstVideoFocusRequester,
-            focusFirstItemTrigger = firstVideoFocusTrigger,
-            restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
-            restoreFocusRequester = restoreFocusRequester,
-            railFocusRequester = railFocusRequester,
-        )
-        HomeShelf(
-            title = POP_TITLE,
-            state = uiState.pop,
-            onResultClick = trackedOnResultClick,
-            restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
-            restoreFocusRequester = restoreFocusRequester,
-            railFocusRequester = railFocusRequester,
-        )
-        HomeShelf(
-            title = ROCK_TITLE,
-            state = uiState.rock,
-            onResultClick = trackedOnResultClick,
-            restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
-            restoreFocusRequester = restoreFocusRequester,
-            railFocusRequester = railFocusRequester,
-        )
-        Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
+    //
+    // The whole page's own (vertical, shelf-to-shelf) bring-into-view scroll is instant rather
+    // than animated -- most visibly, restoring focus onto whichever card was last played, on a
+    // genuine return from Player, can require scrolling well past the top shelf; an animated
+    // glide there reads as an unprompted scroll, since the person pressed BACK, not an arrow key,
+    // to get here. TvCarousel re-provides its own (animated, centered) spec for each shelf's
+    // *horizontal* scroll, so that per-card browsing motion is unaffected.
+    CompositionLocalProvider(LocalBringIntoViewSpec provides InstantBringIntoViewSpec) {
+        Column(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(top = SAFE_ZONE_VERTICAL)
+                    .focusRequester(placeholderFocusRequester)
+                    // Abandons a still-pending placeholder claim the moment focus actually leaves
+                    // this exact node for any reason -- browsing into an already-loaded shelf
+                    // while Top Picks is still loading, or BACK moving focus out to the rail -- by
+                    // marking the trigger consumed right here instead of waiting for the
+                    // select-effect above to do it. Without this, Top Picks finishing its load
+                    // later (its own delay is random and independent of the other shelves) would
+                    // otherwise steal focus back into content out from under wherever the user has
+                    // since navigated, undoing their action.
+                    .onFocusChanged { focusState ->
+                        if (!focusState.isFocused && placeholderClaimPending) {
+                            placeholderClaimPending = false
+                            consumedFocusTrigger = firstVideoFocusTrigger
+                        }
+                    }.focusable()
+                    // BACK while browsing opens the drawer with Home's own item focused, instead
+                    // of the platform default (which -- since Home has nothing behind it on the
+                    // back stack -- would otherwise exit the app). Attached here, on an ancestor of
+                    // every shelf's cards, rather than as a BackHandler: NavHost installs its own
+                    // internal back handling that, in this app's setup, always wins a BackHandler
+                    // priority race regardless of where either one sits in the composition,
+                    // silently swallowing BACK before ours ever sees it. Consuming the raw key
+                    // event here instead pre-empts that entirely, and naturally only fires while
+                    // focus is actually inside this content (once a rail item has focus instead,
+                    // this modifier is no longer an ancestor of the focused node, so it's simply
+                    // not part of the key event's path at all).
+                    .onPreviewKeyEvent { keyEvent ->
+                        val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
+                        if (isBackKeyDown && railFocusRequester != null) {
+                            railFocusRequester.requestFocus()
+                            true
+                        } else {
+                            false
+                        }
+                    }.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
+        ) {
+            // Either kind of restore -- a genuine return from Player, or re-selecting Home from the
+            // rail while it's already active -- shares this one key/requester pair; only one of the
+            // two can be pending at a time, so which side of the "?:" wins is never ambiguous.
+            val restoreFocusItemKey =
+                lastPlayedVideoId.takeIf { canRestoreLastPlayed }
+                    ?: lastFocusedVideoId.takeIf { canRestoreLastFocused }
+            HomeShelf(
+                title = TOP_PICKS_TITLE,
+                state = uiState.topPicks,
+                onResultClick = trackedOnResultClick,
+                firstItemFocusRequester = firstVideoFocusRequester,
+                focusFirstItemTrigger = firstVideoFocusTrigger,
+                restoreFocusItemKey = restoreFocusItemKey,
+                restoreFocusRequester = restoreFocusRequester,
+                railFocusRequester = railFocusRequester,
+                onItemFocused = trackedOnItemFocused,
+            )
+            HomeShelf(
+                title = POP_TITLE,
+                state = uiState.pop,
+                onResultClick = trackedOnResultClick,
+                restoreFocusItemKey = restoreFocusItemKey,
+                restoreFocusRequester = restoreFocusRequester,
+                railFocusRequester = railFocusRequester,
+                onItemFocused = trackedOnItemFocused,
+            )
+            HomeShelf(
+                title = ROCK_TITLE,
+                state = uiState.rock,
+                onResultClick = trackedOnResultClick,
+                restoreFocusItemKey = restoreFocusItemKey,
+                restoreFocusRequester = restoreFocusRequester,
+                railFocusRequester = railFocusRequester,
+                onItemFocused = trackedOnItemFocused,
+            )
+            Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
+        }
     }
 }
 
@@ -266,6 +334,7 @@ private fun HomeShelf(
     restoreFocusItemKey: String? = null,
     restoreFocusRequester: FocusRequester? = null,
     railFocusRequester: FocusRequester? = null,
+    onItemFocused: ((Any) -> Unit)? = null,
 ) {
     // Requests the whole shelf (title included) into view -- not just the focused card -- when
     // any card in this shelf gains focus, so scrolling back up to an earlier shelf always reveals
@@ -326,6 +395,7 @@ private fun HomeShelf(
                     leftEdgeFocusRequester = railFocusRequester,
                     restoreFocusItemKey = restoreFocusItemKey,
                     restoreFocusRequester = restoreFocusRequester,
+                    onItemFocused = onItemFocused,
                     imagePrefetch =
                         TvCarouselImagePrefetch(
                             thumbnailUrl = { it.thumbnailUrl },
