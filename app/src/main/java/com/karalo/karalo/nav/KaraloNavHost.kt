@@ -2,6 +2,7 @@ package com.karalo.karalo.nav
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -300,7 +302,15 @@ fun KaraloNavHost(
             content = screens,
         )
     } else {
-        screens()
+        // Hidden (not removed, so nothing re-lays out) for the frame or two between BACK popping
+        // Player and Player actually leaving composition (see showNavRail above): by then Home is
+        // already drawn here but the rail isn't back yet, so on a real TV Home visibly flashed at
+        // full width and then jumped sideways as the rail reappeared. Blank instead, it reads as
+        // the video simply ending and Home (rail included) appearing in one step.
+        val isLeavingPlayer = !isPlayerActive && isPlayerComposed
+        Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = if (isLeavingPlayer) 0f else 1f }) {
+            screens()
+        }
     }
 }
 
