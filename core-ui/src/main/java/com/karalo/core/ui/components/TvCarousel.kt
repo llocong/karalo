@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -247,21 +248,21 @@ fun <T> TvCarousel(
         TvCarouselImagePrefetchEffect(listState = listState, items = items, prefetch = imagePrefetch)
     }
 
-    // Remembers whichever item last had focus when this row is re-entered (e.g. arrowing UP to
-    // another row and back DOWN, or a rail focus-preview round trip) and restores it, falling
-    // back to the first item otherwise.
+    // focusRestorer (below) remembers whichever item last had focus when this row is re-entered
+    // (e.g. arrowing UP to another row and back DOWN, or a rail focus-preview round trip) and
+    // restores it, falling back to the first item otherwise.
     //
-    // That fallback is suppressed for the one recomposition where a [restoreFocusItemKey] restore
-    // is actually pending, though: confirmed on a real device that focusRestorer's own onEnter
-    // *does* fire here even for the explicit restore-by-key requestFocus() below targeting a
-    // specific descendant (this row has never been entered before, so onEnter has nothing of its
-    // own remembered yet and falls through to [firstItemFocusRequester]) -- winning the race
-    // against that requestFocus() and silently snapping focus onto item 0 instead of the actual
-    // last-played card whenever it sits deeper in the row (invisible for item 0/1 only, since
-    // those already coincide). Item 0 is still the right fallback for every other case (e.g.
-    // arrowing into this row fresh), so it's only this specific window that must not use it.
-    val focusRestorerFallback =
-        if (restoreFocusItemKey != null) FocusRequester.Default else firstItemFocusRequester ?: FocusRequester.Default
+    // Both behaviors are switched off for the one recomposition where a [restoreFocusItemKey]
+    // restore is pending, though: focusRestorer's onEnter also fires for that restore's explicit
+    // requestFocus() onto a specific descendant, and cancels it in favor of its own pick. With
+    // nothing remembered yet, that pick was the fallback (item 0). Otherwise it was whichever item
+    // focus last *exited* the row from, which survives the Player round trip (it's persisted via
+    // SaveableStateRegistry) but isn't updated by focus leaving for Player itself. Confirmed on a
+    // real TV: play the 4th card, return, arrow RIGHT twice, play that one, and BACK landed on the
+    // 4th card again instead. Overriding onEnter with a no-op here, applied after focusRestorer's
+    // own (focus properties apply from the target outward, so the outer one wins), lets the
+    // explicit requestFocus() land exactly where it asked to.
+    val isRestorePending = restoreFocusItemKey != null
 
     // Same centering math as CenteredBringIntoViewSpec, but instant rather than animated, for the
     // one recomposition a [restoreFocusItemKey] restore is pending: that restore already scrolls
@@ -280,7 +281,8 @@ fun <T> TvCarousel(
             modifier =
                 modifier
                     .focusGroup()
-                    .focusRestorer(fallback = focusRestorerFallback)
+                    .focusProperties { if (isRestorePending) onEnter = {} }
+                    .focusRestorer(fallback = firstItemFocusRequester ?: FocusRequester.Default)
                     .then(
                         if (upFocusRequester != null) {
                             Modifier.onPreviewKeyEvent { keyEvent ->
