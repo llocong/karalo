@@ -5,6 +5,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,8 +40,20 @@ fun KaraloNavHost(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val isPlayerActive = backStackEntry?.destination?.route == NavDestination.Player.route
-    // The nav rail is hidden during immersive playback so the player owns the whole screen.
-    val showNavRail = !isPlayerActive
+    // Still true for a frame or two after BACK pops Player: the popped entry stays composed until
+    // NavHost's (instant) exit transition completes, only then leaving visibleEntries.
+    val visibleEntries by navController.visibleEntries.collectAsState()
+    val isPlayerComposed = visibleEntries.any { it.destination.route == NavDestination.Player.route }
+    // The nav rail is hidden during immersive playback so the player owns the whole screen. Hidden
+    // immediately on entering Player, but only re-shown once Player has fully left composition, not
+    // as soon as the back stack pops: showing it wraps `screens` in NavigationDrawer, re-parenting
+    // and shrinking the still-attached PlayerView's SurfaceView. On API 34 only, Media3's PlayerView
+    // answers that resize by holding the window's next frame in a SurfaceSyncGroup until it draws
+    // again (its workaround for androidx/media#1237) -- which it never does, being released right
+    // after -- so the whole window froze on the last video frame, drawer already showing, until
+    // that group's 1000ms timeout. Confirmed on a Chromecast with Google TV (API 34); invisible on
+    // the API 30 emulator, where that workaround is skipped.
+    val showNavRail = !isPlayerActive && !isPlayerComposed
 
     // Which of Home/Search/Settings is actually shown -- flipped only after the rail's own
     // 150ms focus-settle debounce (see KaraloNavRailContent), never on every intermediate
@@ -66,17 +79,20 @@ fun KaraloNavHost(
     // KaraloNavRailContent), producing a remount that looks identical to a real return from
     // Player from the content's own point of view -- without this, that mere preview would also
     // silently steal focus off the rail and onto whatever video was last played there.
-    var previousIsPlayerActive by remember { mutableStateOf(isPlayerActive) }
+    // Keyed on showNavRail rather than isPlayerActive so the focus restore only runs once `screens`
+    // has already moved into NavigationDrawer (see showNavRail above), not while it's still sitting
+    // in its rail-less position, one move away from possibly losing that focus again.
+    var previousShowNavRail by remember { mutableStateOf(showNavRail) }
     var homePlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var searchPlayerReturnTrigger by remember { mutableIntStateOf(0) }
-    LaunchedEffect(isPlayerActive) {
-        if (previousIsPlayerActive && !isPlayerActive) {
+    LaunchedEffect(showNavRail) {
+        if (!previousShowNavRail && showNavRail) {
             when (activeDestination) {
                 NavDestination.Home.route -> homePlayerReturnTrigger++
                 NavDestination.Search.route -> searchPlayerReturnTrigger++
             }
         }
-        previousIsPlayerActive = isPlayerActive
+        previousShowNavRail = showNavRail
     }
 
     // Flow A (remote-first): a phone added the very first song, or the queue resumed after the
