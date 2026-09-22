@@ -54,6 +54,10 @@ fun PlayerScreen(
     var controlsVisible by remember { mutableStateOf(false) }
     var interactionTick by remember { mutableIntStateOf(0) }
     var revealFocusTarget by remember { mutableStateOf(RevealFocusTarget.PLAY_PAUSE) }
+    // Set when an OK/Enter press reveals the controls: focus lands on Play/Pause before that
+    // press's KeyUp arrives, and the button clicks on KeyUp -- so the rest of the press (repeats
+    // plus the KeyUp) has to be swallowed, or revealing the controls would also pause the video.
+    var swallowConfirmPress by remember { mutableStateOf(false) }
     val rootFocusRequester = remember { FocusRequester() }
     val playFocusRequester = remember { FocusRequester() }
     val seekFocusRequester = remember { FocusRequester() }
@@ -109,9 +113,14 @@ fun PlayerScreen(
                 .focusRequester(rootFocusRequester)
                 .focusable()
                 .onPreviewKeyEvent { keyEvent ->
+                    if (swallowConfirmPress && keyEvent.isConfirmKey()) {
+                        if (keyEvent.type == KeyEventType.KeyUp) swallowConfirmPress = false
+                        return@onPreviewKeyEvent true
+                    }
                     when (classifyPlayerKeyEvent(keyEvent, controlsVisible)) {
                         PlayerKeyAction.REVEAL_CONTROLS -> {
                             interactionTick++
+                            swallowConfirmPress = keyEvent.isConfirmKey()
                             revealFocusTarget = RevealFocusTarget.PLAY_PAUSE
                             controlsVisible = true
                             true
@@ -247,6 +256,8 @@ private enum class RevealFocusTarget {
     PLAY_PAUSE,
     SEEK_BAR,
 }
+
+private fun KeyEvent.isConfirmKey(): Boolean = key == Key.DirectionCenter || key == Key.Enter
 
 private fun classifyPlayerKeyEvent(
     keyEvent: KeyEvent,
