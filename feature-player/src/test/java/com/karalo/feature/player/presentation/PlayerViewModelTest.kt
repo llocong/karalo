@@ -14,6 +14,7 @@ import com.karalo.core.karaoke.domain.KaraokeQueueSnapshot
 import com.karalo.core.karaoke.domain.KaraokeSessionHolder
 import com.karalo.core.karaoke.domain.NowPlaying
 import com.karalo.core.karaoke.domain.NowPlayingSource
+import com.karalo.core.karaoke.domain.QueueItem
 import com.karalo.core.karaoke.domain.RemoteCommandType
 import com.karalo.core.testing.FakeKaraokeRepository
 import com.karalo.core.testing.MainDispatcherExtension
@@ -90,8 +91,6 @@ class PlayerViewModelTest {
                 viewModel.uiState.value.currentItem
                     ?.videoId,
             )
-            assertFalse(viewModel.uiState.value.hasNext)
-            assertFalse(viewModel.uiState.value.hasPrevious)
         }
 
     @Test
@@ -111,47 +110,23 @@ class PlayerViewModelTest {
                 viewModel.uiState.value.currentItem
                     ?.videoId,
             )
-            assertTrue(viewModel.uiState.value.hasPrevious)
-            assertFalse(viewModel.uiState.value.hasNext)
         }
 
     @Test
-    fun `next resolves and plays the next item in the queue`() =
+    fun `next reuses onPlaybackEnded to advance the persistent queue, same as a remote Skip`() =
         runTest(mainDispatcherExtension.testDispatcher) {
-            val items =
-                listOf(
-                    PlayableItemRef("a", "A", "C", null, null),
-                    PlayableItemRef("b", "B", "C", null, null),
-                )
-            val viewModel = createViewModel(startIndex = 0, sessionItems = items)
+            val nextItem =
+                NowPlaying(NowPlayingSource.QUEUE, "q2", "nextVid", "Next Song", "Chan", null, null, "Bob")
+            karaokeRepository.consumeNextResult = AppResult.Success(nextItem)
+            val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
             advanceUntilIdle()
 
             viewModel.next()
             advanceUntilIdle()
 
+            assertEquals(1, karaokeRepository.consumeNextCallCount)
             assertEquals(
-                "b",
-                viewModel.uiState.value.currentItem
-                    ?.videoId,
-            )
-        }
-
-    @Test
-    fun `previous at the first item does not change the current item`() =
-        runTest(mainDispatcherExtension.testDispatcher) {
-            val items =
-                listOf(
-                    PlayableItemRef("a", "A", "C", null, null),
-                    PlayableItemRef("b", "B", "C", null, null),
-                )
-            val viewModel = createViewModel(startIndex = 0, sessionItems = items)
-            advanceUntilIdle()
-
-            viewModel.previous()
-            advanceUntilIdle()
-
-            assertEquals(
-                "a",
+                "nextVid",
                 viewModel.uiState.value.currentItem
                     ?.videoId,
             )
@@ -379,6 +354,50 @@ class PlayerViewModelTest {
             advanceUntilIdle()
 
             assertEquals(false, karaokeRepository.lastReportedIsPlaying)
+        }
+
+    @Test
+    fun `hasNextInQueue is false when the persistent queue starts out empty`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            karaokeRepository.setQueueSnapshot(KaraokeQueueSnapshot.EMPTY)
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.hasNextInQueue)
+        }
+
+    @Test
+    fun `hasNextInQueue becomes true once the persistent queue has a pending item`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.hasNextInQueue)
+
+            karaokeRepository.setQueueSnapshot(
+                KaraokeQueueSnapshot(
+                    playbackState = "PLAYING",
+                    nowPlaying = null,
+                    queue =
+                        listOf(
+                            QueueItem(
+                                id = "q1",
+                                position = 0,
+                                videoId = "nextVid",
+                                title = "T",
+                                channelName = "C",
+                                thumbnailUrl = null,
+                                durationSeconds = null,
+                                addedByParticipantId = "p1",
+                                addedByDisplayName = "Alice",
+                                addedAt = "2024-01-01T00:00:00Z",
+                            ),
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.hasNextInQueue)
         }
 }
 

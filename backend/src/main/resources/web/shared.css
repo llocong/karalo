@@ -325,6 +325,7 @@ button {
   color: var(--text);
 }
 .icon-button svg { display: block; }
+.icon-button:disabled { opacity: 0.5; cursor: default; }
 
 .up-next-header {
   display: flex;

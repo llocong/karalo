@@ -51,6 +51,8 @@
     const isPaused = currentPlaybackState === "PAUSED";
     pauseResumeButton.innerHTML = isPaused ? PLAY_ICON : PAUSE_ICON;
     pauseResumeButton.setAttribute("aria-label", isPaused ? "Play" : "Pause");
+    // Nothing to skip to -- same rule the TV's own on-screen Next button follows.
+    skipButton.disabled = snapshot.queue.length === 0;
 
     renderNowPlaying(snapshot.nowPlaying);
     renderMiniPlayer(snapshot.nowPlaying);

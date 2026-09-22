@@ -108,6 +108,14 @@ class PlayerViewModel
             viewModelScope.launch {
                 karaokeRepository.sessionJoinUrl.collect { url -> _uiState.update { it.copy(sessionJoinUrl = url) } }
             }
+            // Drives the on-screen Next button's enabled state -- same rule the webapp's own Skip
+            // button follows: nothing to skip to once the persistent queue is empty.
+            viewModelScope.launch {
+                karaokeRepository.queueSnapshot
+                    .map { it.queue.isNotEmpty() }
+                    .distinctUntilChanged()
+                    .collect { hasNextInQueue -> _uiState.update { it.copy(hasNextInQueue = hasNextInQueue) } }
+            }
             // Auto-clears the waiting screen the moment a phone adds a song while the TV is idle
             // there -- same consume/play path onPlaybackEnded uses, just triggered by a queue
             // arriving rather than the current item finishing.
@@ -153,12 +161,6 @@ class PlayerViewModel
          * with [KaraokeRepository.playNowStart] so the persistent queue's head stays untouched and
          * concurrent phone adds don't wrongly promote themselves to now-playing while this plays --
          * see this feature's spec section on Play Now preserving the queue.
-         *
-         * Known limitation: only the initial item of a Play-Now session reports itself this way --
-         * manually pressing Next/Previous to browse further through the same local list (e.g. a
-         * Home shelf) does not re-report each subsequent item, so phones' "now playing" display can
-         * go briefly stale during manual browsing. Acceptable for this feature's MVP scope; the
-         * spec's actual requirement (immediate playback + an untouched queue) still holds regardless.
          */
         private fun markPlayNowIfApplicable() {
             val item = queue.current ?: return
@@ -176,12 +178,12 @@ class PlayerViewModel
         }
 
         /**
-         * The current video played to natural completion. Deliberately does NOT consult
-         * `queue.hasNext` (the *local*, ephemeral Play-Now/browse list built in
-         * [buildInitialQueue]) -- auto-advance-on-completion is exclusively a persistent-remote-queue
-         * concept per this feature's spec; manual Next/Previous (button presses / media keys) remain
-         * the only way to walk the local list. See this class's own doc / the karaoke ADR for why
-         * these two "next" concepts are kept deliberately separate rather than unified.
+         * The current video ended, OR the on-screen/remote Next-Skip button was pressed early --
+         * both mean the same thing for the persistent remote queue: consume its next item (or show
+         * the waiting screen if it has none) and play that, mirroring exactly what a phone's Skip
+         * button does. [queue] (the *local*, ephemeral Play-Now/browse list built in
+         * [buildInitialQueue]) plays no part in this -- see [next] for why that list no longer has
+         * a browsing UI of its own.
          */
         private fun onPlaybackEnded() {
             viewModelScope.launch {
@@ -230,16 +232,14 @@ class PlayerViewModel
             exoPlayer.pause()
         }
 
+        /**
+         * The on-screen/media-key Next button -- reuses [onPlaybackEnded] outright rather than
+         * [queue]'s own local next/previous browsing (removed; there is no "Previous" concept in
+         * the persistent remote queue), so pressing this has the exact same effect on the shared
+         * queue as a phone pressing Skip: consume-next, then play that or show the waiting screen.
+         */
         fun next() {
-            if (!queue.hasNext) return
-            queue = queue.next()
-            playCurrent()
-        }
-
-        fun previous() {
-            if (!queue.hasPrevious) return
-            queue = queue.previous()
-            playCurrent()
+            onPlaybackEnded()
         }
 
         fun seekTo(positionMs: Long) {
@@ -252,7 +252,6 @@ class PlayerViewModel
                 KeyEvent.KEYCODE_MEDIA_PLAY -> exoPlayer.play()
                 KeyEvent.KEYCODE_MEDIA_PAUSE -> exoPlayer.pause()
                 KeyEvent.KEYCODE_MEDIA_NEXT -> next()
-                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> previous()
                 else -> return false
             }
             return true
@@ -271,8 +270,6 @@ class PlayerViewModel
                 // moment on every single track transition.
                 it.copy(
                     currentItem = item,
-                    hasNext = queue.hasNext,
-                    hasPrevious = queue.hasPrevious,
                     isLoading = true,
                     isPlaying = false,
                     error = null,
@@ -319,9 +316,10 @@ class PlayerViewModel
     }
 
 /**
- * Builds the starting queue from whatever the search screen left in [SearchSessionHolder], falling
- * back to a single-video queue (no Next/Previous) using the nav-arg videoId if the holder is empty
- * — e.g. after process death. Nav-arg keys must match the route defined in :app's NavDestinations.
+ * Picks which single item of the search screen's last results (left in [SearchSessionHolder]) to
+ * start with, via the nav-arg start index -- falling back to a single-video queue using the
+ * nav-arg videoId if the holder is empty (e.g. after process death). Nav-arg keys must match the
+ * route defined in :app's NavDestinations.
  */
 private fun buildInitialQueue(
     savedStateHandle: SavedStateHandle,
