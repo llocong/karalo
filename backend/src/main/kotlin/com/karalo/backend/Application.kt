@@ -9,8 +9,10 @@ import com.karalo.backend.plugins.installSerialization
 import com.karalo.backend.plugins.installSockets
 import com.karalo.backend.plugins.installStatusPages
 import io.ktor.server.application.Application
+import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 
 fun main() {
     val config = AppConfig.fromEnv()
@@ -27,6 +29,9 @@ fun main() {
 fun Application.module(config: AppConfig = AppConfig.fromEnv()) {
     connectDatabase(config)
     val deps = AppDependencies(config)
+    // Behind a reverse proxy, makes `request.origin.remoteHost` (what the IP-keyed rate limits use)
+    // the real client IP from X-Forwarded-For instead of the proxy's own address.
+    if (config.trustProxy) install(XForwardedHeaders)
     installSerialization()
     installStatusPages()
     installCallLogging()

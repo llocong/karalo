@@ -40,8 +40,16 @@ android {
                 ?: providers.gradleProperty("KARALO_BACKEND_WS_URL").orNull
                 ?: localProperties.getProperty("KARALO_BACKEND_WS_URL")
                 ?: "ws://192.168.1.100:8080"
+        // Only needed against a backend with KARALO_TV_REGISTRATION_KEY set (an internet-exposed
+        // one); empty means "don't send the header", which a home-LAN backend doesn't require.
+        val tvRegistrationKey =
+            System.getenv("KARALO_TV_REGISTRATION_KEY")
+                ?: providers.gradleProperty("KARALO_TV_REGISTRATION_KEY").orNull
+                ?: localProperties.getProperty("KARALO_TV_REGISTRATION_KEY")
+                ?: ""
         buildConfigField("String", "DEFAULT_BACKEND_BASE_URL", "\"$backendBaseUrl\"")
         buildConfigField("String", "DEFAULT_BACKEND_WS_URL", "\"$backendWsUrl\"")
+        buildConfigField("String", "TV_REGISTRATION_KEY", "\"$tvRegistrationKey\"")
     }
 
     buildFeatures {

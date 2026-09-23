@@ -26,13 +26,23 @@ private const val HTTP_UNAUTHORIZED = 401
 private const val HTTP_NOT_FOUND = 404
 private const val HTTP_CONFLICT = 409
 
+private const val TV_REGISTRATION_KEY_HEADER = "X-Karalo-Registration-Key"
+
 class KaraokeApiImpl
-    @Inject
-    constructor(
-        @KaraokeHttpClient private val client: OkHttpClient,
+    internal constructor(
+        private val client: OkHttpClient,
         private val json: Json,
-        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+        private val ioDispatcher: CoroutineDispatcher,
+        private val restBaseUrl: String,
+        private val tvRegistrationKey: String,
     ) : KaraokeApi {
+        @Inject
+        constructor(
+            @KaraokeHttpClient client: OkHttpClient,
+            json: Json,
+            @IoDispatcher ioDispatcher: CoroutineDispatcher,
+        ) : this(client, json, ioDispatcher, NetworkConfig.restBaseUrl, NetworkConfig.tvRegistrationKey)
+
         override suspend fun ensureSession(
             tvInstallationId: String,
             tvSecret: String?,
@@ -41,7 +51,13 @@ class KaraokeApiImpl
                 path = "/api/tvs/$tvInstallationId/session/ensure",
                 method = "POST",
                 bearer = tvSecret,
+                // Lets a new TV register with an internet-exposed backend (see the backend's
+                // AppConfig.tvRegistrationKey); ignored once the TV is registered.
+                headers = registrationHeaders(),
             )
+
+        private fun registrationHeaders(): Map<String, String> =
+            if (tvRegistrationKey.isEmpty()) emptyMap() else mapOf(TV_REGISTRATION_KEY_HEADER to tvRegistrationKey)
 
         override suspend fun fetchQueue(
             sessionId: String,
@@ -118,14 +134,16 @@ class KaraokeApiImpl
             method: String,
             bearer: String?,
             body: String? = null,
+            headers: Map<String, String> = emptyMap(),
         ): AppResult<T> =
             withContext(ioDispatcher) {
                 runCatching {
                     val requestBuilder =
                         Request
                             .Builder()
-                            .url(NetworkConfig.restBaseUrl + path)
+                            .url(restBaseUrl + path)
                     bearer?.let { requestBuilder.header("Authorization", "Bearer $it") }
+                    headers.forEach { (name, value) -> requestBuilder.header(name, value) }
                     when (method) {
                         "GET" -> requestBuilder.get()
                         "POST" -> requestBuilder.post((body ?: "{}").toRequestBody(JSON_MEDIA_TYPE))

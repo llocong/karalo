@@ -16,6 +16,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 
+/** Header a TV sends on `session/ensure` to register; see `AppConfig.tvRegistrationKey`. */
+const val TV_REGISTRATION_KEY_HEADER = "X-Karalo-Registration-Key"
+
 private fun requireSessionId(call: io.ktor.server.application.ApplicationCall) =
     call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
 
@@ -23,7 +26,12 @@ private fun requireSessionId(call: io.ktor.server.application.ApplicationCall) =
 fun Route.tvRoutes(deps: AppDependencies) {
     post("/api/tvs/{tvId}/session/ensure") {
         val tvId = call.parameters["tvId"] ?: throw ApiException.Validation("Missing tvId")
-        val response = deps.sessionRepository.ensureSession(tvId, call.bearerToken())
+        val response =
+            deps.sessionRepository.ensureSession(
+                tvId,
+                call.bearerToken(),
+                presentedRegistrationKey = call.request.headers[TV_REGISTRATION_KEY_HEADER],
+            )
         val status = if (response.tvSecret != null) HttpStatusCode.Created else HttpStatusCode.OK
         call.respond(status, response)
     }

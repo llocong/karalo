@@ -55,8 +55,8 @@ This is powered by a small self-hosted backend (`backend/`, Ktor + SQLite) that 
 both talk to — the backend is the single source of truth for the session, participants, and queue;
 phones never talk to the TV directly. See
 `docs/adr/0005-karaoke-remote-control-session-and-backend.md` for the full design and its
-documented MVP-vs-follow-up boundaries (LAN-only, trust-on-first-use TV pairing, no schema
-migrations yet).
+documented MVP-vs-follow-up boundaries (single process, no schema migrations yet). To host it
+online so phones can join from any network, see `docs/deploy.md`.
 
 ### Running the backend locally
 
@@ -64,8 +64,8 @@ migrations yet).
 ./gradlew :backend:run
 ```
 
-This starts the Ktor server on `0.0.0.0:8080` by default (override with the `PORT`/`HOST` env
-vars; see `backend/src/main/kotlin/com/karalo/backend/config/AppConfig.kt`). Find your machine's
+This starts the Ktor server on `0.0.0.0:8080` by default (override with the `KARALO_PORT`/
+`KARALO_HOST` env vars; see `backend/src/main/kotlin/com/karalo/backend/config/AppConfig.kt`). Find your machine's
 LAN IP (e.g. `ipconfig getifaddr en0` on macOS) — the TV and any phones need to reach that address
 on the same Wi-Fi network. macOS will prompt to allow inbound connections the first time; accept
 it.
