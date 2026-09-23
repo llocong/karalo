@@ -156,7 +156,7 @@
   async function runSearch(query) {
     const result = await apiFetch(`/api/sessions/${sessionId}/search?q=${encodeURIComponent(query)}`, { sessionId });
     if (!result.ok) {
-      resultsEl.innerHTML = `<p class="error-text">${(result.error && result.error.message) || "Search failed"}</p>`;
+      resultsEl.innerHTML = `<p class="error-text">${escapeHtml((result.error && result.error.message) || "Search failed")}</p>`;
       return;
     }
     renderResults(result.data.results);
@@ -168,7 +168,7 @@
       const row = document.createElement("div");
       row.className = "song-row";
       row.innerHTML = `
-        <div class="thumb">${r.thumbnailUrl ? `<img src="${r.thumbnailUrl}" alt="" />` : ""}</div>
+        <div class="thumb">${r.thumbnailUrl ? `<img src="${escapeHtml(r.thumbnailUrl)}" alt="" />` : ""}</div>
         <div class="meta">
           <div class="title">${escapeHtml(r.title)}</div>
         </div>
@@ -223,10 +223,8 @@
 
   if (params.get("openQueue") === "1") openSheet();
 
-  // Nickname modal: opened from the avatar, styled after Karafun's own "Change your Nickname"
-  // dialog. maxlength="16" on the input already stops typing past the limit -- NICKNAME_MAX_LENGTH
-  // here is only for rendering the "x / 16" counter.
-  const NICKNAME_MAX_LENGTH = 16;
+  // "Change your name" modal: opened from the avatar, styled after Karafun's own nickname dialog.
+  // Same name rules, counter and inline error as the join form -- see bindDisplayNameField.
   const nicknameOverlay = document.getElementById("nicknameOverlay");
   const nicknameInput = document.getElementById("nicknameInput");
   const nicknameCounter = document.getElementById("nicknameCounter");
@@ -235,14 +233,16 @@
   const nicknameCancelButton = document.getElementById("nicknameCancelButton");
   const nicknameConfirmButton = document.getElementById("nicknameConfirmButton");
 
-  function updateNicknameCounter() {
-    nicknameCounter.textContent = `${nicknameInput.value.length} / ${NICKNAME_MAX_LENGTH}`;
-    nicknameConfirmButton.disabled = nicknameInput.value.trim().length === 0;
-  }
+  const updateNicknameField = bindDisplayNameField({
+    input: nicknameInput,
+    counter: nicknameCounter,
+    error: document.getElementById("nicknameError"),
+    submit: nicknameConfirmButton,
+  });
 
   function openNicknameModal() {
     nicknameInput.value = participant.displayName || "";
-    updateNicknameCounter();
+    updateNicknameField();
     nicknameOverlay.style.display = "flex";
     nicknameInput.focus();
   }
@@ -252,8 +252,8 @@
   }
 
   async function confirmNicknameChange() {
-    const displayName = nicknameInput.value.trim();
-    if (!displayName) return;
+    if (!updateNicknameField()) return;
+    const displayName = normalizeDisplayName(nicknameInput.value);
     nicknameConfirmButton.disabled = true;
     const response = await apiFetch(`/api/sessions/${sessionId}/me`, {
       method: "PATCH",
@@ -281,10 +281,9 @@
   nicknameOverlay.addEventListener("click", (event) => {
     if (event.target === nicknameOverlay) closeNicknameModal();
   });
-  nicknameInput.addEventListener("input", updateNicknameCounter);
   nicknameClearButton.addEventListener("click", () => {
     nicknameInput.value = "";
-    updateNicknameCounter();
+    updateNicknameField();
     nicknameInput.focus();
   });
   nicknameConfirmButton.addEventListener("click", confirmNicknameChange);

@@ -139,7 +139,7 @@
   <div class="modal-overlay" id="nicknameOverlay" style="display:none">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="heading">Change your Nickname</div>
+        <div class="heading">Change your name</div>
         <button id="nicknameCloseButton" aria-label="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
         </button>
@@ -150,7 +150,10 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
         </button>
       </div>
-      <div class="modal-counter" id="nicknameCounter">0 / 16</div>
+      <div class="field-status">
+        <div class="error-text" id="nicknameError" role="alert"></div>
+        <div class="counter" id="nicknameCounter">0 / 16</div>
+      </div>
       <div class="modal-actions">
         <button class="secondary" id="nicknameCancelButton">Cancel</button>
         <button class="primary" id="nicknameConfirmButton">Confirm</button>

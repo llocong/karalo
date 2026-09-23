@@ -11,27 +11,43 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import java.text.Normalizer
 import java.time.Instant
 import java.util.UUID
 
-private val CONTROL_CHARS = Regex("\\p{Cntrl}")
-private const val JOIN_DISPLAY_NAME_MAX_LENGTH = 40
-private const val RENAME_DISPLAY_NAME_MAX_LENGTH = 16
+// Control characters, plus invisible "format" characters (zero-width spaces, bidirectional
+// overrides like U+202E that make text render reversed, BOMs...) that can make one name look like
+// another or garble whatever is displayed next to it. U+200D (zero-width joiner) is the one format
+// character kept, since multi-person/profession emoji are built from it.
+private val INVISIBLE_CHARS = Regex("[\\p{Cc}\\p{Cf}&&[^\\u200D]]")
+private val WHITESPACE_RUNS = Regex("[\\s\\p{Z}]+")
+private val FORBIDDEN_CHARS = Regex("[<>]")
+
+/** Same limit (and same rules) as the mobile web's join form and its "Change your name" modal. */
+internal const val DISPLAY_NAME_MAX_LENGTH = 16
 
 /**
  * Pure (top-level, not a method) so it's unit-testable without a DB transaction -- mirrors why
- * `applyKaraokePrefix` was pulled out the same way. Shared by [ParticipantRepository.join] (a
- * 40-char cap, kept as-is for existing joiners) and [ParticipantRepository.rename] (a 16-char cap,
- * matching the mobile web's Karafun-style nickname modal), rather than duplicating the same
- * strip/trim/bounds-check logic twice with two different limits.
+ * `applyKaraokePrefix` was pulled out the same way. Shared by [ParticipantRepository.join] and
+ * [ParticipantRepository.rename] so both apply identical rules; `normalizeDisplayName` in the web
+ * app's shared.js mirrors this for immediate feedback, but this is what's actually enforced.
+ *
+ * Storage is already safe from SQL injection regardless of content (Exposed only ever sends
+ * parameterized statements), and every renderer escapes it; rejecting `<`/`>` is defense in depth
+ * for any future renderer that forgets to.
  */
-internal fun normalizeDisplayName(
-    raw: String,
-    maxLength: Int,
-): String {
-    val displayName = raw.replace(CONTROL_CHARS, "").trim()
-    if (displayName.isEmpty() || displayName.length > maxLength) {
-        throw ApiException.Validation("displayName must be 1-$maxLength characters")
+internal fun normalizeDisplayName(raw: String): String {
+    val displayName =
+        Normalizer
+            .normalize(raw, Normalizer.Form.NFC)
+            .replace(INVISIBLE_CHARS, "")
+            .replace(WHITESPACE_RUNS, " ")
+            .trim()
+    if (displayName.isEmpty() || displayName.length > DISPLAY_NAME_MAX_LENGTH) {
+        throw ApiException.Validation("displayName must be 1-$DISPLAY_NAME_MAX_LENGTH characters")
+    }
+    if (FORBIDDEN_CHARS.containsMatchIn(displayName)) {
+        throw ApiException.Validation("displayName can't contain < or >")
     }
     return displayName
 }
@@ -41,7 +57,7 @@ class ParticipantRepository {
         sessionId: String,
         rawDisplayName: String,
     ): ParticipantJoinResponseDto {
-        val displayName = normalizeDisplayName(rawDisplayName, JOIN_DISPLAY_NAME_MAX_LENGTH)
+        val displayName = normalizeDisplayName(rawDisplayName)
         return transaction {
             val participantId = UUID.randomUUID().toString()
             val rawToken = TokenGenerator.generate()
@@ -98,7 +114,7 @@ class ParticipantRepository {
         presentedToken: String?,
         rawDisplayName: String,
     ): MeDto {
-        val displayName = normalizeDisplayName(rawDisplayName, RENAME_DISPLAY_NAME_MAX_LENGTH)
+        val displayName = normalizeDisplayName(rawDisplayName)
         return transaction {
             val (participantId, _) = requireParticipantAuth(sessionId, presentedToken)
             Participants.update({ Participants.id eq participantId }) { it[Participants.displayName] = displayName }

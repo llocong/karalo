@@ -82,8 +82,12 @@
   </div>
   <div class="join-sheet" id="form" style="display:none">
     <div class="label">What's your name?</div>
-    <input type="text" class="pill-input" id="displayName" placeholder="Your name" maxlength="40" autofocus />
-    <button class="pill-button" id="joinButton">Join Session</button>
+    <input type="text" class="pill-input" id="displayName" placeholder="Your name" maxlength="16" autocomplete="nickname" autofocus />
+    <div class="field-status">
+      <div class="error-text" id="nameError" role="alert"></div>
+      <div class="counter" id="nameCounter">0 / 16</div>
+    </div>
+    <button class="pill-button" id="joinButton" disabled>Join Session</button>
   </div>
   <script src="/shared.js"></script>
   <script src="/join.js"></script>

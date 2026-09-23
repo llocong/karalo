@@ -13,6 +13,7 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import java.net.URI
 import java.time.Instant
 import java.util.UUID
 import java.util.regex.Pattern
@@ -50,7 +51,9 @@ class QueueRepository(
         require(title.length <= 200) { "title too long" }
         require(channelName.length <= 200) { "channelName too long" }
         thumbnailUrl?.let {
-            require(it.length <= 500 && it.startsWith("https://")) { "thumbnailUrl must be an https URL of at most 500 characters" }
+            require(it.length <= 500 && isWellFormedHttpsUrl(it)) {
+                "thumbnailUrl must be an https URL of at most 500 characters"
+            }
         }
         durationSeconds?.let { require(it in 0..36000) { "durationSeconds out of range" } }
 
@@ -180,6 +183,15 @@ class QueueRepository(
 
     private fun validateVideoId(videoId: String) {
         if (!VIDEO_ID_PATTERN.matcher(videoId).matches()) throw ApiException.Validation("Invalid videoId")
+    }
+
+    // A phone supplies this URL and every other phone renders it as an <img src>: a mere
+    // "https://" prefix check let through values carrying quotes/angle brackets that could break
+    // out of that attribute. java.net.URI rejects those (and whitespace) outright, so parsing it
+    // is what guarantees a single, well-formed URL. The web app escapes it on render too.
+    private fun isWellFormedHttpsUrl(url: String): Boolean {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return false
+        return uri.scheme == "https" && !uri.host.isNullOrEmpty()
     }
 
     private fun toDto(row: ResultRow) =

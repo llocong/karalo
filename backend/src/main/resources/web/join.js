@@ -5,6 +5,13 @@
   const errorEl = document.getElementById("error");
   const joinButton = document.getElementById("joinButton");
   const nameInput = document.getElementById("displayName");
+  const nameError = document.getElementById("nameError");
+  const updateNameField = bindDisplayNameField({
+    input: nameInput,
+    counter: document.getElementById("nameCounter"),
+    error: nameError,
+    submit: joinButton,
+  });
 
   function showError(message) {
     errorEl.textContent = message;
@@ -37,18 +44,17 @@
   form.style.display = "flex";
 
   joinButton.addEventListener("click", async () => {
-    const displayName = nameInput.value.trim();
-    if (!displayName) {
-      showError("Enter a name to join.");
-      return;
-    }
+    if (!updateNameField()) return;
+    const displayName = normalizeDisplayName(nameInput.value);
     joinButton.disabled = true;
     const result = await apiFetch(`/api/sessions/${encodeURIComponent(code)}/participants`, {
       method: "POST",
       body: { displayName },
     });
     if (!result.ok) {
-      showError((result.error && result.error.message) || "Couldn't join — try again.");
+      // Shown under the field (not in the header, which is for "session not found") so the
+      // form stays usable for another try.
+      nameError.textContent = (result.error && result.error.message) || "Couldn't join — try again.";
       joinButton.disabled = false;
       return;
     }

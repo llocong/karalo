@@ -64,3 +64,45 @@ function formatDuration(seconds) {
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
+
+// Display-name rules shared by the join form and the "Change your name" modal. They mirror the
+// backend's normalizeDisplayName (ParticipantRepository.kt), which is what actually enforces them;
+// this copy only exists to give feedback while typing instead of after a failed request.
+const DISPLAY_NAME_MAX_LENGTH = 16;
+
+// Strips control characters and invisible "format" characters (zero-width spaces, bidirectional
+// overrides like U+202E that render the rest of the text reversed...), keeping U+200D (zero-width
+// joiner) so emoji sequences survive, then collapses whitespace runs and trims.
+function normalizeDisplayName(raw) {
+  return (raw || "")
+    .normalize("NFC")
+    .replace(/(?!‍)[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/[\s\p{Z}]+/gu, " ")
+    .trim();
+}
+
+// null when the name is valid; otherwise the message to show -- "" for an empty name, which just
+// can't be submitted rather than being worth an error while the field is still blank.
+function displayNameError(raw) {
+  const name = normalizeDisplayName(raw);
+  if (!name) return "";
+  if (name.length > DISPLAY_NAME_MAX_LENGTH) return `Keep it to ${DISPLAY_NAME_MAX_LENGTH} characters`;
+  if (/[<>]/.test(name)) return "Names can't contain < or >";
+  return null;
+}
+
+// Wires a name input to its "x / 16" counter, inline error and submit button. Returns the update
+// function, to re-run after setting the input's value from code (which fires no "input" event).
+function bindDisplayNameField({ input, counter, error, submit }) {
+  input.maxLength = DISPLAY_NAME_MAX_LENGTH;
+  function update() {
+    counter.textContent = `${input.value.length} / ${DISPLAY_NAME_MAX_LENGTH}`;
+    const message = displayNameError(input.value);
+    error.textContent = message || "";
+    submit.disabled = message !== null;
+    return message === null;
+  }
+  input.addEventListener("input", update);
+  update();
+  return update;
+}

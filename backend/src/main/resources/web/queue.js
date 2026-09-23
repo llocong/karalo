@@ -29,7 +29,8 @@
   const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#0B0710" stroke-width="2.4" stroke-linecap="round"/></svg>';
 
   function thumbHtml(url) {
-    return url ? `<img src="${url}" alt="" />` : "";
+    // Escaped: a phone supplies this URL when adding a song, and every other phone renders it.
+    return url ? `<img src="${escapeHtml(url)}" alt="" />` : "";
   }
 
   async function loadSnapshot() {

@@ -15,8 +15,10 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -99,6 +101,59 @@ class SessionFlowTest {
             assertNotNull(queueJson["nowPlaying"], "first-ever add must auto-promote to now-playing")
             val upcoming = queueJson["queue"] as kotlinx.serialization.json.JsonArray
             assertEquals(0, upcoming.size, "the now-playing item must not also appear in upcoming")
+        }
+
+    @Test
+    fun `join and rename share the same name rules, and a thumbnail URL can't carry markup`() =
+        testApplication {
+            application { module(testConfig()) }
+            val client = createClient { install(ContentNegotiation) { json() } }
+
+            val ensure = client.post("/api/tvs/tv-validation/session/ensure")
+            val ensureJson = Json.parseToJsonElement(ensure.bodyAsText()).jsonObject
+            val code = ensureJson["session"]!!.jsonObject["code"]!!.jsonPrimitive.content
+            val sessionId = ensureJson["session"]!!.jsonObject["id"]!!.jsonPrimitive.content
+
+            suspend fun join(displayName: String) =
+                client.post("/api/sessions/$code/participants") {
+                    contentType(ContentType.Application.Json)
+                    setBody(buildJsonObject { put("displayName", displayName) }.toString())
+                }
+
+            // Join now uses the rename limit (16) instead of its old looser one (40).
+            assertEquals(HttpStatusCode.BadRequest, join("Seventeen Chars!!").status)
+            assertEquals(HttpStatusCode.BadRequest, join("<script>").status)
+            assertEquals(HttpStatusCode.BadRequest, join("\u200B\u202E").status)
+
+            val ok = join("  Bob\u202E  ")
+            assertEquals(HttpStatusCode.Created, ok.status)
+            val okJson = Json.parseToJsonElement(ok.bodyAsText()).jsonObject
+            assertEquals("Bob", okJson["displayName"]!!.jsonPrimitive.content, "must store the normalized name")
+            val token = okJson["participantToken"]!!.jsonPrimitive.content
+
+            val badRename =
+                client.patch("/api/sessions/$sessionId/me") {
+                    header("Authorization", "Bearer $token")
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"displayName":"<img src=x>"}""")
+                }
+            assertEquals(HttpStatusCode.BadRequest, badRename.status)
+
+            // A quote would break out of the web app's <img src="..."> attribute.
+            val badThumbnail =
+                client.post("/api/sessions/$sessionId/queue") {
+                    header("Authorization", "Bearer $token")
+                    contentType(ContentType.Application.Json)
+                    setBody(
+                        buildJsonObject {
+                            put("videoId", "abcdefghijk")
+                            put("title", "T")
+                            put("channelName", "C")
+                            put("thumbnailUrl", "https://i.ytimg.com/x.jpg\" onerror=\"alert(1)")
+                        }.toString(),
+                    )
+                }
+            assertEquals(HttpStatusCode.BadRequest, badThumbnail.status)
         }
 
     @Test
