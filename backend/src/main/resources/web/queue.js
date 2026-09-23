@@ -80,7 +80,7 @@
     } else {
       miniPlayerThumb.innerHTML = "";
       miniPlayerTitle.textContent = "Nothing playing";
-      miniPlayerSubtitle.textContent = "Scan the QR code to add a song";
+      miniPlayerSubtitle.textContent = "";
     }
   }
 
@@ -88,7 +88,7 @@
     upNextCount.textContent = `${queue.length} ${queue.length === 1 ? "song" : "songs"}`;
     queueListEl.innerHTML = "";
     if (queue.length === 0) {
-      queueListEl.innerHTML = `<p class="empty-hint">No songs queued yet — add one from Search.</p>`;
+      queueListEl.innerHTML = `<p class="empty-hint">No songs queued yet.</p>`;
       return;
     }
     queue.forEach((item) => {
