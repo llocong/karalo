@@ -118,7 +118,7 @@ class PlayerViewModelTest {
             val nextItem =
                 NowPlaying(NowPlayingSource.QUEUE, "q2", "nextVid", "Next Song", "Chan", null, null, "Bob")
             karaokeRepository.consumeNextResult = AppResult.Success(nextItem)
-            val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
+            val viewModel = createQueueViewModel()
             advanceUntilIdle()
 
             viewModel.next()
@@ -157,6 +157,21 @@ class PlayerViewModelTest {
         createViewModel()
 
         verify { mediaKeyRouter.attach(any()) }
+    }
+
+    /**
+     * Starts [startVideoId] as the persistent queue's own now-playing item (the auto-navigate
+     * path), not a manual Play-Now selection -- so ending/skipping it goes through consumeNext.
+     */
+    private fun createQueueViewModel(startVideoId: String = "vid1"): PlayerViewModel {
+        karaokeRepository.setQueueSnapshot(
+            KaraokeQueueSnapshot(
+                playbackState = "PLAYING",
+                nowPlaying = NowPlaying(NowPlayingSource.QUEUE, "q1", startVideoId, "T", "C", null, null, "Alice"),
+                queue = emptyList(),
+            ),
+        )
+        return createViewModel(startVideoId = startVideoId, sessionItems = emptyList())
     }
 
     // --- Karaoke remote-control behavior ---------------------------------------------------
@@ -209,7 +224,7 @@ class PlayerViewModelTest {
                 NowPlaying(NowPlayingSource.QUEUE, "q2", "nextVid", "Next Song", "Chan", null, null, "Bob")
             karaokeRepository.consumeNextResult = AppResult.Success(nextItem)
 
-            val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
+            val viewModel = createQueueViewModel()
             advanceUntilIdle()
 
             listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
@@ -229,7 +244,7 @@ class PlayerViewModelTest {
         runTest(mainDispatcherExtension.testDispatcher) {
             karaokeRepository.consumeNextResult = AppResult.Success(null)
 
-            val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
+            val viewModel = createQueueViewModel()
             advanceUntilIdle()
 
             listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
@@ -244,7 +259,83 @@ class PlayerViewModelTest {
         runTest(mainDispatcherExtension.testDispatcher) {
             karaokeRepository.consumeNextResult = AppResult.Failure(AppError.Network())
 
-            val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
+            val viewModel = createQueueViewModel()
+            advanceUntilIdle()
+
+            listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isWaitingForQueue)
+        }
+
+    @Test
+    fun `a Play Now song ending resumes the persistent queue at its head without consuming it`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            // Regression: a phone added a song while a manual Play-Now selection was playing. Ending
+            // Play-Now already hands back that song as now-playing; consuming on top of it used to
+            // mark it played before it ever played and drop the TV onto the waiting screen.
+            val queuedSong =
+                NowPlaying(NowPlayingSource.QUEUE, "q2", "queuedVid", "Queued Song", "Chan", null, null, "Bob")
+            karaokeRepository.setQueueSnapshot(KaraokeQueueSnapshot.EMPTY)
+            karaokeRepository.playNowEndResult = AppResult.Success(queuedSong)
+            val viewModel = createViewModel(startVideoId = "manualVid1", sessionItems = emptyList())
+            advanceUntilIdle()
+
+            listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
+            advanceUntilIdle()
+
+            assertEquals(1, karaokeRepository.playNowEndCallCount)
+            assertEquals(0, karaokeRepository.consumeNextCallCount)
+            assertEquals(
+                "queuedVid",
+                viewModel.uiState.value.currentItem
+                    ?.videoId,
+            )
+            assertFalse(viewModel.uiState.value.isWaitingForQueue)
+        }
+
+    @Test
+    fun `pressing Next during Play Now plays the queued song instead of skipping it`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val queuedSong =
+                NowPlaying(NowPlayingSource.QUEUE, "q2", "queuedVid", "Queued Song", "Chan", null, null, "Bob")
+            karaokeRepository.setQueueSnapshot(KaraokeQueueSnapshot.EMPTY)
+            karaokeRepository.playNowEndResult = AppResult.Success(queuedSong)
+            val viewModel = createViewModel(startVideoId = "manualVid1", sessionItems = emptyList())
+            advanceUntilIdle()
+
+            viewModel.next()
+            advanceUntilIdle()
+
+            assertEquals(0, karaokeRepository.consumeNextCallCount)
+            assertEquals(
+                "queuedVid",
+                viewModel.uiState.value.currentItem
+                    ?.videoId,
+            )
+        }
+
+    @Test
+    fun `a Play Now song ending with an empty persistent queue shows the waiting screen`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            karaokeRepository.setQueueSnapshot(KaraokeQueueSnapshot.EMPTY)
+            karaokeRepository.playNowEndResult = AppResult.Success(null)
+            val viewModel = createViewModel(startVideoId = "manualVid1", sessionItems = emptyList())
+            advanceUntilIdle()
+
+            listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
+            advanceUntilIdle()
+
+            assertEquals(0, karaokeRepository.consumeNextCallCount)
+            assertTrue(viewModel.uiState.value.isWaitingForQueue)
+        }
+
+    @Test
+    fun `a playNowEnd failure falls back to the waiting screen rather than stranding the TV`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            karaokeRepository.setQueueSnapshot(KaraokeQueueSnapshot.EMPTY)
+            karaokeRepository.playNowEndResult = AppResult.Failure(AppError.Network())
+            val viewModel = createViewModel(startVideoId = "manualVid1", sessionItems = emptyList())
             advanceUntilIdle()
 
             listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
@@ -257,7 +348,7 @@ class PlayerViewModelTest {
     fun `a queue item arriving while waiting auto-clears the waiting screen and starts playing it`() =
         runTest(mainDispatcherExtension.testDispatcher) {
             karaokeRepository.consumeNextResult = AppResult.Success(null)
-            val viewModel = createViewModel(startVideoId = "vid1", sessionItems = emptyList())
+            val viewModel = createQueueViewModel()
             advanceUntilIdle()
             listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
             advanceUntilIdle()
@@ -335,7 +426,7 @@ class PlayerViewModelTest {
     fun `a remote SKIP command advances the persistent queue same as natural completion`() =
         runTest(mainDispatcherExtension.testDispatcher) {
             karaokeRepository.consumeNextResult = AppResult.Success(null)
-            createViewModel(startVideoId = "vid1", sessionItems = emptyList())
+            createQueueViewModel()
             advanceUntilIdle()
 
             karaokeRepository.emitEvent(KaraokeEvent.RemoteCommand(RemoteCommandType.SKIP, "Alice"))

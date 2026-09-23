@@ -187,11 +187,18 @@ class PlayerViewModel
          */
         private fun onPlaybackEnded() {
             viewModelScope.launch {
-                if (isPlayNowActive) {
-                    isPlayNowActive = false
-                    karaokeRepository.playNowEnd()
-                }
-                when (val result = karaokeRepository.consumeNext()) {
+                // Ending a Play-Now song hands back the persistent queue's head *as* now-playing
+                // (the backend's queue head is what's playing -- see its playNowEnd), so that head
+                // is what plays next. Calling consumeNext on top of it would mark that head as
+                // played before it ever played, skipping every song phones added during Play-Now.
+                val result =
+                    if (isPlayNowActive) {
+                        isPlayNowActive = false
+                        karaokeRepository.playNowEnd()
+                    } else {
+                        karaokeRepository.consumeNext()
+                    }
+                when (result) {
                     is AppResult.Success -> {
                         val nextItem = result.data
                         if (nextItem != null) {
@@ -201,10 +208,10 @@ class PlayerViewModel
                         }
                     }
                     is AppResult.Failure -> {
-                        // A network hiccup on consume-next must not strand the TV silently on a
-                        // frozen last frame -- fall back to the visible, recoverable waiting screen
-                        // rather than doing nothing.
-                        logger.log("consumeNext failed after playback ended: ${result.error}")
+                        // A network hiccup here must not strand the TV silently on a frozen last
+                        // frame -- fall back to the visible, recoverable waiting screen rather than
+                        // doing nothing.
+                        logger.log("Advancing the queue failed after playback ended: ${result.error}")
                         _uiState.update { it.copy(isWaitingForQueue = true, isPlaying = false) }
                     }
                 }
