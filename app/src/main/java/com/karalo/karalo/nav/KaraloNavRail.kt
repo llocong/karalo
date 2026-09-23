@@ -24,7 +24,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -54,8 +57,13 @@ import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.karalo.core.ui.R
+import com.karalo.core.ui.components.KaraokeQrCode
 import com.karalo.core.ui.theme.KaraloLogoTextStyle
 import kotlinx.coroutines.delay
+
+// Compact -- the drawer is a narrow icon rail, not full-screen; the spec's 180-240px minimum is
+// specifically for the full-screen player overlay placement (see PlayerScreen), not this one.
+private val DRAWER_QR_SIZE = 96.dp
 
 const val NAV_TAG_HOME = "nav_home"
 const val NAV_TAG_SEARCH = "nav_search"
@@ -64,6 +72,20 @@ const val NAV_TAG_SETTINGS = "nav_settings"
 // How long focus has to stay on one rail item before its "focus to preview" navigation actually
 // fires -- see the LaunchedEffects below for why this matters.
 private const val FOCUS_PREVIEW_DEBOUNCE_MS = 150L
+
+// How long after an explicit select (RIGHT/Center on a rail item) a *different* item's own
+// focus-to-preview debounce is refused -- see markExplicitSelect's own doc for the real-device bug
+// this guards against. Comfortably longer than FOCUS_PREVIEW_DEBOUNCE_MS itself so it always covers
+// that whole window, not just close to it.
+private const val EXPLICIT_SELECT_GRACE_MS = 500L
+
+// How long after an explicit select the *immediate* stray-focus correction below is armed -- much
+// shorter than EXPLICIT_SELECT_GRACE_MS on purpose: the stray focus this corrects is a same-frame-
+// ish side effect of the select itself (observed on a real device landing within ~20ms), whereas a
+// person's own deliberate arrow-key press takes real reaction time to happen -- keeping this window
+// short means a genuine "select Home, then actually arrow up to Search" within the same second still
+// works, rather than being silently snapped back.
+private const val STRAY_FOCUS_CORRECTION_WINDOW_MS = 120L
 
 // Generous gap below the logo header so the nav items sit well clear of it once the drawer is
 // collapsed to icons-only, per the nav-drawer guide's three-section layout (logo header / nav
@@ -120,7 +142,13 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
  * drawer's own [NavigationDrawerScope.hasFocus] never flips to true even though individual items'
  * focused styling updates correctly, so the drawer never auto-expands. Tracking per-item focus via
  * `collectIsFocusedAsState()` is unaffected by that and reliably opens/closes the drawer.
+ *
+ * Exempt from detekt's CyclomaticComplexMethod: most of this function's branching is the
+ * stray-focus guards and per-item focus-preview effects below, each one a fix for focus behavior
+ * only reproduced on real TV hardware. Splitting them out just to satisfy the complexity threshold
+ * isn't worth the risk of regressing one of those without re-verifying every case on a device.
  */
+@Suppress("CyclomaticComplexMethod")
 @Composable
 internal fun NavigationDrawerScope.KaraloNavRailContent(
     currentRoute: String?,
@@ -134,6 +162,11 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     onHomeSelect: () -> Unit,
     onSearchSelect: () -> Unit,
     onSettingsSelect: () -> Unit,
+    // Null until the karaoke session is known (briefly, at app launch) -- see MainActivity's
+    // startup sequencing. Compact, static, high-contrast card per this feature's "Main app = QR
+    // card at bottom of drawer" requirement -- never shown over the video player (see PlayerScreen
+    // for that placement instead).
+    sessionJoinUrl: String? = null,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
@@ -145,6 +178,68 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     LaunchedEffect(isSearchFocused, isHomeFocused, isSettingsFocused) {
         val anyFocused = isSearchFocused || isHomeFocused || isSettingsFocused
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
+    }
+
+    // Guards the focus-preview debounce below against a real, reproduced-on-device bug: selecting
+    // an item (RIGHT/Center, i.e. onXSelect) can leave the rail itself with focus briefly (and
+    // persistently, not just a one-frame flicker) landing on a *different* rail item afterwards --
+    // most likely NavigationDrawer's own focus handling as it hands focus off to `content`, though
+    // the exact mechanism inside that library component isn't visible from here. Left unguarded,
+    // that stray focus starts *this* item's own preview debounce below, which then fires and calls
+    // activateTopLevel on the wrong destination -- by the time the real selection's own
+    // (inherently slower, multi-hop: NavHost -> MainTabsHost -> the screen's own trigger effect)
+    // request to focus its content finally runs, the destination has already flipped away from
+    // under it and that screen's tab is no longer active, so the request silently does nothing.
+    // Recording *which* destination was just explicitly selected, and refusing to let a preview
+    // fire for any other destination within a short window afterwards, closes that race without
+    // depending on precisely why the stray focus happens.
+    var recentExplicitSelectRoute by remember { mutableStateOf<String?>(null) }
+    var recentExplicitSelectAtMs by remember { mutableLongStateOf(0L) }
+
+    fun markExplicitSelect(route: String) {
+        recentExplicitSelectRoute = route
+        recentExplicitSelectAtMs = System.currentTimeMillis()
+    }
+
+    fun isRecentExplicitSelectElsewhere(route: String): Boolean {
+        val selected = recentExplicitSelectRoute ?: return false
+        if (selected == route) return false
+        return System.currentTimeMillis() - recentExplicitSelectAtMs < EXPLICIT_SELECT_GRACE_MS
+    }
+
+    fun focusRequesterFor(route: String): FocusRequester? =
+        when (route) {
+            NavDestination.Home.route -> homeFocusRequester
+            NavDestination.Search.route -> searchFocusRequester
+            NavDestination.Settings.route -> settingsFocusRequester
+            else -> null
+        }
+
+    // Reacts to the stray focus itself, immediately, rather than only guarding its downstream
+    // consequence below: left to just that guard, the stray item still visibly renders its own
+    // focused style for however long it takes this item's own FOCUS_PREVIEW_DEBOUNCE_MS timer to
+    // fire and get refused -- a real, visible flicker onto the wrong rail item, confirmed on a real
+    // device, even though the wrong destination itself never ends up active. Sending focus straight
+    // back to the item that was actually just selected, the moment the stray item is seen to gain
+    // it, closes that visible gap almost entirely instead of just waiting it out.
+    fun correctStrayFocus(strayRoute: String) {
+        val selected = recentExplicitSelectRoute ?: return
+        if (selected == strayRoute) return
+        if (System.currentTimeMillis() - recentExplicitSelectAtMs >= STRAY_FOCUS_CORRECTION_WINDOW_MS) return
+        focusRequesterFor(selected)?.requestFocus()
+    }
+
+    val trackedOnHomeSelect: () -> Unit = {
+        markExplicitSelect(NavDestination.Home.route)
+        onHomeSelect()
+    }
+    val trackedOnSearchSelect: () -> Unit = {
+        markExplicitSelect(NavDestination.Search.route)
+        onSearchSelect()
+    }
+    val trackedOnSettingsSelect: () -> Unit = {
+        markExplicitSelect(NavDestination.Settings.route)
+        onSettingsSelect()
     }
 
     // Focusing an item -- without clicking it -- navigates to and previews that destination,
@@ -160,20 +255,23 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     // user actually settles on for a moment ever triggers the expensive navigation.
     LaunchedEffect(isSearchFocused) {
         if (isSearchFocused) {
+            correctStrayFocus(NavDestination.Search.route)
             delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            onSearchClick()
+            if (!isRecentExplicitSelectElsewhere(NavDestination.Search.route)) onSearchClick()
         }
     }
     LaunchedEffect(isHomeFocused) {
         if (isHomeFocused) {
+            correctStrayFocus(NavDestination.Home.route)
             delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            onHomeClick()
+            if (!isRecentExplicitSelectElsewhere(NavDestination.Home.route)) onHomeClick()
         }
     }
     LaunchedEffect(isSettingsFocused) {
         if (isSettingsFocused) {
+            correctStrayFocus(NavDestination.Settings.route)
             delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            onSettingsClick()
+            if (!isRecentExplicitSelectElsewhere(NavDestination.Settings.route)) onSettingsClick()
         }
     }
 
@@ -223,19 +321,22 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
 
         KaraloNavItem(
             selected = currentRoute == NavDestination.Search.route,
-            onClick = onSearchSelect,
+            onClick = trackedOnSearchSelect,
             icon = Icons.Filled.Search,
             label = "Search",
             interactionSource = searchInteractionSource,
             width = width,
             revealFraction = revealFraction,
-            modifier = Modifier.testTag(NAV_TAG_SEARCH).focusRequester(searchFocusRequester),
+            modifier =
+                Modifier
+                    .testTag(NAV_TAG_SEARCH)
+                    .focusRequester(searchFocusRequester),
             blockDirectionUp = true,
         )
 
         KaraloNavItem(
             selected = currentRoute == NavDestination.Home.route,
-            onClick = onHomeSelect,
+            onClick = trackedOnHomeSelect,
             icon = Icons.Filled.Home,
             label = "Home",
             interactionSource = homeInteractionSource,
@@ -250,7 +351,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
 
         KaraloNavItem(
             selected = currentRoute == NavDestination.Settings.route,
-            onClick = onSettingsSelect,
+            onClick = trackedOnSettingsSelect,
             icon = Icons.Filled.Settings,
             label = "Settings",
             interactionSource = settingsInteractionSource,
@@ -262,6 +363,33 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                     .focusRequester(settingsFocusRequester)
                     .padding(top = 8.dp),
         )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Gated on revealFraction > 0f (not just sessionJoinUrl != null) so the QR is fully absent
+        // while the drawer is collapsed, matching every other piece of drawer-only content here --
+        // rather than sitting there at collapsed width, left-aligned against the icon rail. The
+        // Modifier.width(width) below is what then gives CenterHorizontally something wider than
+        // the QR itself to center within, once the drawer *is* expanded.
+        if (sessionJoinUrl != null && revealFraction > 0f) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(width).padding(bottom = 16.dp),
+            ) {
+                KaraokeQrCode(content = sessionJoinUrl, sizeDp = DRAWER_QR_SIZE)
+                Text(
+                    text = "Scan to add songs",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier =
+                        Modifier
+                            .padding(top = 8.dp)
+                            .graphicsLayer { alpha = revealFraction },
+                )
+            }
+        }
     }
 }
 
@@ -288,10 +416,24 @@ private fun NavigationDrawerScope.KaraloNavItem(
                 // pressing the OK/Center button does -- a focused rail item is, by construction,
                 // only reachable while the drawer is open (see the drawerState effect above), so
                 // no extra "is the drawer open" check is needed here.
+                //
+                // Center/Enter is handled explicitly here too, exactly like RIGHT, rather than
+                // left to Surface's own default click dispatch for those keys: confirmed on a real
+                // device that leaving it to Surface's own path can select the *wrong* destination
+                // (landing back on Search instead of Home) -- Surface's own click dispatch fires
+                // later, in the bubble-up phase rather than this preview phase, which apparently
+                // lands `onClick()` in a different recomposition window than RIGHT's immediate,
+                // synchronous call does, racing this rail's own focus-preview debounce (see the
+                // LaunchedEffects above). Calling `onClick()` directly and consuming the event here
+                // -- identically to RIGHT -- sidesteps that race entirely rather than chasing its
+                // exact timing.
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.type != KeyEventType.KeyDown) {
                         false
-                    } else if (keyEvent.key == Key.DirectionRight) {
+                    } else if (keyEvent.key == Key.DirectionRight ||
+                        keyEvent.key == Key.DirectionCenter ||
+                        keyEvent.key == Key.Enter
+                    ) {
                         onClick()
                         true
                     } else {

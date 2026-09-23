@@ -30,6 +30,7 @@ android {
 dependencies {
     implementation(project(":core-common"))
     implementation(project(":core-ui"))
+    implementation(project(":core-karaoke"))
     implementation(project(":youtube-client"))
 
     implementation(platform(libs.compose.bom))

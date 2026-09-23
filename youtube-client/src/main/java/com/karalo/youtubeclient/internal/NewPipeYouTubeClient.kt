@@ -9,6 +9,8 @@ import com.karalo.youtubeclient.model.YtSuggestion
 import com.karalo.youtubeclient.model.YtVideoSummary
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.InfoItem
+import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfo
@@ -30,15 +32,25 @@ class NewPipeYouTubeClient
     ) : YouTubeClient {
         private val service = ServiceList.YouTube
 
-        override suspend fun search(query: String): AppResult<List<YtVideoSummary>> =
+        override suspend fun search(
+            query: String,
+            keep: (YtVideoSummary) -> Boolean,
+            minResults: Int,
+        ): AppResult<List<YtVideoSummary>> =
             withContext(ioDispatcher) {
                 runCatching {
                     val queryHandler = service.searchQHFactory.fromQuery(query)
-                    SearchInfo
-                        .getInfo(service, queryHandler)
-                        .relatedItems
-                        .filterIsInstance<StreamInfoItem>()
-                        .map(YtMapper::toVideoSummary)
+                    val info = SearchInfo.getInfo(service, queryHandler)
+                    filterWithOneTopUp(
+                        firstPage = info.relatedItems.toVideoSummaries(),
+                        keep = keep,
+                        minResults = minResults,
+                        fetchNextPage = {
+                            info.nextPage
+                                ?.takeIf { Page.isValid(it) }
+                                ?.let { SearchInfo.getMoreItems(service, queryHandler, it).items.toVideoSummaries() }
+                        },
+                    ).distinctBy { it.videoId }
                 }.toAppResult { AppError.Extraction("Search failed for \"$query\"", it) }
             }
 
@@ -61,6 +73,9 @@ class NewPipeYouTubeClient
                         ?: throw NoPlayableStreamException(videoId)
                 }.toAppResult { AppError.Extraction("Stream resolution failed for $videoId", it) }
             }
+
+        private fun List<InfoItem>.toVideoSummaries(): List<YtVideoSummary> =
+            filterIsInstance<StreamInfoItem>().map(YtMapper::toVideoSummary)
 
         private inline fun <T> Result<T>.toAppResult(onError: (Throwable) -> AppError): AppResult<T> =
             fold(

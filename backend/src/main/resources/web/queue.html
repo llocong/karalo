@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting…</title>
+  <script>
+    // The Queue List is now a bottom-sheet overlay on the Main Page (search.html), not its own
+    // route -- this stub keeps old bookmarks/links to queue.html?sessionId=... working by landing
+    // on the merged page with the sheet already open.
+    var sessionId = new URLSearchParams(location.search).get("sessionId") || "";
+    location.replace("/search.html?sessionId=" + encodeURIComponent(sessionId) + "&openQueue=1");
+  </script>
+</head>
+<body></body>
+</html>

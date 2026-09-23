@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -39,6 +40,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Precision
 import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
+import com.karalo.core.ui.focus.InstantCenteredBringIntoViewSpec
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -143,6 +145,11 @@ data class TvCarouselImagePrefetch<T>(
  *   own point of view) -- see `TvCarousel.md` for the exact pattern.
  * @param restoreFocusRequester required (and attached to the matching item) whenever
  *   [restoreFocusItemKey] is non-null.
+ * @param onItemFocused reports an item's [key] the moment it gains focus -- e.g. so a caller can
+ *   track "whichever card the user was last on" as an ordinary [restoreFocusItemKey] target of its
+ *   own later, the same way this row already restores onto a *played* item, since native
+ *   [focusRestorer] is not reliable enough to do that restoration on its own (see this function's
+ *   own doc above).
  * @param imagePrefetch opt-in adjacent-item thumbnail warming; omit for non-thumbnail rows (e.g.
  *   text chips).
  */
@@ -161,6 +168,7 @@ fun <T> TvCarousel(
     leftEdgeFocusRequester: FocusRequester? = null,
     restoreFocusItemKey: Any? = null,
     restoreFocusRequester: FocusRequester? = null,
+    onItemFocused: ((itemKey: Any) -> Unit)? = null,
     imagePrefetch: TvCarouselImagePrefetch<T>? = null,
     itemContent: @Composable (index: Int, item: T, itemModifier: Modifier) -> Unit,
 ) {
@@ -212,6 +220,13 @@ fun <T> TvCarousel(
                 onFocused = { index -> currentFocusedIndex = index },
             )
         }
+    val firstItemTargets =
+        remember(firstItemFocusRequester, leftEdgeFocusRequester) {
+            TvCarouselFirstItemTargets(
+                focusRequester = firstItemFocusRequester,
+                leftEdgeFocusRequester = leftEdgeFocusRequester,
+            )
+        }
     val restoreFocusTarget =
         remember(restoreFocusItemKey, restoreFocusRequester) {
             TvCarouselRestoreFocusTarget(itemKey = restoreFocusItemKey, focusRequester = restoreFocusRequester)
@@ -240,7 +255,32 @@ fun <T> TvCarousel(
         TvCarouselImagePrefetchEffect(listState = listState, items = items, prefetch = imagePrefetch)
     }
 
-    CompositionLocalProvider(LocalBringIntoViewSpec provides CenteredBringIntoViewSpec) {
+    // focusRestorer (below) remembers whichever item last had focus when this row is re-entered
+    // (e.g. arrowing UP to another row and back DOWN, or a rail focus-preview round trip) and
+    // restores it, falling back to the first item otherwise.
+    //
+    // Both behaviors are switched off for the one recomposition where a [restoreFocusItemKey]
+    // restore is pending, though: focusRestorer's onEnter also fires for that restore's explicit
+    // requestFocus() onto a specific descendant, and cancels it in favor of its own pick. With
+    // nothing remembered yet, that pick was the fallback (item 0). Otherwise it was whichever item
+    // focus last *exited* the row from, which survives the Player round trip (it's persisted via
+    // SaveableStateRegistry) but isn't updated by focus leaving for Player itself. Confirmed on a
+    // real TV: play the 4th card, return, arrow RIGHT twice, play that one, and BACK landed on the
+    // 4th card again instead. Overriding onEnter with a no-op here, applied after focusRestorer's
+    // own (focus properties apply from the target outward, so the outer one wins), lets the
+    // explicit requestFocus() land exactly where it asked to.
+    val isRestorePending = restoreFocusItemKey != null
+
+    // Same centering math as CenteredBringIntoViewSpec, but instant rather than animated, for the
+    // one recomposition a [restoreFocusItemKey] restore is pending: that restore already scrolls
+    // its target as close to centered as it can compute up front (see TvCarouselRestoreFocusEffect),
+    // but Compose's own automatic focus-follow correction still runs on top regardless, and in
+    // practice still finds a small residual distance to close -- animating *that* still reads as
+    // an unprompted scroll, since the person pressed BACK, not an arrow key, to get here.
+    val bringIntoViewSpec =
+        if (restoreFocusItemKey != null) InstantCenteredBringIntoViewSpec else CenteredBringIntoViewSpec
+
+    CompositionLocalProvider(LocalBringIntoViewSpec provides bringIntoViewSpec) {
         LazyRow(
             state = listState,
             contentPadding = contentPadding,
@@ -248,14 +288,7 @@ fun <T> TvCarousel(
             modifier =
                 modifier
                     .focusGroup()
-                    // Remembers whichever item last had focus when this row is re-entered (e.g.
-                    // arrowing UP to another row and back DOWN, or a rail focus-preview round
-                    // trip) and restores it, falling back to the first item otherwise. Does not
-                    // race the explicit jump-to-first-item triggers above: those call
-                    // requestFocus() directly on a specific descendant, which just moves focus
-                    // there immediately -- focusRestorer's own onEnter callback only runs when
-                    // focus crosses into this group via arrow-key search, not via a direct
-                    // requestFocus() targeting a descendant.
+                    .focusProperties { if (isRestorePending) onEnter = {} }
                     .focusRestorer(fallback = firstItemFocusRequester ?: FocusRequester.Default)
                     .then(
                         if (upFocusRequester != null) {
@@ -288,10 +321,10 @@ fun <T> TvCarousel(
                     tvCarouselItemModifier(
                         index = index,
                         itemKey = key(item),
-                        firstItemFocusRequester = firstItemFocusRequester,
-                        leftEdgeFocusRequester = leftEdgeFocusRequester,
+                        firstItemTargets = firstItemTargets,
                         restoreFocusTarget = restoreFocusTarget,
                         repeatJump = repeatJump,
+                        onItemFocused = onItemFocused,
                     )
                 itemContent(index, item, itemModifier)
             }
@@ -310,6 +343,16 @@ private class TvCarouselRepeatJump(
 )
 
 /**
+ * [firstItemFocusRequester] and [leftEdgeFocusRequester] (see [TvCarousel]'s own doc on both) only
+ * ever apply to item 0 -- bundled purely to keep [tvCarouselItemModifier]'s own parameter count
+ * down.
+ */
+private class TvCarouselFirstItemTargets(
+    val focusRequester: FocusRequester?,
+    val leftEdgeFocusRequester: FocusRequester?,
+)
+
+/**
  * [restoreFocusItemKey] and [restoreFocusRequester] are always used together (see [TvCarousel]'s own
  * doc on both) -- bundled purely to keep [tvCarouselItemModifier]'s own parameter count down.
  */
@@ -325,10 +368,10 @@ private class TvCarouselRestoreFocusTarget(
 private fun tvCarouselItemModifier(
     index: Int,
     itemKey: Any,
-    firstItemFocusRequester: FocusRequester?,
-    leftEdgeFocusRequester: FocusRequester?,
+    firstItemTargets: TvCarouselFirstItemTargets,
     restoreFocusTarget: TvCarouselRestoreFocusTarget,
     repeatJump: TvCarouselRepeatJump,
+    onItemFocused: ((itemKey: Any) -> Unit)?,
 ): Modifier {
     // Every item (not just the specially-targeted ones below) registers its own FocusRequester and
     // reports when it gains focus -- both purely to support held-repeat LEFT/RIGHT jumping straight
@@ -337,10 +380,17 @@ private fun tvCarouselItemModifier(
     var itemModifier: Modifier =
         Modifier
             .focusRequester(repeatJump.focusRequesters.getOrPut(index) { FocusRequester() })
-            .onFocusChanged { if (it.isFocused) repeatJump.onFocused(index) }
+            .onFocusChanged {
+                if (it.isFocused) {
+                    repeatJump.onFocused(index)
+                    onItemFocused?.invoke(itemKey)
+                }
+            }
+    val firstItemFocusRequester = firstItemTargets.focusRequester
     if (index == 0 && firstItemFocusRequester != null) {
         itemModifier = itemModifier.focusRequester(firstItemFocusRequester)
     }
+    val leftEdgeFocusRequester = firstItemTargets.leftEdgeFocusRequester
     if (index == 0 && leftEdgeFocusRequester != null) {
         itemModifier =
             itemModifier.onPreviewKeyEvent { keyEvent ->
@@ -439,6 +489,15 @@ private fun TvCarouselFirstItemEffects(
  * case. Re-resolves the target index by key on every [items]/[restoreFocusItemKey] change rather
  * than once, since the matching item's position can differ across recompositions of a freshly-
  * fetched list.
+ *
+ * Passes the same centered [tvCarouselCenteredScrollOffset] the held-repeat jump above uses, for
+ * the exact same reason (see its own comment): `scrollToItem`'s default `scrollOffset = 0` lands
+ * the target at the viewport's *start* edge, not centered, so the subsequent `requestFocus()`
+ * below still triggers a second, separately-animated correction from that edge to the centered
+ * position `CenteredBringIntoViewSpec` computes -- invisible for the first couple of items only
+ * because their centered position is clamped to the same start edge, but a real, visible glide
+ * for anything deeper into the row (e.g. restoring onto the 3rd or 4th card after returning from
+ * Player). Landing already centered here leaves that correction nothing to do.
  */
 @Composable
 private fun <T> TvCarouselRestoreFocusEffect(
@@ -451,7 +510,7 @@ private fun <T> TvCarouselRestoreFocusEffect(
     val restoreTargetIndex = items.indexOfFirst { key(it) == restoreFocusItemKey }
     LaunchedEffect(restoreFocusItemKey, restoreTargetIndex) {
         if (restoreTargetIndex >= 0) {
-            listState.scrollToItem(restoreTargetIndex)
+            listState.scrollToItem(restoreTargetIndex, scrollOffset = tvCarouselCenteredScrollOffset(listState))
             restoreFocusRequester.requestFocus()
         }
     }

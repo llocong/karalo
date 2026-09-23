@@ -19,6 +19,14 @@ sealed class AppError(
 
     data object NotFound : AppError()
 
+    /** A request was rejected as unauthenticated/unauthorized (e.g. an invalid backend token). */
+    data object Unauthorized : AppError()
+
+    /** A request conflicted with server-side state (e.g. a stale reorder, or a session already ended). */
+    class Conflict(
+        val message: String,
+    ) : AppError()
+
     class Unknown(
         cause: Throwable? = null,
     ) : AppError(cause)

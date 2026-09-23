@@ -6,5 +6,7 @@ sealed interface VoiceSearchState {
 
     data object Listening : VoiceSearchState
 
-    data class Error(val message: String) : VoiceSearchState
+    data class Error(
+        val message: String,
+    ) : VoiceSearchState
 }

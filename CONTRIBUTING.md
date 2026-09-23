@@ -44,6 +44,10 @@ If you touched UI, also run the instrumented tests against an Android TV emulato
 (`./gradlew connectedDebugAndroidTest`) and manually verify D-pad focus behavior — see
 [README.md](README.md#running-on-an-android-tv-emulator).
 
+If you touched `backend/`, also run `./gradlew :backend:test` — it's a separate, independent
+Gradle build (`includeBuild`), not part of the Android module's `ktlintCheck`/`detekt`/
+`koverVerify` aggregation, so those root-level checks don't cover it.
+
 ## Pull requests
 
 Use the PR template checklist. CI (`ci.yml`) runs ktlint/detekt, unit tests + coverage, an

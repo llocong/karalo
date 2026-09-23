@@ -1,0 +1,66 @@
+package com.karalo.backend.db.tables
+
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.javatime.timestamp
+
+object TvInstallations : Table("tv_installations") {
+    val id = text("id")
+    val tvSecretHash = text("tv_secret_hash")
+    val createdAt = timestamp("created_at")
+    val lastSeenAt = timestamp("last_seen_at")
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** `tvInstallationId` is UNIQUE — this is what enforces "exactly one session per TV" in the DB. */
+object Sessions : Table("sessions") {
+    val id = text("id")
+    val tvInstallationId = text("tv_installation_id").references(TvInstallations.id).uniqueIndex()
+    val code = text("code").uniqueIndex()
+    val queuePositionCursor = long("queue_position_cursor").default(0)
+    val playbackState = text("playback_state").default("IDLE")
+    val nowPlayingSource = text("now_playing_source").nullable()
+    val nowPlayingQueueItemId = text("now_playing_queue_item_id").nullable()
+    val playNowVideoId = text("play_now_video_id").nullable()
+    val playNowTitle = text("play_now_title").nullable()
+    val playNowChannelName = text("play_now_channel_name").nullable()
+    val playNowThumbnailUrl = text("play_now_thumbnail_url").nullable()
+    val playNowDurationSeconds = integer("play_now_duration_seconds").nullable()
+    val updatedAt = timestamp("updated_at")
+    override val primaryKey = PrimaryKey(id)
+}
+
+object Participants : Table("participants") {
+    val id = text("id")
+    val sessionId = text("session_id").references(Sessions.id)
+    val displayName = varchar("display_name", 40)
+    val participantTokenHash = text("participant_token_hash")
+    val createdAt = timestamp("created_at")
+    val lastSeenAt = timestamp("last_seen_at")
+    override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(isUnique = false, sessionId)
+    }
+}
+
+/** `position` is sparse and monotonically increasing — never renumbered/compacted on delete. */
+object QueueItems : Table("queue_items") {
+    val id = text("id")
+    val sessionId = text("session_id").references(Sessions.id)
+    val position = long("position")
+    val videoId = varchar("video_id", 11)
+    val title = varchar("title", 200)
+    val channelName = varchar("channel_name", 200)
+    val thumbnailUrl = varchar("thumbnail_url", 500).nullable()
+    val durationSeconds = integer("duration_seconds").nullable()
+    val addedByParticipantId = text("added_by_participant_id").references(Participants.id)
+    val addedByDisplayName = varchar("added_by_display_name", 40)
+    val status = text("status").default("PENDING")
+    val createdAt = timestamp("created_at")
+    val playedAt = timestamp("played_at").nullable()
+    override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(isUnique = false, sessionId, status, position)
+    }
+}

@@ -39,6 +39,8 @@ internal fun MainTabsHost(
     homeContentFocusTrigger: Int,
     homePlayerReturnTrigger: Int,
     homeRailFocusRequester: FocusRequester,
+    homeFirstVideoFocusRequester: FocusRequester,
+    homeReselectTrigger: Int,
     searchContentFocusTrigger: Int,
     searchPlayerReturnTrigger: Int,
     searchRailFocusRequester: FocusRequester,
@@ -69,6 +71,8 @@ internal fun MainTabsHost(
                 playerReturnTrigger = homePlayerReturnTrigger,
                 claimInitialPlaceholderFocus = !hasHomeEverMounted,
                 railFocusRequester = homeRailFocusRequester,
+                firstVideoFocusRequester = homeFirstVideoFocusRequester,
+                homeReselectTrigger = homeReselectTrigger,
                 modifier = Modifier.tabVisibility(activeDestination == NavDestination.Home.route),
             )
         }

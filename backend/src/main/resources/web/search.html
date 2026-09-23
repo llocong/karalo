@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Karalo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared.css" />
+  <style>
+    /* The header staying in place while results scroll is NOT implemented with position:
+       fixed/sticky -- both are viewport-relative, and the on-screen keyboard opening (while the
+       search input is focused) is exactly the case that breaks viewport-relative positioning on
+       mobile browsers (most notably iOS Safari, which can drag "fixed" elements along when it
+       shifts the page to keep the focused input visible). Instead, the page itself never scrolls
+       at all: .app-shell is a fixed-height flex column, .main-header is a normal, non-scrolling
+       flex item, and .scroll-area is the ONE element with overflow-y: auto. Since the focused
+       input lives inside the non-scrolling header, the browser never needs to scroll anything to
+       keep it visible, which is what removes the keyboard/viewport interaction entirely. */
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+    .app-shell {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .main-header {
+      flex: none;
+      background: var(--bg);
+      padding: 24px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 20px 100px;
+    }
+    .section-heading {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      /* No top padding: .main-header's own 16px bottom padding already separates the search pill
+         from this heading, so matching that with 16px on the bottom is what makes the gap above
+         and below the text equal -- padding split evenly here would double-count the top gap. */
+      padding: 0 4px 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="main-header">
+      <div class="app-header">
+        <div class="brand" id="brandHome" style="cursor:pointer">
+          <svg width="26" height="26" viewBox="0 0 96 96" fill="none">
+            <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
+            <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
+            <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
+            <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
+            <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
+            <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
+            <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
+          </svg>
+          <div class="wordmark" style="font-size:18px">Karalo</div>
+        </div>
+        <div class="avatar" id="avatar" style="cursor:pointer"></div>
+      </div>
+
+      <div class="search-pill">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#A79BB5" stroke-width="2.2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <input type="text" id="query" placeholder="Search a song or artist" />
+      </div>
+
+      <!-- Lives in the non-scrolling header (not .scroll-area) so it stays put -- sticky with the
+           search pill and logo -- while the playlist's song list scrolls underneath it. -->
+      <div id="playlistHeader" class="playlist-back-header" style="display:none"></div>
+    </div>
+
+    <div class="scroll-area">
+      <div id="playlistsSection" style="display:none">
+        <div class="section-heading">Playlists</div>
+        <div id="playlistsGrid" class="playlist-grid"></div>
+      </div>
+      <div id="results" class="song-list"></div>
+    </div>
+  </div>
+
+  <div class="mini-player" id="miniPlayer">
+    <div class="thumb" id="miniPlayerThumb"></div>
+    <div class="meta">
+      <div class="title" id="miniPlayerTitle">Nothing playing</div>
+      <div class="subtitle" id="miniPlayerSubtitle"></div>
+    </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 15l6-6 6 6" stroke="#F5F3F7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <div class="queue-sheet" id="queueSheet">
+    <div class="queue-sheet-inner">
+      <div class="sheet-header" id="sheetHeader" style="cursor:pointer">
+        <div class="heading">Now Playing</div>
+        <button id="collapseSheetButton" aria-label="Collapse">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="#A79BB5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div class="now-playing-card" id="nowPlaying">
+        <div class="row">
+          <div class="thumb" id="nowPlayingThumb"></div>
+          <div class="meta">
+            <div class="title" id="nowPlayingTitle">Nothing playing</div>
+            <div class="sung-by" id="nowPlayingSungBy"></div>
+          </div>
+        </div>
+        <div class="transport">
+          <button class="icon-button" id="pauseResumeButton" aria-label="Pause">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/></svg>
+          </button>
+          <button class="icon-button secondary" id="skipButton" aria-label="Skip">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 4l11 8-11 8V4z" fill="#F5F3F7"/><rect x="16.5" y="4" width="2.5" height="16" fill="#F5F3F7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div class="up-next-header">
+          <div class="heading">Up Next</div>
+          <div class="count" id="upNextCount"></div>
+        </div>
+        <div class="queue-list" id="queueList" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="nicknameOverlay" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="heading">Change your name</div>
+        <button id="nicknameCloseButton" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-input-wrap">
+        <input type="text" id="nicknameInput" class="pill-input" maxlength="16" />
+        <button class="clear-button" id="nicknameClearButton" aria-label="Clear">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#A79BB5" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="field-status">
+        <div class="error-text" id="nicknameError" role="alert"></div>
+        <div class="counter" id="nicknameCounter">0 / 16</div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="nicknameCancelButton">Cancel</button>
+        <button class="primary" id="nicknameConfirmButton">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared.js"></script>
+  <script src="/search.js"></script>
+  <script src="/queue.js"></script>
+</body>
+</html>

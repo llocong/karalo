@@ -16,8 +16,14 @@ class SearchRepositoryImpl
         override suspend fun suggestions(formattedQuery: String): AppResult<List<String>> =
             youTubeClient.suggestions(formattedQuery).map { suggestions -> suggestions.map { it.text } }
 
-        override suspend fun search(formattedQuery: String): AppResult<List<SearchResultItem>> =
-            youTubeClient.search(formattedQuery).map { summaries -> summaries.map { it.toSearchResultItem() } }
+        override suspend fun search(
+            formattedQuery: String,
+            keep: (SearchResultItem) -> Boolean,
+            minResults: Int,
+        ): AppResult<List<SearchResultItem>> =
+            youTubeClient
+                .search(formattedQuery, keep = { keep(it.toSearchResultItem()) }, minResults = minResults)
+                .map { summaries -> summaries.map { it.toSearchResultItem() } }
 
         private fun YtVideoSummary.toSearchResultItem() =
             SearchResultItem(

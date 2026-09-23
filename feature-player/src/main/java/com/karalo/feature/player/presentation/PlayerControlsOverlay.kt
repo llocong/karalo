@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,14 +61,13 @@ private val SAFE_ZONE_VERTICAL = 28.dp
 internal fun PlayerControlsOverlay(
     title: String,
     isPlaying: Boolean,
-    hasNext: Boolean,
-    hasPrevious: Boolean,
+    hasNextInQueue: Boolean,
     positionMs: Long,
     durationMs: Long,
     playFocusRequester: FocusRequester,
+    seekFocusRequester: FocusRequester,
     onPlayPauseClick: () -> Unit,
     onNextClick: () -> Unit,
-    onPreviousClick: () -> Unit,
     onSeek: (positionMs: Long) -> Unit,
     onHideControls: () -> Unit,
     modifier: Modifier = Modifier,
@@ -94,6 +92,7 @@ internal fun PlayerControlsOverlay(
             durationMs = durationMs,
             onSeek = onSeek,
             onHideControls = onHideControls,
+            dotFocusRequester = seekFocusRequester,
             modifier = Modifier.padding(top = 12.dp),
         )
 
@@ -101,9 +100,6 @@ internal fun PlayerControlsOverlay(
             modifier = Modifier.padding(top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ControlButton(onClick = onPreviousClick, enabled = hasPrevious) {
-                Icon(imageVector = Icons.Filled.SkipPrevious, contentDescription = "Previous")
-            }
             ControlButton(
                 onClick = onPlayPauseClick,
                 enabled = true,
@@ -114,7 +110,9 @@ internal fun PlayerControlsOverlay(
                     contentDescription = if (isPlaying) "Pause" else "Play",
                 )
             }
-            ControlButton(onClick = onNextClick, enabled = hasNext) {
+            // Disabled once the persistent remote queue is empty -- same rule the webapp's own
+            // Skip button follows, not the local browse list's now-removed hasNext.
+            ControlButton(onClick = onNextClick, enabled = hasNextInQueue) {
                 Icon(imageVector = Icons.Filled.SkipNext, contentDescription = "Next")
             }
         }
@@ -143,6 +141,7 @@ private fun SeekBar(
     durationMs: Long,
     onSeek: (positionMs: Long) -> Unit,
     onHideControls: () -> Unit,
+    dotFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
     val fraction = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
@@ -182,6 +181,7 @@ private fun SeekBar(
                 Modifier
                     .offset { IntOffset(x = dotOffsetX, y = 0) }
                     .size(DOT_SIZE)
+                    .focusRequester(dotFocusRequester)
                     .graphicsLayer {
                         scaleX = dotScale
                         scaleY = dotScale

@@ -3,9 +3,11 @@ package com.karalo.feature.search.presentation
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
+
+private const val NO_RESULTS_MESSAGE = "No karaoke songs found"
 
 // Safe-zone vertical content margin recommended by the TV layout guidelines
 // (developer.android.com/design/ui/tv/guides/styles/layouts) -- horizontal is applied per-child
@@ -166,15 +170,8 @@ internal fun SearchScreenContent(
                 // BACK while browsing opens the drawer with Search's own item focused -- see the
                 // matching comment on HomeScreenContent's own Column for why this is a raw key
                 // event intercept rather than a BackHandler.
-                .onPreviewKeyEvent { keyEvent ->
-                    val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
-                    if (isBackKeyDown && railFocusRequester != null) {
-                        railFocusRequester.requestFocus()
-                        true
-                    } else {
-                        false
-                    }
-                }.padding(vertical = SAFE_ZONE_VERTICAL),
+                .backMovesFocusToRail(railFocusRequester)
+                .padding(vertical = SAFE_ZONE_VERTICAL),
     ) {
         SearchBar(
             textFieldValue = textFieldValue,
@@ -198,20 +195,14 @@ internal fun SearchScreenContent(
             onDownPressed = {
                 when (uiState) {
                     is SearchUiState.Suggesting -> focusFirstSuggestionTrigger++
-                    is SearchUiState.Results -> focusFirstResultTrigger++
+                    is SearchUiState.Results -> if (uiState.items.isNotEmpty()) focusFirstResultTrigger++
                     else -> Unit
                 }
             },
             railFocusRequester = railFocusRequester,
             voiceSearchState = voiceSearchState,
             onMicClick = {
-                prepareVoiceSearchIntent()?.let { intent ->
-                    try {
-                        voiceSearchLauncher.launch(intent)
-                    } catch (e: ActivityNotFoundException) {
-                        onVoiceSearchLaunchFailed()
-                    }
-                }
+                launchVoiceSearch(voiceSearchLauncher, prepareVoiceSearchIntent, onVoiceSearchLaunchFailed)
             },
         )
 
@@ -250,27 +241,58 @@ internal fun SearchScreenContent(
                     railFocusRequester = railFocusRequester,
                 )
             is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+            // Results are filtered down to karaoke tracks (see KaraokeResultFilter), so an empty list
+            // is a normal outcome for a query with few karaoke versions, not an error.
             is SearchUiState.Results ->
-                // Vertically centered in the remaining space below the search bar, rather than
-                // sitting flush beneath it like the suggestions row does.
-                Box(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    SearchResultsRow(
-                        items = uiState.items,
+                if (uiState.items.isEmpty()) {
+                    ErrorState(message = NO_RESULTS_MESSAGE)
+                } else {
+                    ResultsContent(
+                        uiState = uiState,
                         onResultClick = trackedOnResultClick,
-                        firstItemFocusRequester = firstResultFocusRequester,
-                        focusFirstItemTrigger = contentFocusTrigger,
+                        firstResultFocusRequester = firstResultFocusRequester,
+                        contentFocusTrigger = contentFocusTrigger,
                         restoreFocusItemKey = lastPlayedVideoId.takeIf { canRestoreLastPlayed },
                         restoreFocusRequester = restoreFocusRequester,
                         railFocusRequester = railFocusRequester,
                         queryFieldFocusRequester = focusRequester,
-                        focusFirstItemOnDownTrigger = focusFirstResultTrigger,
+                        focusFirstResultTrigger = focusFirstResultTrigger,
                     )
                 }
             is SearchUiState.Error -> ErrorState(message = uiState.message, onRetry = onSubmit)
         }
+    }
+}
+/** Hosts the results row; only composed when there is at least one result to focus. */
+@Composable
+private fun ColumnScope.ResultsContent(
+    uiState: SearchUiState.Results,
+    onResultClick: (Int, String) -> Unit,
+    firstResultFocusRequester: FocusRequester?,
+    contentFocusTrigger: Int,
+    restoreFocusItemKey: String?,
+    restoreFocusRequester: FocusRequester?,
+    railFocusRequester: FocusRequester?,
+    queryFieldFocusRequester: FocusRequester?,
+    focusFirstResultTrigger: Int,
+) {
+    // Vertically centered in the remaining space below the search bar, rather than
+    // sitting flush beneath it like the suggestions row does.
+    Box(
+        modifier = Modifier.fillMaxWidth().weight(1f),
+        contentAlignment = Alignment.Center,
+    ) {
+        SearchResultsRow(
+            items = uiState.items,
+            onResultClick = onResultClick,
+            firstItemFocusRequester = firstResultFocusRequester,
+            focusFirstItemTrigger = contentFocusTrigger,
+            restoreFocusItemKey = restoreFocusItemKey,
+            restoreFocusRequester = restoreFocusRequester,
+            railFocusRequester = railFocusRequester,
+            queryFieldFocusRequester = queryFieldFocusRequester,
+            focusFirstItemOnDownTrigger = focusFirstResultTrigger,
+        )
     }
 }
 
@@ -286,6 +308,32 @@ internal fun SearchScreenContent(
  * being done here, since only it owns the LazyListState needed to scroll a possibly-scrolled-away
  * first item back into view first.
  */
+private fun Modifier.backMovesFocusToRail(railFocusRequester: FocusRequester?): Modifier =
+    onPreviewKeyEvent { keyEvent ->
+        val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
+        if (isBackKeyDown && railFocusRequester != null) {
+            railFocusRequester.requestFocus()
+            true
+        } else {
+            false
+        }
+    }
+
+private fun launchVoiceSearch(
+    launcher: ActivityResultLauncher<Intent>,
+    prepareVoiceSearchIntent: () -> Intent?,
+    onVoiceSearchLaunchFailed: () -> Unit,
+) {
+    val intent = prepareVoiceSearchIntent() ?: return
+    try {
+        launcher.launch(intent)
+    } catch (ignored: ActivityNotFoundException) {
+        // No speech-recognition activity on this device: nothing in the exception itself is worth
+        // keeping, the failure is surfaced to the user instead.
+        onVoiceSearchLaunchFailed()
+    }
+}
+
 @Composable
 private fun rememberSearchFocusState(
     uiState: SearchUiState,
@@ -293,7 +341,8 @@ private fun rememberSearchFocusState(
     focusRequester: FocusRequester,
     firstResultFocusRequester: FocusRequester,
 ) {
-    val isShowingResults = uiState is SearchUiState.Results
+    // An empty results list shows a message instead of a results row, so there's nothing to focus.
+    val isShowingResults = (uiState as? SearchUiState.Results)?.items?.isNotEmpty() == true
     var previousIsShowingResults by remember { mutableStateOf(isShowingResults) }
     var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
 

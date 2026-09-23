@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -77,8 +78,12 @@ class TvCarouselFirstItemJumpTest {
             composeRule.waitForIdle()
         }
         // Confirm we've actually scrolled away before jumping back -- otherwise this test wouldn't
-        // be exercising anything.
-        assert(xOf(0) < startX) { "expected the row to have scrolled away from its start position" }
+        // be exercising anything. Checked via the now-focused item's own identity rather than item
+        // 0's position: this row's cache window (see TvCarouselDefaults) only keeps items within a
+        // bounded distance of the visible window composed, so by this point item 0 -- this far
+        // behind -- is no longer composed at all, and querying it here would fail outright rather
+        // than just returning a stale position.
+        composeRule.onNodeWithText("Item $SCROLL_DEPTH").assertIsFocused()
 
         composeRule.runOnIdle { bumpTrigger() }
         composeRule.waitForIdle()
