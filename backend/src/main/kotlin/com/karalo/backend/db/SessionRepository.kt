@@ -31,21 +31,33 @@ import java.util.UUID
  * session it owns — there's no meaningful TV-installation-only operation independent of "the
  * session it maps to" in this MVP.
  */
-class SessionRepository {
+class SessionRepository(
+    /** See [com.karalo.backend.config.AppConfig.tvRegistrationKey]; null keeps registration open. */
+    tvRegistrationKey: String? = null,
+) {
+    private val registrationKeyHash = tvRegistrationKey?.let(TokenGenerator::hash)
+
     /**
-     * Trust-on-first-use: the first caller for a brand-new [tvId] claims it and receives the
-     * secret; every later call for that [tvId] must present it. See the karaoke ADR for why this
-     * is an accepted limitation for a LAN-only, non-internet-exposed MVP.
+     * The first caller for a brand-new [tvId] claims it and receives the secret; every later call
+     * for that [tvId] must present it. When a registration key is configured, claiming a new [tvId] also
+     * requires [presentedRegistrationKey] to match it, so only TVs built with the key can register
+     * on an internet-exposed server. Without it this is trust-on-first-use, fine on a home LAN.
      */
     fun ensureSession(
         tvId: String,
         presentedSecret: String?,
+        presentedRegistrationKey: String? = null,
     ): SessionEnsureResponseDto =
         transaction {
             val existing = TvInstallations.selectAll().where { TvInstallations.id eq tvId }.singleOrNull()
             val now = Instant.now()
 
             if (existing == null) {
+                if (registrationKeyHash != null &&
+                    (presentedRegistrationKey == null || !TokenGenerator.matches(presentedRegistrationKey, registrationKeyHash))
+                ) {
+                    throw ApiException.Unauthorized("Invalid or missing TV registration key")
+                }
                 val rawSecret = TokenGenerator.generate()
                 TvInstallations.insert {
                     it[id] = tvId

@@ -1,0 +1,6 @@
+# Caddy gets and renews the HTTPS certificate for this hostname on its own, and passes WebSocket
+# upgrades through to the backend. deploy/setup-server.sh replaces KARALO_HOSTNAME.
+KARALO_HOSTNAME {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+}

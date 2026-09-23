@@ -13,6 +13,18 @@ data class AppConfig(
     val port: Int = System.getenv("KARALO_PORT")?.toIntOrNull() ?: 8080,
     val dbPath: String = System.getenv("KARALO_DB_PATH") ?: "karalo-backend.db",
     val publicBaseUrl: String = System.getenv("KARALO_PUBLIC_BASE_URL") ?: "http://localhost:8080",
+    /**
+     * When set, a TV can only register (its first `session/ensure`) by presenting this key in the
+     * `X-Karalo-Registration-Key` header, so strangers can't create sessions on an internet-exposed
+     * server. Unset (the default) keeps registration open, as on a home LAN.
+     */
+    val tvRegistrationKey: String? = System.getenv("KARALO_TV_REGISTRATION_KEY")?.takeIf { it.isNotBlank() },
+    /**
+     * Set to "true" only when running behind a reverse proxy (e.g. Caddy) that sets
+     * `X-Forwarded-For`: rate limits then key on the real client IP instead of the proxy's.
+     * Off by default, since without a proxy clients could spoof the header.
+     */
+    val trustProxy: Boolean = System.getenv("KARALO_TRUST_PROXY")?.toBoolean() ?: false,
 ) {
     companion object {
         fun fromEnv() = AppConfig()

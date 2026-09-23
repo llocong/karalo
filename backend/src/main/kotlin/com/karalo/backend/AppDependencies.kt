@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 class AppDependencies(
     val config: AppConfig,
 ) {
-    val sessionRepository = SessionRepository()
+    val sessionRepository = SessionRepository(tvRegistrationKey = config.tvRegistrationKey)
     val participantRepository = ParticipantRepository()
     val queueRepository = QueueRepository(sessionRepository)
     val broadcaster = SessionBroadcaster(com.karalo.backend.plugins.appJson)

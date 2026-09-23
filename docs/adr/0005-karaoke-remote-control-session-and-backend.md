@@ -78,12 +78,17 @@ comes from build-time env config (`KARALO_BACKEND_BASE_URL`), mirroring the exis
   backend for anything beyond plain manual playback; manual Home/Search Play-Now still works with
   no backend running (it never touches `KaraokeRepository`'s network calls in a way that blocks
   playback), but queue/QR/remote-add features are simply idle without one.
-- **LAN-only in this pass**: no public hosting is configured; the user deploys the backend
-  themselves later for off-LAN use, and the default `KARALO_BACKEND_BASE_URL` is a placeholder LAN
-  IP that fails closed rather than pointing anywhere real.
-- **Trust-on-first-use TV claiming** is acceptable only because the backend isn't
-  internet-exposed in this pass; a real pairing PIN is a documented follow-up before any public
-  deployment.
+- **Hosting**: first built LAN-only. It can now be hosted online (one small VM behind Caddy for
+  HTTPS; see `docs/deploy.md`). The default `KARALO_BACKEND_BASE_URL` is still a placeholder LAN IP
+  that fails closed rather than pointing anywhere real.
+- **TV registration**: on a home LAN, the first caller for a new TV installation ID claims it
+  (trust-on-first-use). An internet-exposed backend sets `KARALO_TV_REGISTRATION_KEY`, and a new
+  TV can then only register by sending that key (built into the TV app), so strangers can't create
+  sessions or use the server's YouTube search. Registered TVs keep using their own secret. It's one
+  shared key for all TVs, not a per-TV pairing PIN; that remains a follow-up if the app is ever
+  distributed beyond the owner's TVs.
+- **Behind a proxy**, `KARALO_TRUST_PROXY=true` makes the IP-keyed rate limits use the client IP
+  from `X-Forwarded-For` instead of the proxy's address.
 - **Single-process, in-memory WebSocket registry** — no horizontal scaling. Redis pub/sub is the
   documented follow-up if ever run as more than one backend process.
 - **No schema migration tooling** — the SQLite schema is created fresh, not versioned. Acceptable
