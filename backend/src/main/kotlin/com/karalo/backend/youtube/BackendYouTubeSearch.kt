@@ -4,6 +4,7 @@ import com.karalo.backend.domain.ApiException
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
@@ -63,10 +64,26 @@ class BackendYouTubeSearch(
     fun search(query: String): List<Result> =
         try {
             val queryHandler = service.searchQHFactory.fromQuery(applyKaraokePrefix(query))
-            SearchInfo
-                .getInfo(service, queryHandler)
-                .relatedItems
-                .filterIsInstance<StreamInfoItem>()
+            val info = SearchInfo.getInfo(service, queryHandler)
+            filterWithOneTopUp(
+                firstPage = info.relatedItems.filterIsInstance<StreamInfoItem>(),
+                keep = { item ->
+                    isLikelyKaraoke(
+                        title = item.name.orEmpty(),
+                        channelName = item.uploaderName.orEmpty(),
+                        durationSeconds = item.duration.takeIf { it >= 0 },
+                        rawQuery = query,
+                    )
+                },
+                minResults = MIN_RESULTS_BEFORE_TOP_UP,
+                fetchNextPage = {
+                    info.nextPage
+                        ?.takeIf { Page.isValid(it) }
+                        ?.let { page ->
+                            SearchInfo.getMoreItems(service, queryHandler, page).items.filterIsInstance<StreamInfoItem>()
+                        }
+                },
+            ).distinctBy { it.url }
                 .map { item ->
                     Result(
                         videoId = extractVideoId(item.url),

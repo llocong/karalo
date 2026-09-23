@@ -11,6 +11,10 @@ class SearchYouTubeUseCase
         suspend operator fun invoke(rawQuery: String): AppResult<List<SearchResultItem>> {
             val trimmed = rawQuery.trim()
             if (trimmed.isEmpty()) return AppResult.Success(emptyList())
-            return repository.search(KaraokeQueryFormatter.format(trimmed))
+            return repository.search(
+                KaraokeQueryFormatter.format(trimmed),
+                keep = { KaraokeResultFilter.isLikelyKaraoke(it, rawQuery = trimmed) },
+                minResults = KaraokeResultFilter.MIN_RESULTS_BEFORE_TOP_UP,
+            )
         }
     }

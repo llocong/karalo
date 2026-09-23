@@ -14,7 +14,15 @@ import com.karalo.youtubeclient.model.YtVideoSummary
  * feature-layer concern, not this client's.
  */
 interface YouTubeClient {
-    suspend fun search(query: String): AppResult<List<YtVideoSummary>>
+    /**
+     * Returns the first page of results that pass [keep]. If fewer than [minResults] pass, one
+     * more page is fetched and filtered too (never more than one).
+     */
+    suspend fun search(
+        query: String,
+        keep: (YtVideoSummary) -> Boolean = { true },
+        minResults: Int = 0,
+    ): AppResult<List<YtVideoSummary>>
 
     suspend fun suggestions(query: String): AppResult<List<YtSuggestion>>
 

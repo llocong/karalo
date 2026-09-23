@@ -6,5 +6,10 @@ import com.karalo.core.common.result.AppResult
 interface SearchRepository {
     suspend fun suggestions(formattedQuery: String): AppResult<List<String>>
 
-    suspend fun search(formattedQuery: String): AppResult<List<SearchResultItem>>
+    /** Only results passing [keep] are returned; see [com.karalo.youtubeclient.YouTubeClient.search]. */
+    suspend fun search(
+        formattedQuery: String,
+        keep: (SearchResultItem) -> Boolean = { true },
+        minResults: Int = 0,
+    ): AppResult<List<SearchResultItem>>
 }

@@ -32,9 +32,9 @@ object FakeYouTubeClientModule {
         FakeYouTubeClient().apply {
             searchResult =
                 AppResult.Success(
-                    listOf(YtVideoSummary("vid1", "Sample Song", "Test Channel", null, 180L)) +
+                    listOf(YtVideoSummary("vid1", "Sample Song", "Test Karaoke Channel", null, 180L)) +
                         (1..FILLER_ITEM_COUNT).map {
-                            YtVideoSummary("filler-vid$it", "Filler Song $it", "Test Channel", null, 180L)
+                            YtVideoSummary("filler-vid$it", "Filler Song $it", "Test Karaoke Channel", null, 180L)
                         },
                 )
             suggestionsResult = AppResult.Success(listOf(YtSuggestion("karaoke test song")))

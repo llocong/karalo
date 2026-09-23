@@ -17,9 +17,16 @@ class FakeYouTubeClient : YouTubeClient {
     var lastSuggestionsQuery: String? = null
     var lastStreamVideoId: String? = null
 
-    override suspend fun search(query: String): AppResult<List<YtVideoSummary>> {
+    override suspend fun search(
+        query: String,
+        keep: (YtVideoSummary) -> Boolean,
+        minResults: Int,
+    ): AppResult<List<YtVideoSummary>> {
         lastSearchQuery = query
-        return searchResult
+        return when (val result = searchResult) {
+            is AppResult.Success -> AppResult.Success(result.data.filter(keep))
+            is AppResult.Failure -> result
+        }
     }
 
     override suspend fun suggestions(query: String): AppResult<List<YtSuggestion>> {
