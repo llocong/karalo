@@ -3,11 +3,611 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Karalo Karaoke</title>
-  <link rel="stylesheet" href="/shared.css" />
+  <title>Karalo · Karaoke night on your TV</title>
+  <meta name="description" content="Turn your Android TV or Google TV into a karaoke party. Guests scan a QR code, pick songs from their phone and sing on the big screen. No app to install, no accounts." />
+  <meta name="theme-color" content="#0B0710" />
+  <meta property="og:title" content="Karalo · Karaoke night on your TV" />
+  <meta property="og:description" content="Guests scan a QR code, pick songs from their phone and sing on the big screen. No app to install, no accounts." />
+  <meta property="og:url" content="https://karalo.app/" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect x='6' y='6' width='84' height='84' rx='22' fill='%237C3AED'/%3E%3Crect x='40' y='26' width='16' height='20' rx='8' fill='%23F5F3F7'/%3E%3Crect x='41' y='46' width='14' height='4' rx='2' fill='%23FF5D8F'/%3E%3Cpolygon points='43,50 53,50 51,70 45,70' fill='%23F5F3F7'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* Same brand tokens as the phone web app (shared.css); the landing page is self-contained so
+       it doesn't inherit the app's app-like rules (no text selection, fixed layouts). */
+    :root {
+      color-scheme: dark;
+      --bg: #0B0710;
+      --surface: #17101F;
+      --surface-2: #1E1529;
+      --border: #241834;
+      --primary: #7C3AED;
+      --primary-soft: #A78BFA;
+      --primary-depth: #4C1D95;
+      --accent: #FF5D8F;
+      --text: #F5F3F7;
+      --muted: #A79BB5;
+      --tertiary: #63576F;
+      --radius: 24px;
+      --max: 1120px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    h1, h2, h3 { font-family: 'Fredoka', sans-serif; font-weight: 600; line-height: 1.12; margin: 0; letter-spacing: -0.01em; }
+    p { margin: 0; }
+    a { color: inherit; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+    .accent { color: var(--accent); }
+    .muted { color: var(--muted); }
+
+    /* ---------- Join hint (people arriving here from the phone app without a session) ---------- */
+    .join-hint {
+      background: var(--primary-depth);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      padding: 10px 16px;
+    }
+    .join-hint strong { color: #fff; }
+
+    /* ---------- Header ---------- */
+    header.site {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(11, 7, 16, 0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(36, 24, 52, 0.7);
+    }
+    header.site .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand .wordmark { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 22px; }
+    nav.links { display: flex; align-items: center; gap: 26px; font-size: 15px; font-weight: 600; }
+    nav.links a { text-decoration: none; color: var(--muted); }
+    nav.links a:hover { color: var(--text); }
+    nav.links a.btn, nav.links a.btn:hover { color: var(--bg); }
+    .lang {
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      border-radius: 999px; padding: 6px 12px; font: 700 13px 'Manrope', sans-serif; cursor: pointer;
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 999px; padding: 14px 26px; font-weight: 800; font-size: 16px;
+      text-decoration: none; border: none; cursor: pointer; font-family: 'Manrope', sans-serif;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--accent); color: var(--bg); box-shadow: 0 10px 30px -10px rgba(255, 93, 143, .7); }
+    .btn-ghost { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-small { padding: 9px 18px; font-size: 14px; }
+
+    /* ---------- Hero ---------- */
+    .hero { position: relative; padding: 72px 0 88px; }
+    .hero::before {
+      content: ""; position: absolute; inset: -120px 0 auto 0; height: 720px; z-index: -1;
+      background:
+        radial-gradient(600px 380px at 78% 40%, rgba(124, 58, 237, .35), transparent 70%),
+        radial-gradient(420px 300px at 12% 20%, rgba(255, 93, 143, .16), transparent 70%);
+    }
+    .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+    .tv-screen > * { min-width: 0; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: var(--muted);
+      margin-bottom: 22px;
+    }
+    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+    .hero h1 { font-size: clamp(40px, 6vw, 64px); }
+    .hero .lead { font-size: 19px; color: var(--muted); margin: 22px 0 32px; max-width: 520px; }
+    .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero .facts { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 30px; font-size: 14px; font-weight: 700; color: var(--muted); }
+    .hero .facts span { display: inline-flex; align-items: center; gap: 8px; }
+    .check { width: 18px; height: 18px; border-radius: 50%; background: rgba(124, 58, 237, .25); display: inline-grid; place-items: center; }
+
+    /* Illustration: a TV with the queue and a QR code, plus a phone adding a song. Built in
+       HTML/CSS with made-up songs, so the page never shows third-party artwork. */
+    .scene { position: relative; min-height: 420px; }
+    .tv {
+      position: relative; background: #05030A; border-radius: 22px; padding: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 80px -30px rgba(124, 58, 237, .55), 0 0 0 6px #120C19;
+    }
+    .tv-screen {
+      aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
+      background: linear-gradient(135deg, #2A1150 0%, #150B24 55%, #2B0F22 100%);
+      display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; padding: 18px;
+    }
+    .tv-stand { width: 30%; height: 12px; margin: 10px auto 0; background: #120C19; border-radius: 0 0 12px 12px; }
+    .lyric { align-self: center; }
+    .lyric .now { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; }
+    .lyric .line { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: clamp(15px, 2.1vw, 24px); margin-top: 8px; line-height: 1.25; }
+    .lyric .line .sung { color: var(--accent); }
+    .lyric .who { margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); margin-top: 14px; overflow: hidden; }
+    .bar i { display: block; width: 42%; height: 100%; background: var(--accent); }
+    .tv-side { background: rgba(11, 7, 16, .6); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .tv-side .label { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
+    .qr { width: 64px; height: 64px; background: #fff; border-radius: 8px; padding: 5px; }
+    .qr svg { display: block; width: 100%; height: 100%; }
+    .up-next { font-size: 11px; font-weight: 700; display: flex; flex-direction: column; gap: 5px; }
+    .up-next div { display: flex; justify-content: space-between; gap: 6px; color: var(--text); }
+    .up-next div span:last-child { color: var(--muted); font-weight: 600; }
+
+    .phone {
+      position: absolute; right: -8px; bottom: -48px; width: 44%; max-width: 220px;
+      background: #05030A; border-radius: 30px; padding: 9px;
+      border: 1px solid var(--border);
+      box-shadow: 0 30px 60px -20px rgba(0,0,0,.8), 0 0 0 5px #120C19;
+      transform: rotate(4deg);
+    }
+    .phone-screen { background: var(--bg); border-radius: 22px; padding: 14px 12px 16px; }
+    .phone .top { display: flex; align-items: center; gap: 6px; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 13px; }
+    .phone .search {
+      margin-top: 12px; border: 1.5px solid var(--accent); border-radius: 999px;
+      padding: 7px 11px; font-size: 11px; font-weight: 700; color: var(--text);
+    }
+    .phone .song { display: flex; align-items: center; gap: 8px; margin-top: 11px; }
+    .phone .thumb { width: 30px; height: 30px; border-radius: 8px; flex: none; }
+    .phone .song > div:nth-child(2) { flex: 1; min-width: 0; }
+    .phone .song .t, .phone .song .a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .phone .song .t { font-size: 11px; font-weight: 800; line-height: 1.2; }
+    .phone .song .a { font-size: 10px; color: var(--muted); font-weight: 600; }
+    .phone .add { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--bg); display: grid; place-items: center; font-weight: 900; font-size: 14px; flex: none; }
+    .phone .add.done { background: var(--primary); color: #fff; font-size: 11px; }
+    .toast { margin-top: 12px; background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: 10px; font-weight: 700; color: var(--muted); }
+    .toast b { color: var(--text); }
+
+    /* ---------- Sections ---------- */
+    section { padding: 88px 0; }
+    .section-head { text-align: center; max-width: 640px; margin: 0 auto 48px; }
+    .section-head .kicker { font-size: 13px; font-weight: 800; letter-spacing: .14em; color: var(--accent); text-transform: uppercase; }
+    .section-head h2 { font-size: clamp(30px, 4vw, 44px); margin-top: 10px; }
+    .section-head p { color: var(--muted); font-size: 17px; margin-top: 14px; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; counter-reset: step; }
+    .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; position: relative; }
+    .step .num {
+      width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
+      font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 20px;
+      background: var(--primary); color: #fff; margin-bottom: 18px;
+    }
+    .step:nth-child(2) .num { background: var(--accent); color: var(--bg); }
+    .step h3 { font-size: 22px; }
+    .step p { color: var(--muted); margin-top: 8px; }
+
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+    .feature .icon {
+      width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center;
+      background: rgba(124, 58, 237, .18); margin-bottom: 18px;
+    }
+    .feature:nth-child(even) .icon { background: rgba(255, 93, 143, .14); }
+    .feature h3 { font-size: 20px; }
+    .feature p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+    .band {
+      background: linear-gradient(120deg, var(--primary-depth), #2A0F3F 60%, #3A0F2A);
+      border-radius: 32px; padding: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+    }
+    .band .item h3 { font-size: 24px; }
+    .band .item p { color: #D8CCE6; margin-top: 8px; }
+
+    .uses { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .uses span {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+      padding: 12px 20px; font-weight: 700; font-size: 15px;
+    }
+
+    .needs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 860px; margin: 0 auto; }
+    .need { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; display: flex; gap: 16px; align-items: flex-start; }
+    .need .icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: rgba(124, 58, 237, .18); flex: none; }
+    .need .icon.coral { background: rgba(255, 93, 143, .14); }
+    .need h3 { font-size: 19px; }
+    .need p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+
+    .cta-box {
+      text-align: center; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 32px; padding: 64px 24px; position: relative; overflow: hidden;
+    }
+    .cta-box::before {
+      content: ""; position: absolute; inset: 0; z-index: 0;
+      background: radial-gradient(500px 240px at 50% 0%, rgba(255, 93, 143, .18), transparent 70%);
+    }
+    .cta-box > * { position: relative; }
+    .cta-box h2 { font-size: clamp(30px, 4vw, 44px); }
+    .cta-box p { color: var(--muted); font-size: 17px; margin: 14px auto 28px; max-width: 520px; }
+
+    footer.site { border-top: 1px solid var(--border); padding: 32px 0 44px; margin-top: 40px; }
+    footer.site .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+    footer.site nav { display: flex; gap: 20px; }
+    footer.site a { text-decoration: none; }
+    footer.site a:hover { color: var(--text); }
+
+    @media (max-width: 900px) {
+      .hero { padding: 48px 0 96px; }
+      .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 64px; }
+      nav.links { gap: 10px; }
+      .steps, .features, .band { grid-template-columns: 1fr; }
+      .needs { grid-template-columns: 1fr; }
+      nav.links a:not(.btn) { display: none; }
+      .band { padding: 32px; }
+      section { padding: 64px 0; }
+    }
+    @media (max-width: 480px) {
+      .hero .lead { font-size: 17px; }
+      .hero .ctas .btn { flex: 1 1 auto; }
+      .brand .wordmark { font-size: 20px; }
+      .join-hint { font-size: 13px; }
+      .phone { right: 0; bottom: -64px; width: 56%; }
+      .lyric .line br { display: none; }
+      .tv-screen { padding: 12px; gap: 10px; }
+      .qr { width: 48px; height: 48px; }
+      .up-next { display: none; }
+    }
+  </style>
 </head>
 <body>
-  <h1>🎤 Karalo Karaoke</h1>
-  <p class="subtitle">Scan the QR code shown on the TV to join a karaoke session.</p>
+  <div class="join-hint" data-i18n-html="joinHint">Joining a party? <strong>Scan the QR code shown on the TV</strong> to add your songs.</div>
+
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="#top" aria-label="Karalo">
+        <svg width="34" height="34" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+          <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
+          <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
+          <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
+          <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
+          <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
+          <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
+          <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
+        </svg>
+        <span class="wordmark">Karalo</span>
+      </a>
+      <nav class="links">
+        <a href="#how" data-i18n="navHow">How it works</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+        <button class="lang" id="langToggle" type="button" aria-label="Français">FR</button>
+        <a class="btn btn-primary btn-small" href="#access" data-i18n="navCta">Get early access</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ---------- Hero ---------- -->
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <div class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow">For Android TV and Google TV</span></div>
+          <h1 data-i18n-html="heroTitle">Karaoke night,<br><span class="accent">on your TV.</span></h1>
+          <p class="lead" data-i18n="heroLead">Everyone picks songs from their own phone and sings on the big screen. Guests just scan a QR code: no app to install, no account to create.</p>
+          <div class="ctas">
+            <a class="btn btn-primary" href="#access" data-i18n="heroCta">Get early access</a>
+            <a class="btn btn-ghost" href="#how" data-i18n="heroSecondary">See how it works</a>
+          </div>
+          <div class="facts">
+            <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#FF5D8F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="fact1">No app for guests</span></span>
+            <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#FF5D8F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="fact2">No accounts</span></span>
+            <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#FF5D8F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="fact3">Free</span></span>
+          </div>
+        </div>
+
+        <div class="scene" aria-hidden="true">
+          <div class="tv">
+            <div class="tv-screen">
+              <div class="lyric">
+                <div class="now" data-i18n="tvNow">Now singing</div>
+                <div class="line"><span class="sung">Tonight we light</span> the city up, <br>we never stop the show</div>
+                <div class="who" data-i18n="tvWho">Sung by Maya</div>
+                <div class="bar"><i></i></div>
+              </div>
+              <div class="tv-side">
+                <div class="label" data-i18n="tvScan">Scan to add songs</div>
+                <div class="qr">
+                  <svg viewBox="0 0 21 21" shape-rendering="crispEdges">
+                    <path fill="#0B0710" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM14 0h7v7h-7zM15 1v5h5V1zM16 2h3v3h-3zM0 14h7v7H0zM1 15v5h5v-5zM2 16h3v3H2zM8 0h1v1H8zM10 0h2v1h-2zM9 1h1v2H9zM11 2h2v1h-2zM8 3h1v1H8zM12 3h1v2h-1zM8 5h2v1H8zM10 6h1v2h-1zM12 6h1v1h-1zM0 8h2v1H0zM3 8h2v1H3zM6 8h3v1H6zM11 8h2v1h-2zM14 8h1v2h-1zM16 8h3v1h-3zM20 8h1v2h-1zM1 9h1v2H1zM4 9h1v1H4zM8 9h2v1H8zM12 9h1v1h-1zM17 9h1v2h-1zM0 11h1v1H0zM2 10h2v1H2zM6 10h1v2H6zM9 11h3v1H9zM13 10h1v1h-1zM15 11h2v1h-2zM19 11h2v1h-2zM3 12h2v1H3zM8 12h1v1H8zM11 12h2v2h-2zM14 12h1v1h-1zM18 12h1v2h-1zM8 14h2v1H8zM13 14h3v1h-3zM17 14h1v1h-1zM20 14h1v2h-1zM9 15h1v2H9zM11 16h2v1h-2zM14 15h2v2h-2zM18 16h1v1h-1zM8 17h1v1H8zM12 18h2v1h-2zM15 18h3v1h-3zM19 18h2v1h-2zM8 19h3v1H8zM13 20h1v1h-1zM16 19h1v2h-1zM18 20h2v1h-2z"/>
+                  </svg>
+                </div>
+                <div class="label" data-i18n="tvNext">Up next</div>
+                <div class="up-next">
+                  <div><span>Golden Hour</span><span>Léa</span></div>
+                  <div><span>Neon Summer</span><span>Sam</span></div>
+                  <div><span>Old Friends</span><span>Jo</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="tv-stand"></div>
+          </div>
+
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="top">
+                <svg width="16" height="16" viewBox="0 0 96 96" fill="none"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/></svg>
+                Karalo
+              </div>
+              <div class="search">golden hour</div>
+              <div class="song">
+                <div class="thumb" style="background:linear-gradient(135deg,#FF5D8F,#7C3AED)"></div>
+                <div><div class="t">Golden Hour</div><div class="a" data-i18n="mockVersion">Karaoke version</div></div>
+                <div class="add done">✓</div>
+              </div>
+              <div class="song">
+                <div class="thumb" style="background:linear-gradient(135deg,#7C3AED,#2A1150)"></div>
+                <div><div class="t">Golden Days</div><div class="a" data-i18n="mockVersion">Karaoke version</div></div>
+                <div class="add">+</div>
+              </div>
+              <div class="toast" data-i18n-html="phoneToast"><b>Added to the queue</b> · you're 1st up next</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- How it works ---------- -->
+    <section id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker" data-i18n="howKicker">How it works</div>
+          <h2 data-i18n="howTitle">Ready to sing in three steps</h2>
+          <p data-i18n="howLead">Karalo runs on the TV. Your guests use the phone they already have.</p>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="num">1</div>
+            <h3 data-i18n="step1Title">Open Karalo on your TV</h3>
+            <p data-i18n="step1Text">A QR code appears on the screen. Search and play songs with the remote, or with your voice.</p>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <h3 data-i18n="step2Title">Guests scan the code</h3>
+            <p data-i18n="step2Text">They type their name and they're in, from any phone and any network. Nothing to download.</p>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <h3 data-i18n="step3Title">Pick songs and sing</h3>
+            <p data-i18n="step3Text">Songs join a shared queue and play one after another. Everyone sees what's coming up next.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Features ---------- -->
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker" data-i18n="featKicker">Features</div>
+          <h2 data-i18n="featTitle">Everything a karaoke night needs</h2>
+          <p data-i18n="featLead">Nothing it doesn't. No microphones to pair, no accounts, no setup.</p>
+        </div>
+        <div class="features">
+          <div class="feature">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#A78BFA" stroke-width="2.2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="#A78BFA" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+            <h3 data-i18n="f1Title">Karaoke tracks only</h3>
+            <p data-i18n="f1Text">Type a song or an artist and Karalo finds the karaoke versions, with lyrics on screen. Reviews and regular music videos are filtered out.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#FF5D8F" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#FF5D8F" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#FF5D8F" stroke-width="2"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z" fill="#FF5D8F"/></svg></div>
+            <h3 data-i18n="f2Title">Join with a QR code</h3>
+            <p data-i18n="f2Text">Guests scan the code on the TV and add songs from their phone's browser. Nothing to install, no Wi-Fi password to share.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="#A78BFA" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+            <h3 data-i18n="f3Title">A shared, live queue</h3>
+            <p data-i18n="f3Text">Every phone and the TV see the same queue, live, with who's singing each song. Drag to reorder, swipe to remove.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#FF5D8F"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#FF5D8F"/></svg></div>
+            <h3 data-i18n="f4Title">Control from any phone</h3>
+            <p data-i18n="f4Text">Pause, resume or skip a song from your phone. No need to hunt for the remote mid-chorus.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 4l14 8-14 8z" fill="#A78BFA"/></svg></div>
+            <h3 data-i18n="f5Title">The party runs itself</h3>
+            <p data-i18n="f5Text">Songs play back to back. When the queue runs dry, the TV shows the QR code so the next singer can jump in.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="12" rx="2.5" stroke="#FF5D8F" stroke-width="2"/><path d="M9 21h6" stroke="#FF5D8F" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <h3 data-i18n="f6Title">Made for the big screen</h3>
+            <p data-i18n="f6Text">A TV app built for the remote, with voice search and ready-made picks. Play a song right away without losing the queue.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Why ---------- -->
+    <section>
+      <div class="wrap">
+        <div class="band">
+          <div class="item">
+            <h3 data-i18n="b1Title">Nothing to install</h3>
+            <p data-i18n="b1Text">Guests use the browser on their own phone. No app, no sign-up, no pairing.</p>
+          </div>
+          <div class="item">
+            <h3 data-i18n="b2Title">Works on any network</h3>
+            <p data-i18n="b2Text">Phones don't need to be on your Wi-Fi. Mobile data works just as well.</p>
+          </div>
+          <div class="item">
+            <h3 data-i18n="b3Title">No accounts, ever</h3>
+            <p data-i18n="b3Text">Just a name for the queue. Open the app and start singing.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Great for ---------- -->
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker" data-i18n="usesKicker">Great for</div>
+          <h2 data-i18n="usesTitle">Any night that needs a soundtrack</h2>
+        </div>
+        <div class="uses">
+          <span data-i18n="use1">🎉 House parties</span>
+          <span data-i18n="use2">🎂 Birthdays</span>
+          <span data-i18n="use3">👨‍👩‍👧 Family gatherings</span>
+          <span data-i18n="use4">🏡 Cottage weekends</span>
+          <span data-i18n="use5">🎄 Holiday parties</span>
+          <span data-i18n="use6">🍻 Game night</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- What you need ---------- -->
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker" data-i18n="needKicker">What you need</div>
+          <h2 data-i18n="needTitle">A TV and some phones</h2>
+        </div>
+        <div class="needs">
+          <div class="need">
+            <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="12" rx="2.5" stroke="#A78BFA" stroke-width="2"/><path d="M9 21h6" stroke="#A78BFA" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div>
+              <h3 data-i18n="need1Title">An Android TV or Google TV</h3>
+              <p data-i18n="need1Text">Including Chromecast with Google TV and TVs with Google TV built in.</p>
+            </div>
+          </div>
+          <div class="need">
+            <div class="icon coral"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="7" y="2.5" width="10" height="19" rx="2.5" stroke="#FF5D8F" stroke-width="2"/><path d="M11 18h2" stroke="#FF5D8F" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div>
+              <h3 data-i18n="need2Title">A phone with a browser</h3>
+              <p data-i18n="need2Text">Any recent iPhone or Android phone. For each guest who wants to pick songs.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Early access ---------- -->
+    <section id="access">
+      <div class="wrap">
+        <div class="cta-box">
+          <h2 data-i18n-html="ctaTitle">Bring karaoke to <span class="accent">your living room</span></h2>
+          <p data-i18n="ctaText">Karalo is in private early access. Tell us about your TV and we'll send you an invite.</p>
+          <!-- TODO: replace with the real contact address or a sign-up form. -->
+          <a class="btn btn-primary" href="mailto:hello@karalo.app?subject=Karalo%20early%20access" data-i18n="ctaButton">Request an invite</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap">
+      <span>© 2026 Karalo</span>
+      <nav>
+        <a href="#how" data-i18n="navHow">How it works</a>
+        <!-- TODO: link a privacy policy before promoting the page. -->
+        <a href="#" data-i18n="footPrivacy">Privacy</a>
+        <a href="mailto:hello@karalo.app" data-i18n="footContact">Contact</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    // English is in the markup; French replaces it. The choice follows ?lang=fr|en in the link,
+    // then the visitor's last choice, then the browser language.
+    const fr = {
+      joinHint: "Vous rejoignez une soirée? <strong>Scannez le code QR affiché sur la télé</strong> pour ajouter vos chansons.",
+      navHow: "Comment ça marche",
+      navFeatures: "Fonctionnalités",
+      navCta: "Accès anticipé",
+      eyebrow: "Pour Android TV et Google TV",
+      heroTitle: "Le karaoké,<br><span class=\"accent\">sur votre télé.</span>",
+      heroLead: "Chacun choisit ses chansons sur son propre téléphone et chante sur grand écran. Vos invités scannent un code QR : aucune appli à installer, aucun compte à créer.",
+      heroCta: "Obtenir l'accès anticipé",
+      heroSecondary: "Voir comment ça marche",
+      fact1: "Aucune appli pour les invités",
+      fact2: "Aucun compte",
+      fact3: "Gratuit",
+      tvNow: "Au micro",
+      tvWho: "Chanté par Maya",
+      tvScan: "Scannez pour ajouter",
+      tvNext: "À suivre",
+      mockVersion: "Version karaoké",
+      phoneToast: "<b>Ajoutée à la file</b> · vous êtes le prochain",
+      howKicker: "Comment ça marche",
+      howTitle: "Prêt à chanter en trois étapes",
+      howLead: "Karalo tourne sur la télé. Vos invités utilisent le téléphone qu'ils ont déjà.",
+      step1Title: "Ouvrez Karalo sur votre télé",
+      step1Text: "Un code QR s'affiche à l'écran. Cherchez et lancez des chansons avec la télécommande, ou à la voix.",
+      step2Title: "Les invités scannent le code",
+      step2Text: "Ils entrent leur nom et c'est parti, depuis n'importe quel téléphone et n'importe quel réseau. Rien à télécharger.",
+      step3Title: "Choisissez et chantez",
+      step3Text: "Les chansons s'ajoutent à une file commune et s'enchaînent. Tout le monde voit ce qui s'en vient.",
+      featKicker: "Fonctionnalités",
+      featTitle: "Tout ce qu'il faut pour une soirée karaoké",
+      featLead: "Rien de plus. Aucun micro à jumeler, aucun compte, aucune installation.",
+      f1Title: "Que des pistes karaoké",
+      f1Text: "Tapez une chanson ou un artiste et Karalo trouve les versions karaoké, avec les paroles à l'écran. Les critiques et les vidéoclips sont filtrés.",
+      f2Title: "On se joint avec un code QR",
+      f2Text: "Les invités scannent le code sur la télé et ajoutent des chansons depuis le navigateur de leur téléphone. Rien à installer, aucun mot de passe Wi-Fi à partager.",
+      f3Title: "Une file commune, en direct",
+      f3Text: "Tous les téléphones et la télé voient la même file, en direct, avec qui chante chaque chanson. Glissez pour réordonner, balayez pour retirer.",
+      f4Title: "Contrôle depuis n'importe quel téléphone",
+      f4Text: "Mettez en pause, reprenez ou passez une chanson depuis votre téléphone. Plus besoin de chercher la télécommande en plein refrain.",
+      f5Title: "La soirée roule toute seule",
+      f5Text: "Les chansons s'enchaînent. Quand la file est vide, la télé affiche le code QR pour que le prochain chanteur embarque.",
+      f6Title: "Conçu pour le grand écran",
+      f6Text: "Une appli télé pensée pour la télécommande, avec recherche vocale et suggestions prêtes à chanter. Lancez une chanson tout de suite sans perdre la file.",
+      b1Title: "Rien à installer",
+      b1Text: "Les invités utilisent le navigateur de leur téléphone. Aucune appli, aucune inscription, aucun jumelage.",
+      b2Title: "Fonctionne sur tous les réseaux",
+      b2Text: "Les téléphones n'ont pas besoin d'être sur votre Wi-Fi. Les données mobiles fonctionnent tout aussi bien.",
+      b3Title: "Jamais de compte",
+      b3Text: "Juste un nom pour la file. Ouvrez l'appli et chantez.",
+      usesKicker: "Idéal pour",
+      usesTitle: "Toutes les soirées qui ont besoin d'une trame sonore",
+      use1: "🎉 Partys de maison",
+      use2: "🎂 Anniversaires",
+      use3: "👨‍👩‍👧 Réunions de famille",
+      use4: "🏡 Week-ends au chalet",
+      use5: "🎄 Partys des fêtes",
+      use6: "🍻 Soirées de jeux",
+      needKicker: "Ce qu'il vous faut",
+      needTitle: "Une télé et quelques téléphones",
+      need1Title: "Une Android TV ou Google TV",
+      need1Text: "Y compris Chromecast avec Google TV et les télés avec Google TV intégré.",
+      need2Title: "Un téléphone avec un navigateur",
+      need2Text: "N'importe quel iPhone ou téléphone Android récent. Un par invité qui veut choisir des chansons.",
+      ctaTitle: "Le karaoké dans <span class=\"accent\">votre salon</span>",
+      ctaText: "Karalo est en accès anticipé privé. Parlez-nous de votre télé et on vous enverra une invitation.",
+      ctaButton: "Demander une invitation",
+      footPrivacy: "Confidentialité",
+      footContact: "Contact",
+    };
+    const en = {};
+    document.querySelectorAll("[data-i18n]").forEach((el) => { en[el.dataset.i18n] = el.textContent; });
+    document.querySelectorAll("[data-i18n-html]").forEach((el) => { en[el.dataset.i18nHtml] = el.innerHTML; });
+
+    const toggle = document.getElementById("langToggle");
+    function apply(lang) {
+      const dict = lang === "fr" ? fr : en;
+      document.documentElement.lang = lang;
+      document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = dict[el.dataset.i18n] ?? en[el.dataset.i18n]; });
+      document.querySelectorAll("[data-i18n-html]").forEach((el) => { el.innerHTML = dict[el.dataset.i18nHtml] ?? en[el.dataset.i18nHtml]; });
+      toggle.textContent = lang === "fr" ? "EN" : "FR";
+      toggle.setAttribute("aria-label", lang === "fr" ? "English" : "Français");
+      try { localStorage.setItem("karalo-lang", lang); } catch (e) { /* private mode */ }
+    }
+    let saved = null;
+    try { saved = localStorage.getItem("karalo-lang"); } catch (e) { /* private mode */ }
+    const fromLink = new URLSearchParams(location.search).get("lang");
+    let current = fromLink === "fr" || fromLink === "en"
+      ? fromLink
+      : saved || ((navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en");
+    if (current === "fr") apply("fr");
+    toggle.addEventListener("click", () => { current = current === "fr" ? "en" : "fr"; apply(current); });
+  </script>
 </body>
 </html>
