@@ -35,6 +35,11 @@ if [ ! -f /etc/karalo/karalo.env ]; then
   chmod 600 /etc/karalo/karalo.env
 fi
 
+# Server logs (backend and Caddy) are kept 30 days, as promised on karalo.app/privacy.html.
+mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nMaxRetentionSec=30day\n' > /etc/systemd/journald.conf.d/karalo.conf
+systemctl restart systemd-journald
+
 install -m 644 "$here/karalo.service" /etc/systemd/system/karalo.service
 install -m 755 "$here/backup.sh" /opt/karalo-backup.sh
 sed "s/KARALO_HOSTNAME/$hostname/" "$here/Caddyfile" > /etc/caddy/Caddyfile
