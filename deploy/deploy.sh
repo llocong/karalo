@@ -18,8 +18,8 @@ trap 'rm -rf "$work"' EXIT
 export COPYFILE_DISABLE=1
 git -C "$repo" archive HEAD | tar -x -C "$work"
 (cd "$work" && ./gradlew -p backend installDist -q)
-tar -czf "$work/karalo-backend.tgz" -C "$work/backend/build/install/karalo-backend" .
-tar -czf "$work/deploy-files.tgz" -C "$work/deploy" .
+tar --no-mac-metadata -czf "$work/karalo-backend.tgz" -C "$work/backend/build/install/karalo-backend" .
+tar --no-mac-metadata -czf "$work/deploy-files.tgz" -C "$work/deploy" .
 
 gcloud compute scp --zone "$zone" "$work/karalo-backend.tgz" "$work/deploy-files.tgz" "$vm":/tmp/
 gcloud compute ssh --zone "$zone" "$vm" --command "
