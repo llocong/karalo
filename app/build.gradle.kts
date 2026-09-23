@@ -40,7 +40,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Measured on a Chromecast with Google TV: without R8 the app shipped every dependency's
+            // code whole (57.5MB of dex, ~94MB installed with ART's copies); with it, 7MB of dex and
+            // ~21MB installed. Keep rules for what R8 can't see through are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Only applies the release signing config when secrets are actually present locally/in CI
             // (see README "Secrets" section) — an unsigned build is still useful for local testing.
