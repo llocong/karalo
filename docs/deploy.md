@@ -52,16 +52,20 @@ The last command prints the server's IP address.
 
 ## 3. A hostname
 
-Caddy needs a hostname for the certificate. A free one: sign in at <https://www.duckdns.org>,
-create a subdomain (e.g. `karalo`), and set its IP to the address from step 2. That gives
-`karalo.duckdns.org`. A custom domain works too: add an `A` record pointing at the IP.
+Caddy needs a hostname for the certificate. The live setup uses **`karalo.app`**, with DNS at
+Cloudflare: an `A` record for `@` pointing at the IP from step 2, with proxy status **DNS only**
+(grey cloud), so Caddy can get its certificate directly. If you later turn Cloudflare's proxy on,
+set its SSL/TLS mode to **Full (strict)**. Any other DNS provider works the same way.
+
+The web app only uses `/join/<code>`, its own files (`search.html`, `queue.html`, `shared.css`…),
+`/api/…` and `/ws/…`, so the home page `/` is free for a landing page later.
 
 ## 4. Set up the server and deploy
 
 From the repo root on the Mac, with everything committed:
 
 ```
-deploy/deploy.sh --setup karalo.duckdns.org
+deploy/deploy.sh --setup karalo.app
 ```
 
 This builds the backend from the committed code (in a temporary export, so a backend running
@@ -80,8 +84,8 @@ Later updates are just `deploy/deploy.sh`.
 Add to `local.properties` (gitignored), using the key from step 4:
 
 ```
-KARALO_BACKEND_BASE_URL=https://karalo.duckdns.org
-KARALO_BACKEND_WS_URL=wss://karalo.duckdns.org
+KARALO_BACKEND_BASE_URL=https://karalo.app
+KARALO_BACKEND_WS_URL=wss://karalo.app
 KARALO_TV_REGISTRATION_KEY=<key>
 ```
 

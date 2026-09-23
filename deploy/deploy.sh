@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the backend from the committed code and deploys it to the VM. Run from the repo root:
-#   deploy/deploy.sh --setup karalo.duckdns.org   first time: also sets up the server
-#   deploy/deploy.sh                              later updates
+#   deploy/deploy.sh --setup karalo.app   first time: also sets up the server
+#   deploy/deploy.sh                      later updates
 # The VM name and zone default to karalo / us-east1-b (override with KARALO_VM / KARALO_ZONE).
 # Building from a clean export (not the working tree) keeps a locally running backend's
 # build/resources untouched, and deploys exactly what's committed.
@@ -14,6 +14,8 @@ repo=$(git rev-parse --show-toplevel)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+# Keep macOS file metadata out of the archives (Linux's tar warns about it on extract).
+export COPYFILE_DISABLE=1
 git -C "$repo" archive HEAD | tar -x -C "$work"
 (cd "$work" && ./gradlew -p backend installDist -q)
 tar -czf "$work/karalo-backend.tgz" -C "$work/backend/build/install/karalo-backend" .

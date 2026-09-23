@@ -1,6 +1,6 @@
 #!/bin/sh
 # One-time setup of a fresh Debian 12 VM for the Karalo backend. Run on the VM as root:
-#   sudo sh setup-server.sh <hostname>        e.g. sudo sh setup-server.sh karalo.duckdns.org
+#   sudo sh setup-server.sh <hostname>        e.g. sudo sh setup-server.sh karalo.app
 # Expects karalo.service, Caddyfile and backup.sh next to it (deploy/deploy.sh copies them).
 set -eu
 hostname="$1"
