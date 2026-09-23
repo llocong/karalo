@@ -3,6 +3,7 @@ package com.karalo.feature.search.presentation
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -166,15 +167,8 @@ internal fun SearchScreenContent(
                 // BACK while browsing opens the drawer with Search's own item focused -- see the
                 // matching comment on HomeScreenContent's own Column for why this is a raw key
                 // event intercept rather than a BackHandler.
-                .onPreviewKeyEvent { keyEvent ->
-                    val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
-                    if (isBackKeyDown && railFocusRequester != null) {
-                        railFocusRequester.requestFocus()
-                        true
-                    } else {
-                        false
-                    }
-                }.padding(vertical = SAFE_ZONE_VERTICAL),
+                .backMovesFocusToRail(railFocusRequester)
+                .padding(vertical = SAFE_ZONE_VERTICAL),
     ) {
         SearchBar(
             textFieldValue = textFieldValue,
@@ -205,13 +199,7 @@ internal fun SearchScreenContent(
             railFocusRequester = railFocusRequester,
             voiceSearchState = voiceSearchState,
             onMicClick = {
-                prepareVoiceSearchIntent()?.let { intent ->
-                    try {
-                        voiceSearchLauncher.launch(intent)
-                    } catch (e: ActivityNotFoundException) {
-                        onVoiceSearchLaunchFailed()
-                    }
-                }
+                launchVoiceSearch(voiceSearchLauncher, prepareVoiceSearchIntent, onVoiceSearchLaunchFailed)
             },
         )
 
@@ -286,6 +274,32 @@ internal fun SearchScreenContent(
  * being done here, since only it owns the LazyListState needed to scroll a possibly-scrolled-away
  * first item back into view first.
  */
+private fun Modifier.backMovesFocusToRail(railFocusRequester: FocusRequester?): Modifier =
+    onPreviewKeyEvent { keyEvent ->
+        val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
+        if (isBackKeyDown && railFocusRequester != null) {
+            railFocusRequester.requestFocus()
+            true
+        } else {
+            false
+        }
+    }
+
+private fun launchVoiceSearch(
+    launcher: ActivityResultLauncher<Intent>,
+    prepareVoiceSearchIntent: () -> Intent?,
+    onVoiceSearchLaunchFailed: () -> Unit,
+) {
+    val intent = prepareVoiceSearchIntent() ?: return
+    try {
+        launcher.launch(intent)
+    } catch (ignored: ActivityNotFoundException) {
+        // No speech-recognition activity on this device: nothing in the exception itself is worth
+        // keeping, the failure is surfaced to the user instead.
+        onVoiceSearchLaunchFailed()
+    }
+}
+
 @Composable
 private fun rememberSearchFocusState(
     uiState: SearchUiState,

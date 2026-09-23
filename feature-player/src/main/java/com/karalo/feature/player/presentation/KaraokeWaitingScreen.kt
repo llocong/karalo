@@ -26,8 +26,10 @@ import com.karalo.core.ui.R as CoreUiR
  *  why the QR must stay in the identical bottom-left spot throughout all of Karaoke Mode. One
  *  single size for every state (playing, paused, waiting) -- deliberately not a bigger default
  *  with a playing-specific exception, so there's nothing to keep in sync/no risk of these drifting
- *  apart again. */
-internal val KARAOKE_QR_SIZE = 220.dp / 3
+ *  apart again. A third of the 220dp originally specced for it. */
+internal val KARAOKE_QR_SIZE = 220.dp / KARAOKE_QR_SIZE_DIVISOR
+
+private const val KARAOKE_QR_SIZE_DIVISOR = 3
 
 private val SPLASH_LOGO_SIZE = 120.dp
 

@@ -220,6 +220,13 @@ fun <T> TvCarousel(
                 onFocused = { index -> currentFocusedIndex = index },
             )
         }
+    val firstItemTargets =
+        remember(firstItemFocusRequester, leftEdgeFocusRequester) {
+            TvCarouselFirstItemTargets(
+                focusRequester = firstItemFocusRequester,
+                leftEdgeFocusRequester = leftEdgeFocusRequester,
+            )
+        }
     val restoreFocusTarget =
         remember(restoreFocusItemKey, restoreFocusRequester) {
             TvCarouselRestoreFocusTarget(itemKey = restoreFocusItemKey, focusRequester = restoreFocusRequester)
@@ -314,8 +321,7 @@ fun <T> TvCarousel(
                     tvCarouselItemModifier(
                         index = index,
                         itemKey = key(item),
-                        firstItemFocusRequester = firstItemFocusRequester,
-                        leftEdgeFocusRequester = leftEdgeFocusRequester,
+                        firstItemTargets = firstItemTargets,
                         restoreFocusTarget = restoreFocusTarget,
                         repeatJump = repeatJump,
                         onItemFocused = onItemFocused,
@@ -337,6 +343,16 @@ private class TvCarouselRepeatJump(
 )
 
 /**
+ * [firstItemFocusRequester] and [leftEdgeFocusRequester] (see [TvCarousel]'s own doc on both) only
+ * ever apply to item 0 -- bundled purely to keep [tvCarouselItemModifier]'s own parameter count
+ * down.
+ */
+private class TvCarouselFirstItemTargets(
+    val focusRequester: FocusRequester?,
+    val leftEdgeFocusRequester: FocusRequester?,
+)
+
+/**
  * [restoreFocusItemKey] and [restoreFocusRequester] are always used together (see [TvCarousel]'s own
  * doc on both) -- bundled purely to keep [tvCarouselItemModifier]'s own parameter count down.
  */
@@ -352,8 +368,7 @@ private class TvCarouselRestoreFocusTarget(
 private fun tvCarouselItemModifier(
     index: Int,
     itemKey: Any,
-    firstItemFocusRequester: FocusRequester?,
-    leftEdgeFocusRequester: FocusRequester?,
+    firstItemTargets: TvCarouselFirstItemTargets,
     restoreFocusTarget: TvCarouselRestoreFocusTarget,
     repeatJump: TvCarouselRepeatJump,
     onItemFocused: ((itemKey: Any) -> Unit)?,
@@ -371,9 +386,11 @@ private fun tvCarouselItemModifier(
                     onItemFocused?.invoke(itemKey)
                 }
             }
+    val firstItemFocusRequester = firstItemTargets.focusRequester
     if (index == 0 && firstItemFocusRequester != null) {
         itemModifier = itemModifier.focusRequester(firstItemFocusRequester)
     }
+    val leftEdgeFocusRequester = firstItemTargets.leftEdgeFocusRequester
     if (index == 0 && leftEdgeFocusRequester != null) {
         itemModifier =
             itemModifier.onPreviewKeyEvent { keyEvent ->

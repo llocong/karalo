@@ -142,7 +142,13 @@ private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - 
  * drawer's own [NavigationDrawerScope.hasFocus] never flips to true even though individual items'
  * focused styling updates correctly, so the drawer never auto-expands. Tracking per-item focus via
  * `collectIsFocusedAsState()` is unaffected by that and reliably opens/closes the drawer.
+ *
+ * Exempt from detekt's CyclomaticComplexMethod: most of this function's branching is the
+ * stray-focus guards and per-item focus-preview effects below, each one a fix for focus behavior
+ * only reproduced on real TV hardware. Splitting them out just to satisfy the complexity threshold
+ * isn't worth the risk of regressing one of those without re-verifying every case on a device.
  */
+@Suppress("CyclomaticComplexMethod")
 @Composable
 internal fun NavigationDrawerScope.KaraloNavRailContent(
     currentRoute: String?,

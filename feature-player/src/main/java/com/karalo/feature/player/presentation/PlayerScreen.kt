@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,13 +52,7 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsState()
     var positionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
-    var controlsVisible by remember { mutableStateOf(false) }
-    var interactionTick by remember { mutableIntStateOf(0) }
-    var revealFocusTarget by remember { mutableStateOf(RevealFocusTarget.PLAY_PAUSE) }
-    // Set when an OK/Enter press reveals the controls: focus lands on Play/Pause before that
-    // press's KeyUp arrives, and the button clicks on KeyUp -- so the rest of the press (repeats
-    // plus the KeyUp) has to be swallowed, or revealing the controls would also pause the video.
-    var swallowConfirmPress by remember { mutableStateOf(false) }
+    val controls = remember { PlayerControlsState() }
     val rootFocusRequester = remember { FocusRequester() }
     val playFocusRequester = remember { FocusRequester() }
     val seekFocusRequester = remember { FocusRequester() }
@@ -71,10 +66,10 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(controlsVisible, uiState.isPlaying, interactionTick) {
-        if (controlsVisible && uiState.isPlaying) {
+    LaunchedEffect(controls.controlsVisible, uiState.isPlaying, controls.interactionTick) {
+        if (controls.controlsVisible && uiState.isPlaying) {
             delay(CONTROLS_AUTO_HIDE_MS)
-            controlsVisible = false
+            controls.controlsVisible = false
         }
     }
 
@@ -82,9 +77,9 @@ fun PlayerScreen(
         rootFocusRequester.requestFocus()
     }
 
-    LaunchedEffect(controlsVisible) {
-        if (controlsVisible) {
-            when (revealFocusTarget) {
+    LaunchedEffect(controls.controlsVisible) {
+        if (controls.controlsVisible) {
+            when (controls.revealFocusTarget) {
                 RevealFocusTarget.PLAY_PAUSE -> playFocusRequester.requestFocus()
                 RevealFocusTarget.SEEK_BAR -> seekFocusRequester.requestFocus()
             }
@@ -112,36 +107,7 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .focusRequester(rootFocusRequester)
                 .focusable()
-                .onPreviewKeyEvent { keyEvent ->
-                    if (swallowConfirmPress && keyEvent.isConfirmKey()) {
-                        if (keyEvent.type == KeyEventType.KeyUp) swallowConfirmPress = false
-                        return@onPreviewKeyEvent true
-                    }
-                    when (classifyPlayerKeyEvent(keyEvent, controlsVisible)) {
-                        PlayerKeyAction.REVEAL_CONTROLS -> {
-                            interactionTick++
-                            swallowConfirmPress = keyEvent.isConfirmKey()
-                            revealFocusTarget = RevealFocusTarget.PLAY_PAUSE
-                            controlsVisible = true
-                            true
-                        }
-                        PlayerKeyAction.REVEAL_CONTROLS_ON_SEEK_BAR -> {
-                            interactionTick++
-                            revealFocusTarget = RevealFocusTarget.SEEK_BAR
-                            controlsVisible = true
-                            true
-                        }
-                        PlayerKeyAction.HIDE_CONTROLS -> {
-                            controlsVisible = false
-                            true
-                        }
-                        PlayerKeyAction.RESET_AUTO_HIDE_TIMER -> {
-                            interactionTick++
-                            false
-                        }
-                        PlayerKeyAction.IGNORE -> false
-                    }
-                },
+                .onPreviewKeyEvent(controls::onKeyEvent),
     ) {
         val context = LocalContext.current
         AndroidView(
@@ -156,21 +122,21 @@ fun PlayerScreen(
 
         PlayerOverlays(
             uiState = uiState,
-            controlsVisible = controlsVisible,
+            controlsVisible = controls.controlsVisible,
             positionMs = positionMs,
             durationMs = durationMs,
             playFocusRequester = playFocusRequester,
             seekFocusRequester = seekFocusRequester,
             onPlayPauseClick = {
-                controlsVisible = true
+                controls.controlsVisible = true
                 viewModel.togglePlayPause()
             },
             onNextClick = {
-                controlsVisible = true
+                controls.controlsVisible = true
                 viewModel.next()
             },
             onSeek = viewModel::seekTo,
-            onHideControls = { controlsVisible = false },
+            onHideControls = { controls.controlsVisible = false },
         )
     }
 }
@@ -232,6 +198,54 @@ private fun BoxScope.PlayerOverlays(
             onHideControls = onHideControls,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
+}
+
+/**
+ * The player controls overlay's show/hide state, plus the remote's key handling that drives it --
+ * kept together (rather than as separate `remember`ed vars inside [PlayerScreen]) so that key
+ * handling can live in its own function instead of inline in the screen.
+ */
+@Stable
+private class PlayerControlsState {
+    var controlsVisible by mutableStateOf(false)
+    var interactionTick by mutableIntStateOf(0)
+    var revealFocusTarget by mutableStateOf(RevealFocusTarget.PLAY_PAUSE)
+
+    // Set when an OK/Enter press reveals the controls: focus lands on Play/Pause before that
+    // press's KeyUp arrives, and the button clicks on KeyUp -- so the rest of the press (repeats
+    // plus the KeyUp) has to be swallowed, or revealing the controls would also pause the video.
+    private var swallowConfirmPress by mutableStateOf(false)
+
+    fun onKeyEvent(keyEvent: KeyEvent): Boolean {
+        if (swallowConfirmPress && keyEvent.isConfirmKey()) {
+            if (keyEvent.type == KeyEventType.KeyUp) swallowConfirmPress = false
+            return true
+        }
+        return when (classifyPlayerKeyEvent(keyEvent, controlsVisible)) {
+            PlayerKeyAction.REVEAL_CONTROLS -> {
+                interactionTick++
+                swallowConfirmPress = keyEvent.isConfirmKey()
+                revealFocusTarget = RevealFocusTarget.PLAY_PAUSE
+                controlsVisible = true
+                true
+            }
+            PlayerKeyAction.REVEAL_CONTROLS_ON_SEEK_BAR -> {
+                interactionTick++
+                revealFocusTarget = RevealFocusTarget.SEEK_BAR
+                controlsVisible = true
+                true
+            }
+            PlayerKeyAction.HIDE_CONTROLS -> {
+                controlsVisible = false
+                true
+            }
+            PlayerKeyAction.RESET_AUTO_HIDE_TIMER -> {
+                interactionTick++
+                false
+            }
+            PlayerKeyAction.IGNORE -> false
+        }
     }
 }
 
