@@ -109,7 +109,6 @@
         radial-gradient(420px 300px at 12% 20%, rgba(255, 93, 143, .16), transparent 70%);
     }
     .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
-    .tv-screen > * { min-width: 0; }
     .eyebrow {
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--surface); border: 1px solid var(--border);
@@ -125,58 +124,59 @@
     .check { width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 93, 143, .16); display: inline-grid; place-items: center; flex: none; }
     .check svg { width: 14px; height: 14px; }
 
-    /* Illustration: a TV with the queue and a QR code, plus a phone adding a song. Built in
-       HTML/CSS with made-up songs, so the page never shows third-party artwork. */
-    .scene { position: relative; min-height: 420px; }
-    .tv {
-      position: relative; background: #05030A; border-radius: 22px; padding: 12px;
-      border: 1px solid var(--border);
-      box-shadow: 0 40px 80px -30px rgba(124, 58, 237, .55), 0 0 0 6px #120C19;
+    /* Device frames around real screenshots of the app: a thin-bezel TV on a pedestal stand, and
+       an iPhone-style phone (titanium edge, side buttons, Dynamic Island, status bar). */
+    /* Fixed proportions so the phone always overlaps only the TV's bottom-right corner. */
+    .scene { position: relative; aspect-ratio: 100 / 104; }
+    .tv { position: relative; width: 86%; }
+    .tv-body {
+      position: relative; border-radius: 14px; padding: 1.2%;
+      background: linear-gradient(180deg, #2A2830 0%, #121116 12%, #0B0A0E 100%);
+      box-shadow: 0 0 0 1px #34313B, 0 50px 90px -40px rgba(124, 58, 237, .65), 0 30px 60px -30px rgba(0, 0, 0, .9);
     }
-    .tv-screen {
-      aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
-      background: linear-gradient(135deg, #2A1150 0%, #150B24 55%, #2B0F22 100%);
-      display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; padding: 18px;
+    .tv-screen { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: #000; }
+    .tv-screen img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .tv-screen::after { /* glass reflection */
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(118deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 28%, transparent 42%);
     }
-    .tv-stand { width: 30%; height: 12px; margin: 10px auto 0; background: #120C19; border-radius: 0 0 12px 12px; }
-    .lyric { align-self: center; }
-    .lyric .now { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; }
-    .lyric .line { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: clamp(15px, 2.1vw, 24px); margin-top: 8px; line-height: 1.25; }
-    .lyric .line .sung { color: var(--accent); }
-    .lyric .who { margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--muted); }
-    .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); margin-top: 14px; overflow: hidden; }
-    .bar i { display: block; width: 42%; height: 100%; background: var(--accent); }
-    .tv-side { background: rgba(11, 7, 16, .6); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .tv-side .label { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
-    .qr { width: 64px; height: 64px; background: #fff; border-radius: 8px; padding: 5px; }
-    .qr svg { display: block; width: 100%; height: 100%; }
-    .up-next { font-size: 11px; font-weight: 700; display: flex; flex-direction: column; gap: 5px; }
-    .up-next div { display: flex; justify-content: space-between; gap: 6px; color: var(--text); }
-    .up-next div span:last-child { color: var(--muted); font-weight: 600; }
+    .tv-chin { height: 10px; display: grid; place-items: center; }
+    .tv-chin i { width: 4px; height: 4px; border-radius: 50%; background: #3A3642; }
+    .tv-stand { display: flex; flex-direction: column; align-items: center; }
+    .tv-neck { width: 9%; height: 26px; background: linear-gradient(90deg, #1C1A21, #3A3742 50%, #1C1A21); }
+    .tv-foot {
+      width: 34%; height: 9px; border-radius: 6px 6px 10px 10px;
+      background: linear-gradient(180deg, #4A4653, #1A181E);
+      box-shadow: 0 14px 24px -8px rgba(0, 0, 0, .8);
+    }
 
-    .phone {
-      position: absolute; right: -8px; bottom: -48px; width: 44%; max-width: 220px;
-      background: #05030A; border-radius: 30px; padding: 9px;
-      border: 1px solid var(--border);
-      box-shadow: 0 30px 60px -20px rgba(0,0,0,.8), 0 0 0 5px #120C19;
-      transform: rotate(4deg);
+    .iphone {
+      position: absolute; right: 0; top: 35%; width: 32%;
+      aspect-ratio: 9 / 19.5; border-radius: 16% / 7.4%; padding: 3.4%;
+      background: linear-gradient(145deg, #5B5563 0%, #26232C 30%, #1A181E 60%, #4A4552 100%);
+      box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.18), inset 0 0 0 5px #0B0A0E, 0 40px 70px -24px rgba(0,0,0,.9), 0 0 0 1px #0B0A0E;
     }
-    .phone-screen { background: var(--bg); border-radius: 22px; padding: 14px 12px 16px; }
-    .phone .top { display: flex; align-items: center; gap: 6px; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 13px; }
-    .phone .search {
-      margin-top: 12px; border: 1.5px solid var(--accent); border-radius: 999px;
-      padding: 7px 11px; font-size: 11px; font-weight: 700; color: var(--text);
+    .iphone .side { position: absolute; width: 3px; background: linear-gradient(90deg, #2A2730, #5B5563); border-radius: 2px; }
+    .iphone .action { left: -3px; top: 17%; height: 5%; }
+    .iphone .vol-up { left: -3px; top: 25%; height: 9%; }
+    .iphone .vol-down { left: -3px; top: 36%; height: 9%; }
+    .iphone .power { right: -3px; top: 28%; height: 13%; background: linear-gradient(90deg, #5B5563, #2A2730); }
+    .iphone-screen {
+      position: relative; width: 100%; height: 100%; border-radius: 12.5% / 5.8%; overflow: hidden;
+      background: var(--bg); display: flex; flex-direction: column;
     }
-    .phone .song { display: flex; align-items: center; gap: 8px; margin-top: 11px; }
-    .phone .thumb { width: 30px; height: 30px; border-radius: 8px; flex: none; }
-    .phone .song > div:nth-child(2) { flex: 1; min-width: 0; }
-    .phone .song .t, .phone .song .a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .phone .song .t { font-size: 11px; font-weight: 800; line-height: 1.2; }
-    .phone .song .a { font-size: 10px; color: var(--muted); font-weight: 600; }
-    .phone .add { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--bg); display: grid; place-items: center; font-weight: 900; font-size: 14px; flex: none; }
-    .phone .add.done { background: var(--primary); color: #fff; font-size: 11px; }
-    .toast { margin-top: 12px; background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: 10px; font-weight: 700; color: var(--muted); }
-    .toast b { color: var(--text); }
+    .iphone-status {
+      flex: none; height: 6.2%; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 9% 0 11%; font: 700 clamp(8px, 1.1vw, 11px) -apple-system, 'Manrope', sans-serif; color: var(--text);
+    }
+    .iphone-status .icons { display: flex; gap: 4px; align-items: center; }
+    .iphone-status svg { height: 0.95em; width: auto; }
+    .iphone-island {
+      position: absolute; top: 1.5%; left: 50%; transform: translateX(-50%);
+      width: 31%; height: 3.6%; border-radius: 999px; background: #000;
+    }
+    .iphone-screen img { display: block; width: 100%; flex: 1; min-height: 0; object-fit: cover; object-position: top; }
+    .iphone-home { position: absolute; bottom: 1.4%; left: 50%; transform: translateX(-50%); width: 36%; height: 4px; border-radius: 3px; background: rgba(245, 243, 247, .75); }
 
     /* ---------- Sections ---------- */
     section { padding: 88px 0; }
@@ -250,11 +250,6 @@
       .brand .wordmark { font-size: 20px; }
       .join-hint { font-size: 13px; }
       .uses > span { font-size: 14px; padding: 10px 14px 10px 12px; }
-      .phone { right: 0; bottom: -64px; width: 56%; }
-      .lyric .line br { display: none; }
-      .tv-screen { padding: 12px; gap: 10px; }
-      .qr { width: 48px; height: 48px; }
-      .up-next { display: none; }
     }
   </style>
 </head>
@@ -303,51 +298,31 @@
           </div>
         </div>
 
-        <div class="scene" aria-hidden="true">
+        <div class="scene">
           <div class="tv">
-            <div class="tv-screen">
-              <div class="lyric">
-                <div class="now" data-i18n="tvNow">Now singing</div>
-                <div class="line"><span class="sung">Tonight we light</span> the city up, <br>we never stop the show</div>
-                <div class="who" data-i18n="tvWho">Sung by Maya</div>
-                <div class="bar"><i></i></div>
+            <div class="tv-body">
+              <div class="tv-screen">
+                <img src="/images/shot-tv-player.jpg" width="1280" height="720" alt="Karalo on a TV, playing the karaoke version of Dancing Queen with the lyrics on screen and a QR code to join" data-i18n-alt="tvAlt" />
               </div>
-              <div class="tv-side">
-                <div class="label" data-i18n="tvScan">Scan to add songs</div>
-                <div class="qr">
-                  <svg viewBox="0 0 21 21" shape-rendering="crispEdges">
-                    <path fill="#0B0710" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM14 0h7v7h-7zM15 1v5h5V1zM16 2h3v3h-3zM0 14h7v7H0zM1 15v5h5v-5zM2 16h3v3H2zM8 0h1v1H8zM10 0h2v1h-2zM9 1h1v2H9zM11 2h2v1h-2zM8 3h1v1H8zM12 3h1v2h-1zM8 5h2v1H8zM10 6h1v2h-1zM12 6h1v1h-1zM0 8h2v1H0zM3 8h2v1H3zM6 8h3v1H6zM11 8h2v1h-2zM14 8h1v2h-1zM16 8h3v1h-3zM20 8h1v2h-1zM1 9h1v2H1zM4 9h1v1H4zM8 9h2v1H8zM12 9h1v1h-1zM17 9h1v2h-1zM0 11h1v1H0zM2 10h2v1H2zM6 10h1v2H6zM9 11h3v1H9zM13 10h1v1h-1zM15 11h2v1h-2zM19 11h2v1h-2zM3 12h2v1H3zM8 12h1v1H8zM11 12h2v2h-2zM14 12h1v1h-1zM18 12h1v2h-1zM8 14h2v1H8zM13 14h3v1h-3zM17 14h1v1h-1zM20 14h1v2h-1zM9 15h1v2H9zM11 16h2v1h-2zM14 15h2v2h-2zM18 16h1v1h-1zM8 17h1v1H8zM12 18h2v1h-2zM15 18h3v1h-3zM19 18h2v1h-2zM8 19h3v1H8zM13 20h1v1h-1zM16 19h1v2h-1zM18 20h2v1h-2z"/>
-                  </svg>
-                </div>
-                <div class="label" data-i18n="tvNext">Up next</div>
-                <div class="up-next">
-                  <div><span>Golden Hour</span><span>Léa</span></div>
-                  <div><span>Neon Summer</span><span>Sam</span></div>
-                  <div><span>Old Friends</span><span>Jo</span></div>
-                </div>
-              </div>
+              <div class="tv-chin"><i></i></div>
             </div>
-            <div class="tv-stand"></div>
+            <div class="tv-stand"><div class="tv-neck"></div><div class="tv-foot"></div></div>
           </div>
 
-          <div class="phone">
-            <div class="phone-screen">
-              <div class="top">
-                <svg width="16" height="16" viewBox="0 0 96 96" fill="none"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/></svg>
-                Karalo
+          <div class="iphone">
+            <span class="side action"></span><span class="side vol-up"></span><span class="side vol-down"></span><span class="side power"></span>
+            <div class="iphone-screen">
+              <div class="iphone-status" aria-hidden="true">
+                <span>9:41</span>
+                <span class="icons">
+                  <svg viewBox="0 0 18 12" fill="#F5F3F7"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+                  <svg viewBox="0 0 16 12" fill="#F5F3F7"><path d="M8 11.5l2.2-2.6a3.3 3.3 0 0 0-4.4 0zM3.5 6.6l1.4 1.6a4.8 4.8 0 0 1 6.2 0l1.4-1.6a6.9 6.9 0 0 0-9 0zM.7 3.4l1.4 1.6a9 9 0 0 1 11.8 0l1.4-1.6a11.1 11.1 0 0 0-14.6 0z"/></svg>
+                  <svg viewBox="0 0 27 12" fill="none"><rect x=".5" y=".5" width="23" height="11" rx="3.5" stroke="#F5F3F7" stroke-opacity=".5"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#F5F3F7"/><path d="M25 4v4c.8-.3 1.3-1.1 1.3-2S25.8 4.3 25 4z" fill="#F5F3F7" fill-opacity=".5"/></svg>
+                </span>
               </div>
-              <div class="search">golden hour</div>
-              <div class="song">
-                <div class="thumb" style="background:linear-gradient(135deg,#FF5D8F,#7C3AED)"></div>
-                <div><div class="t">Golden Hour</div><div class="a" data-i18n="mockVersion">Karaoke version</div></div>
-                <div class="add done">✓</div>
-              </div>
-              <div class="song">
-                <div class="thumb" style="background:linear-gradient(135deg,#7C3AED,#2A1150)"></div>
-                <div><div class="t">Golden Days</div><div class="a" data-i18n="mockVersion">Karaoke version</div></div>
-                <div class="add">+</div>
-              </div>
-              <div class="toast" data-i18n-html="phoneToast"><b>Added to the queue</b> · you're 1st up next</div>
+              <div class="iphone-island"></div>
+              <img src="/images/shot-phone-queue.jpg" width="600" height="1298" alt="The Karalo queue on a phone: Dancing Queen now playing, sung by Maya, and four songs up next with who is singing each" data-i18n-alt="phoneAlt" />
+              <div class="iphone-home"></div>
             </div>
           </div>
         </div>
@@ -483,12 +458,8 @@
       fact1: "Aucune appli pour les invités",
       fact2: "Aucun compte",
       fact3: "Gratuit",
-      tvNow: "Au micro",
-      tvWho: "Chanté par Maya",
-      tvScan: "Scannez pour ajouter",
-      tvNext: "À suivre",
-      mockVersion: "Version karaoké",
-      phoneToast: "<b>Ajoutée à la file</b> · vous êtes le prochain",
+      tvAlt: "Karalo sur une télé, qui joue la version karaoké de Dancing Queen avec les paroles à l'écran et un code QR pour se joindre",
+      phoneAlt: "La file Karalo sur un téléphone : Dancing Queen en cours, chantée par Maya, et quatre chansons à suivre avec qui chante chacune",
       howKicker: "Comment ça marche",
       howTitle: "Prêt à chanter en trois étapes",
       howLead: "Karalo tourne sur la télé. Vos invités utilisent le téléphone qu'ils ont déjà.",
@@ -530,6 +501,7 @@
     const en = {};
     document.querySelectorAll("[data-i18n]").forEach((el) => { en[el.dataset.i18n] = el.textContent; });
     document.querySelectorAll("[data-i18n-html]").forEach((el) => { en[el.dataset.i18nHtml] = el.innerHTML; });
+    document.querySelectorAll("[data-i18n-alt]").forEach((el) => { en[el.dataset.i18nAlt] = el.alt; });
 
     const toggle = document.getElementById("langToggle");
     function apply(lang) {
@@ -537,6 +509,7 @@
       document.documentElement.lang = lang;
       document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = dict[el.dataset.i18n] ?? en[el.dataset.i18n]; });
       document.querySelectorAll("[data-i18n-html]").forEach((el) => { el.innerHTML = dict[el.dataset.i18nHtml] ?? en[el.dataset.i18nHtml]; });
+      document.querySelectorAll("[data-i18n-alt]").forEach((el) => { el.alt = dict[el.dataset.i18nAlt] ?? en[el.dataset.i18nAlt]; });
       toggle.textContent = lang === "fr" ? "EN" : "FR";
       toggle.setAttribute("aria-label", lang === "fr" ? "English" : "Français");
       try { localStorage.setItem("karalo-lang", lang); } catch (e) { /* private mode */ }
