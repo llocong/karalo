@@ -124,8 +124,8 @@
     .check { width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 93, 143, .16); display: inline-grid; place-items: center; flex: none; }
     .check svg { width: 14px; height: 14px; }
 
-    /* Device frames around real screenshots of the app: a thin-bezel TV on a pedestal stand, and
-       an iPhone-style phone (titanium edge, side buttons, Dynamic Island, status bar). */
+    /* Real screenshots of the app: the TV one in a thin-bezel TV frame on a pedestal stand, the
+       phone one in an iPhone 15 Pro template. */
     /* Fixed proportions so the phone always overlaps only the TV's bottom-right corner. */
     .scene { position: relative; aspect-ratio: 100 / 104; }
     .tv { position: relative; width: 86%; }
@@ -150,33 +150,9 @@
       box-shadow: 0 14px 24px -8px rgba(0, 0, 0, .8);
     }
 
-    .iphone {
-      position: absolute; right: 0; top: 35%; width: 32%;
-      aspect-ratio: 9 / 19.5; border-radius: 16% / 7.4%; padding: 3.4%;
-      background: linear-gradient(145deg, #5B5563 0%, #26232C 30%, #1A181E 60%, #4A4552 100%);
-      box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.18), inset 0 0 0 5px #0B0A0E, 0 40px 70px -24px rgba(0,0,0,.9), 0 0 0 1px #0B0A0E;
-    }
-    .iphone .side { position: absolute; width: 3px; background: linear-gradient(90deg, #2A2730, #5B5563); border-radius: 2px; }
-    .iphone .action { left: -3px; top: 17%; height: 5%; }
-    .iphone .vol-up { left: -3px; top: 25%; height: 9%; }
-    .iphone .vol-down { left: -3px; top: 36%; height: 9%; }
-    .iphone .power { right: -3px; top: 28%; height: 13%; background: linear-gradient(90deg, #5B5563, #2A2730); }
-    .iphone-screen {
-      position: relative; width: 100%; height: 100%; border-radius: 12.5% / 5.8%; overflow: hidden;
-      background: var(--bg); display: flex; flex-direction: column;
-    }
-    .iphone-status {
-      flex: none; height: 6.2%; display: flex; align-items: center; justify-content: space-between;
-      padding: 0 9% 0 11%; font: 700 clamp(8px, 1.1vw, 11px) -apple-system, 'Manrope', sans-serif; color: var(--text);
-    }
-    .iphone-status .icons { display: flex; gap: 4px; align-items: center; }
-    .iphone-status svg { height: 0.95em; width: auto; }
-    .iphone-island {
-      position: absolute; top: 1.5%; left: 50%; transform: translateX(-50%);
-      width: 31%; height: 3.6%; border-radius: 999px; background: #000;
-    }
-    .iphone-screen img { display: block; width: 100%; flex: 1; min-height: 0; object-fit: cover; object-position: top; }
-    .iphone-home { position: absolute; bottom: 1.4%; left: 50%; transform: translateX(-50%); width: 36%; height: 4px; border-radius: 3px; background: rgba(245, 243, 247, .75); }
+    /* iPhone 15 Pro (black titanium) device template from mockuphone.com, with the real queue
+       screenshot composited into its screen. */
+    .iphone { position: absolute; right: 0; top: 33%; width: 34%; height: auto; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .75)); }
 
     /* ---------- Sections ---------- */
     section { padding: 88px 0; }
@@ -309,22 +285,7 @@
             <div class="tv-stand"><div class="tv-neck"></div><div class="tv-foot"></div></div>
           </div>
 
-          <div class="iphone">
-            <span class="side action"></span><span class="side vol-up"></span><span class="side vol-down"></span><span class="side power"></span>
-            <div class="iphone-screen">
-              <div class="iphone-status" aria-hidden="true">
-                <span>9:41</span>
-                <span class="icons">
-                  <svg viewBox="0 0 18 12" fill="#F5F3F7"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
-                  <svg viewBox="0 0 16 12" fill="#F5F3F7"><path d="M8 11.5l2.2-2.6a3.3 3.3 0 0 0-4.4 0zM3.5 6.6l1.4 1.6a4.8 4.8 0 0 1 6.2 0l1.4-1.6a6.9 6.9 0 0 0-9 0zM.7 3.4l1.4 1.6a9 9 0 0 1 11.8 0l1.4-1.6a11.1 11.1 0 0 0-14.6 0z"/></svg>
-                  <svg viewBox="0 0 27 12" fill="none"><rect x=".5" y=".5" width="23" height="11" rx="3.5" stroke="#F5F3F7" stroke-opacity=".5"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#F5F3F7"/><path d="M25 4v4c.8-.3 1.3-1.1 1.3-2S25.8 4.3 25 4z" fill="#F5F3F7" fill-opacity=".5"/></svg>
-                </span>
-              </div>
-              <div class="iphone-island"></div>
-              <img src="/images/shot-phone-queue.jpg" width="600" height="1298" alt="The Karalo queue on a phone: Dancing Queen now playing, sung by Maya, and four songs up next with who is singing each" data-i18n-alt="phoneAlt" />
-              <div class="iphone-home"></div>
-            </div>
-          </div>
+          <img class="iphone" src="/images/iphone-queue.webp" width="540" height="1064" alt="The Karalo queue on a phone: Dancing Queen now playing, sung by Maya, and four songs up next with who is singing each" data-i18n-alt="phoneAlt" />
         </div>
       </div>
     </section>
