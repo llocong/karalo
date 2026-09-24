@@ -48,7 +48,8 @@
       --max: 1120px;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    /* Keeps anchor jumps (#how, #features...) from landing under the fixed header. */
+    html { scroll-behavior: smooth; scroll-padding-top: 80px; }
     body {
       margin: 0;
       font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -65,8 +66,8 @@
     .accent { color: var(--accent); }
     .muted { color: var(--muted); }
 
-    /* ---------- Header, floating over the hero photo ---------- */
-    .topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; }
+    /* ---------- Header, floating over the hero photo and pinned while scrolling ---------- */
+    .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; }
     header.site {
       background: rgba(11, 7, 16, 0.55);
       backdrop-filter: blur(12px);
