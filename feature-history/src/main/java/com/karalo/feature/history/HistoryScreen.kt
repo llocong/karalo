@@ -1,5 +1,6 @@
 package com.karalo.feature.history
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,6 +51,8 @@ private const val LOAD_MORE_THRESHOLD = 15
 
 internal const val HISTORY_TAG_LIST = "history_list"
 internal const val HISTORY_TAG_PAUSE = "history_pause"
+internal const val HISTORY_TAG_SORT = "history_sort"
+internal const val HISTORY_TAG_CLEAR = "history_clear"
 internal const val HISTORY_TAG_CANCEL = "history_cancel"
 
 /**
@@ -69,6 +73,10 @@ fun HistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     LaunchedEffect(isActive) { if (isActive) viewModel.refresh() }
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+    }
     var consumedPlayerReturn by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(playerReturnTrigger) {
         if (playerReturnTrigger > consumedPlayerReturn) {
@@ -315,6 +323,9 @@ private fun PanelFocusEffect(
     focus: HistoryFocus,
 ) {
     var previousPanel by remember { mutableStateOf(HistoryPanel.NONE) }
+    // Read at request time, not when the panel closed: confirming a clear can empty the list in
+    // between, and Clear all is disabled by then.
+    val currentHasSongs by rememberUpdatedState(hasSongs)
     LaunchedEffect(panel) {
         withFrameNanos { }
         val target =
@@ -325,7 +336,7 @@ private fun PanelFocusEffect(
                     when (previousPanel) {
                         HistoryPanel.SORT -> focus.sortButton
                         // Clearing disables the Clear button, so focus falls back to Pause/Resume.
-                        HistoryPanel.CLEAR_CONFIRM -> if (hasSongs) focus.clearButton else focus.pauseButton
+                        HistoryPanel.CLEAR_CONFIRM -> if (currentHasSongs) focus.clearButton else focus.pauseButton
                         HistoryPanel.NONE -> null
                     }
             }

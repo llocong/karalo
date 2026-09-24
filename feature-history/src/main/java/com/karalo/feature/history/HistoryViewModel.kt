@@ -10,8 +10,11 @@ import com.karalo.core.karaoke.domain.KaraokeRepository
 import com.karalo.core.karaoke.domain.MostPlayedSong
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -23,6 +26,8 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 internal const val HISTORY_PAGE_SIZE = 50
+internal const val PAUSED_MESSAGE = "Your song history has been paused"
+internal const val RESUMED_MESSAGE = "Song history has been turned on."
 private const val LOAD_ERROR_MESSAGE = "Couldn't load your song history. Check your connection and try again."
 
 /**
@@ -38,6 +43,10 @@ class HistoryViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(HistoryUiState())
         val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
+
+        // One-off confirmations shown as a system notification (Toast), e.g. after pausing history.
+        private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
+        val messages: SharedFlow<String> = _messages.asSharedFlow()
 
         // Visible for tests, so date headings don't depend on the machine's time zone.
         internal var zone: ZoneId = ZoneId.systemDefault()
@@ -105,7 +114,10 @@ class HistoryViewModel
             val target = !_uiState.value.paused
             viewModelScope.launch {
                 val result = karaokeRepository.setHistoryPaused(target)
-                if (result is AppResult.Success) _uiState.update { it.copy(paused = result.data) }
+                if (result is AppResult.Success) {
+                    _uiState.update { it.copy(paused = result.data) }
+                    _messages.tryEmit(if (result.data) PAUSED_MESSAGE else RESUMED_MESSAGE)
+                }
             }
         }
 

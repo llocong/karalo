@@ -7,6 +7,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -69,7 +70,7 @@ class HistoryScreenFocusTest {
     @Test
     fun clearPanelOpensWithCancelFocusedAndBackClosesIt() {
         setContent()
-        composeRule.onNodeWithText("Clear history").requestFocus()
+        composeRule.onNodeWithTag(HISTORY_TAG_CLEAR).requestFocus()
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
         composeRule.waitForIdle()
 
@@ -80,13 +81,13 @@ class HistoryScreenFocusTest {
         composeRule.waitForIdle()
 
         assertEquals(HistoryPanel.NONE, state.panel)
-        composeRule.onNodeWithText("Clear history").assertIsFocused()
+        composeRule.onNodeWithTag(HISTORY_TAG_CLEAR).assertIsFocused()
     }
 
     @Test
     fun sortPanelFocusesTheCurrentOptionAndSelectingClosesIt() {
         setContent()
-        composeRule.onNodeWithText("Sort: By date").requestFocus()
+        composeRule.onNodeWithTag(HISTORY_TAG_SORT).requestFocus()
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
         composeRule.waitForIdle()
 
@@ -100,12 +101,53 @@ class HistoryScreenFocusTest {
     }
 
     @Test
+    fun rightFromPauseStaysPutWhenTheOtherButtonsAreDisabled() {
+        state = HistoryUiState(rows = emptyList(), isLoading = false, endReached = true)
+        setContent()
+        composeRule.onNodeWithTag(HISTORY_TAG_PAUSE).assertIsFocused()
+
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(HISTORY_TAG_PAUSE).assertIsFocused()
+        composeRule.onNodeWithTag(HISTORY_TAG_CLEAR).assertIsNotFocused()
+    }
+
+    @Test
     fun pausedEmptyStateExplainsHowToResume() {
         state = HistoryUiState(rows = emptyList(), isLoading = false, paused = true, endReached = true)
         setContent()
 
         composeRule.onNodeWithText("Song history is paused").assertIsDisplayed()
-        composeRule.onNodeWithText("Resume song history").assertIsDisplayed()
+        composeRule.onNodeWithText("Resume history").assertIsDisplayed()
+        composeRule.onNodeWithTag(HISTORY_TAG_PAUSE).assertIsFocused()
+    }
+
+    @Test
+    fun clearFinishingBeforeThePanelClosesStillLeavesFocusOnPause() {
+        setContent()
+        composeRule.onNodeWithTag(HISTORY_TAG_CLEAR).requestFocus()
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.waitForIdle()
+        // The other order seen on a device: the list empties in the same frame the panel closes.
+        state = state.copy(panel = HistoryPanel.NONE, rows = emptyList())
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(HISTORY_TAG_PAUSE).assertIsFocused()
+    }
+
+    @Test
+    fun confirmingClearMovesFocusOffTheNowDisabledClearButton() {
+        setContent()
+        composeRule.onNodeWithTag(HISTORY_TAG_CLEAR).requestFocus()
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.waitForIdle()
+        // What confirming does: the panel closes, then the emptied list arrives.
+        state = state.copy(panel = HistoryPanel.NONE)
+        composeRule.waitForIdle()
+        state = state.copy(rows = emptyList())
+        composeRule.waitForIdle()
+
         composeRule.onNodeWithTag(HISTORY_TAG_PAUSE).assertIsFocused()
     }
 }

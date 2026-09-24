@@ -55,3 +55,7 @@ internal fun Modifier.upGoesTo(target: FocusRequester): Modifier =
         if (isUp) target.requestFocus()
         isUp
     }
+
+/** Swallows RIGHT so focus doesn't move (there's nothing enabled to the right). */
+internal fun Modifier.rightStaysPut(): Modifier =
+    onPreviewKeyEvent { keyEvent -> keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight }

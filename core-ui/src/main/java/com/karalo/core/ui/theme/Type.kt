@@ -120,13 +120,16 @@ val KaraloTypography =
                 lineHeight = 24.sp,
                 letterSpacing = 0.1.sp,
             ),
+        // Body copy and the nav/label style below carry no extra tracking (the guide's tokens are
+        // 0.2-0.5sp): Manrope is already wide, and the extra spacing made text look looser than
+        // the buttons next to it.
         bodyLarge =
             TextStyle(
                 fontFamily = ManropeRegular,
                 fontWeight = FontWeight.Normal,
                 fontSize = 18.sp,
                 lineHeight = 26.sp,
-                letterSpacing = 0.5.sp,
+                letterSpacing = 0.sp,
             ),
         bodyMedium =
             TextStyle(
@@ -134,7 +137,7 @@ val KaraloTypography =
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
-                letterSpacing = 0.2.sp,
+                letterSpacing = 0.sp,
             ),
         bodySmall =
             TextStyle(
@@ -142,7 +145,7 @@ val KaraloTypography =
                 fontWeight = FontWeight.Normal,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
-                letterSpacing = 0.2.sp,
+                letterSpacing = 0.sp,
             ),
         // Buttons (e.g. KaraloButton's CTA) — ExtraBold rather than the guide's Medium, to match
         // the brand board's punchy call-to-action treatment.
@@ -162,7 +165,7 @@ val KaraloTypography =
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 18.sp,
                 lineHeight = 26.sp,
-                letterSpacing = 0.5.sp,
+                letterSpacing = 0.sp,
             ),
         // Compact badges (e.g. the result-card duration chip) — Bold rather than the guide's
         // Medium, to stay legible at this size from a couch.

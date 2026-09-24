@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
@@ -81,11 +82,20 @@ internal fun HistorySongRow(
                 // See FocusableCard: clickable alone isn't focusable while the device is in touch mode.
                 .focusProperties { canFocus = true }
                 .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-                .background(if (isFocused) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, ROW_SHAPE)
-                .border(
+                // Neutral fill with a Hot Coral outline on focus, like the buttons above (see historyButtonColors).
+                .background(
+                    if (isFocused) {
+                        MaterialTheme.colorScheme.onSurface.copy(
+                            alpha = NEUTRAL_FILL_ALPHA,
+                        )
+                    } else {
+                        Color.Transparent
+                    },
+                    ROW_SHAPE,
+                ).border(
                     BorderStroke(
                         FOCUSED_BORDER_WIDTH,
-                        if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        if (isFocused) MaterialTheme.colorScheme.secondary else Color.Transparent,
                     ),
                     ROW_SHAPE,
                 ).padding(horizontal = 12.dp),
@@ -137,12 +147,12 @@ internal fun SortOptionRow(
             SelectableSurfaceDefaults.colors(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
-                focusedContainerColor = MaterialTheme.colorScheme.primary,
-                focusedContentColor = MaterialTheme.colorScheme.onBackground,
-                selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                selectedContentColor = MaterialTheme.colorScheme.onBackground,
-                focusedSelectedContainerColor = MaterialTheme.colorScheme.primary,
-                focusedSelectedContentColor = MaterialTheme.colorScheme.onBackground,
+                focusedContainerColor = MaterialTheme.colorScheme.secondary,
+                focusedContentColor = MaterialTheme.colorScheme.onSecondary,
+                selectedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = NEUTRAL_FILL_ALPHA),
+                selectedContentColor = MaterialTheme.colorScheme.onSurface,
+                focusedSelectedContainerColor = MaterialTheme.colorScheme.secondary,
+                focusedSelectedContentColor = MaterialTheme.colorScheme.onSecondary,
             ),
         scale = SelectableSurfaceDefaults.scale(focusedScale = 1f, focusedSelectedScale = 1f),
         modifier = modifier,
@@ -152,7 +162,7 @@ internal fun SortOptionRow(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             RadioDot(selected = selected)
-            Text(text = label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp))
+            Text(text = label, style = PANEL_OPTION_TEXT, modifier = Modifier.padding(start = 16.dp))
         }
     }
 }
@@ -164,8 +174,8 @@ private fun RadioDot(selected: Boolean) {
         modifier =
             Modifier
                 .size(22.dp)
-                .border(BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface), CircleShape),
+                .border(BorderStroke(2.dp, LocalContentColor.current), CircleShape),
     ) {
-        if (selected) Box(Modifier.size(12.dp).background(MaterialTheme.colorScheme.onSurface, CircleShape))
+        if (selected) Box(Modifier.size(12.dp).background(LocalContentColor.current, CircleShape))
     }
 }

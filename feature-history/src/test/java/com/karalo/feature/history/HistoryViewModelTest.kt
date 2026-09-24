@@ -11,6 +11,7 @@ import com.karalo.core.testing.FakeKaraokeRepository
 import com.karalo.core.testing.MainDispatcherExtension
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -158,6 +159,8 @@ class HistoryViewModelTest {
             val viewModel = viewModel()
             viewModel.refresh()
             advanceUntilIdle()
+            val messages = mutableListOf<String>()
+            val collector = launch { viewModel.messages.collect { messages += it } }
 
             viewModel.togglePaused()
             advanceUntilIdle()
@@ -173,6 +176,8 @@ class HistoryViewModelTest {
             viewModel.togglePaused()
             advanceUntilIdle()
             assertFalse(viewModel.uiState.value.paused)
+            assertEquals(listOf("Your song history has been paused", "Song history has been turned on."), messages)
+            collector.cancel()
         }
 
     @Test
