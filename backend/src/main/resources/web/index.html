@@ -59,18 +59,8 @@
     .accent { color: var(--accent); }
     .muted { color: var(--muted); }
 
-    /* ---------- Top bar: join hint + header, floating over the hero photo ---------- */
+    /* ---------- Header, floating over the hero photo ---------- */
     .topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; }
-    .join-hint {
-      background: var(--primary-depth);
-      color: var(--text);
-      font-size: 14px;
-      font-weight: 500;
-      text-align: center;
-      padding: 10px 20px;
-    }
-    .join-hint strong { color: var(--text); font-weight: 800; }
-
     header.site {
       background: rgba(11, 7, 16, 0.55);
       backdrop-filter: blur(12px);
@@ -141,16 +131,30 @@
     .section-head h2 { font-size: clamp(30px, 4vw, 44px); margin-top: 10px; }
     .section-head p { color: var(--body); font-size: 17px; margin-top: 14px; }
 
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; counter-reset: step; }
-    .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; position: relative; }
+    /* How it works: one row per step, text next to a mockup, alternating sides. */
+    #how .section-head { margin-bottom: 64px; }
+    .steps { display: flex; flex-direction: column; gap: 96px; }
+    .step { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 48px 64px; }
+    .step.flip { flex-wrap: wrap-reverse; }
+    .step-copy { display: flex; flex-direction: column; gap: 14px; max-width: 420px; }
     .step .num {
-      width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
-      font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 20px;
-      background: var(--primary); color: #fff; margin-bottom: 18px;
+      width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+      font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 21px;
+      background: var(--primary); color: var(--text);
     }
-    .step:nth-child(2) .num { background: var(--accent); color: var(--bg); }
-    .step h3 { font-size: 22px; }
-    .step p { color: var(--body); margin-top: 8px; font-size: 16px; font-weight: 500; }
+    .step .num.coral { background: var(--accent); color: var(--bg); }
+    .step h3 { font-size: clamp(26px, 3vw, 32px); line-height: 1.15; margin-top: 4px; }
+    .step p { color: var(--body); font-size: 17px; line-height: 1.6; }
+    .step-visual { flex: 1 1 380px; display: flex; justify-content: center; min-width: 0; }
+    /* Mockup frames (placeholders from the Claude Design file until real screenshots replace them). */
+    .mock-tv { width: 100%; max-width: 520px; }
+    .mock-tv-body { background: var(--surface); border: 1px solid #3A2D47; border-radius: 16px; padding: 9px; box-shadow: 0 30px 80px rgba(124, 58, 237, 0.22); }
+    .mock-tv-screen { aspect-ratio: 16 / 9; border-radius: 9px; overflow: hidden; background: linear-gradient(135deg, #2E1553, #0B0710); position: relative; }
+    .mock-tv-stand { width: 28%; height: 8px; margin: 0 auto; background: var(--border); border-radius: 0 0 8px 8px; }
+    .mock-phone { width: 220px; flex-shrink: 0; background: var(--bg); border: 1px solid #3A2D47; border-radius: 34px; padding: 8px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55); }
+    .mock-phone-screen { border-radius: 27px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+    .mock-combo { position: relative; width: 100%; max-width: 520px; padding-bottom: 230px; }
+    .mock-combo .mock-phone { position: absolute; right: 0; top: 58%; z-index: 1; width: 170px; }
 
     .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
@@ -200,16 +204,19 @@
         background:
           linear-gradient(0deg, #0B0710 0%, rgba(11, 7, 16, 0.88) 45%, rgba(11, 7, 16, 0.2) 75%, rgba(11, 7, 16, 0.45) 100%);
       }
-      .steps, .features { grid-template-columns: 1fr; }
+      .features { grid-template-columns: 1fr; }
       .uses { display: flex; flex-wrap: wrap; }
       nav.links a:not(.btn) { display: none; }
+      /* The step 3 phone can't hang off a narrow TV without spilling into the next section:
+         put it just below the TV, overlapping its corner. */
+      .mock-combo { padding-bottom: 0; }
+      .mock-combo .mock-phone { position: relative; top: auto; right: auto; margin: -36px 0 0 auto; width: 160px; }
       section { padding: 64px 0; }
     }
     @media (max-width: 480px) {
       .hero .lead { font-size: 17px; }
       .hero .ctas .btn { flex: 1 1 auto; }
       .brand .wordmark { font-size: 20px; }
-      .join-hint { font-size: 13px; }
       header.site .wrap { gap: 12px; padding: 14px 16px; }
       .btn-small { padding: 10px 16px; font-size: 14px; }
       .uses > span { font-size: 14px; padding: 10px 14px 10px 12px; }
@@ -218,8 +225,6 @@
 </head>
 <body>
   <div class="topbar">
-    <div class="join-hint" data-i18n-html="joinHint">Joining a party? <strong>Scan the QR code shown on the TV</strong> to add your songs.</div>
-
     <header class="site">
       <div class="wrap">
         <a class="brand" href="#top" aria-label="Karalo">
@@ -279,19 +284,98 @@
         </div>
         <div class="steps">
           <div class="step">
-            <div class="num">1</div>
-            <h3 data-i18n="step1Title">Open Karalo on your TV</h3>
-            <p data-i18n="step1Text">A QR code appears on the screen. Search and play songs with the remote, or with your voice.</p>
+            <div class="step-copy">
+              <div class="num">1</div>
+              <h3 data-i18n="step1Title">Open Karalo on your TV</h3>
+              <p data-i18n="step1Text">A QR code appears on the screen. Search and play songs with the remote, or with your voice.</p>
+            </div>
+            <div class="step-visual">
+              <div class="mock-tv" aria-hidden="true"><div class="mock-tv-body"><div class="mock-tv-screen">
+                <div style="position:absolute; inset:0; display:flex;">
+                  <div style="width:24%; background:linear-gradient(135deg,#4C1D95,#17101F); padding:12px 10px; display:flex; flex-direction:column; gap:9px; font-size:8px; font-weight:600; color:#C9BFD6;">
+                    <div style="width:18px; height:18px; border-radius:50%; background:#FF5D8F;"></div>
+                    <div style="color:#F5F3F7;">Home</div><div>Search</div><div>Playlists</div><div>History</div>
+                  </div>
+                  <div style="flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:8px; min-width:0;">
+                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:5px;"><svg width="14" height="14" viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/><rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/><rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/><circle cx="70" cy="66" r="7" fill="#FF5D8F"/><polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/></svg><span style="font-family:'Fredoka'; font-weight:600; font-size:10px;">Karalo</span></div>
+                    <div style="display:flex; gap:12px; align-items:center; background:rgba(11,7,16,0.55); border:1px solid #3A2D47; border-radius:8px; padding:10px;">
+                      <div style="background:#F5F3F7; border-radius:4px; padding:4px; line-height:0;"><svg viewBox="0 0 21 21" width="46" height="46" aria-hidden="true"><rect x="0" y="0" width="7" height="7" fill="#0B0710"/><rect x="1" y="1" width="5" height="5" fill="#F5F3F7"/><rect x="2" y="2" width="3" height="3" fill="#0B0710"/><rect x="14" y="0" width="7" height="7" fill="#0B0710"/><rect x="15" y="1" width="5" height="5" fill="#F5F3F7"/><rect x="16" y="2" width="3" height="3" fill="#0B0710"/><rect x="0" y="14" width="7" height="7" fill="#0B0710"/><rect x="1" y="15" width="5" height="5" fill="#F5F3F7"/><rect x="2" y="16" width="3" height="3" fill="#0B0710"/><rect x="9" y="1" width="2" height="3" fill="#0B0710"/><rect x="9" y="6" width="3" height="2" fill="#0B0710"/><rect x="9" y="9" width="3" height="3" fill="#0B0710"/><rect x="14" y="9" width="2" height="4" fill="#0B0710"/><rect x="18" y="10" width="2" height="2" fill="#0B0710"/><rect x="17" y="15" width="3" height="3" fill="#0B0710"/><rect x="10" y="15" width="2" height="5" fill="#0B0710"/><rect x="13" y="17" width="2" height="3" fill="#0B0710"/><rect x="4" y="9" width="3" height="2" fill="#0B0710"/></svg></div>
+                      <div style="display:flex; flex-direction:column; gap:3px;">
+                        <div style="font-family:'Fredoka'; font-weight:600; font-size:12px;">Scan to join the party</div>
+                        <div style="font-size:8px; color:#C9BFD6;">Add songs from your phone</div>
+                      </div>
+                    </div>
+                    <div style="font-size:9px; font-weight:700;">Top Picks</div>
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+                      <div style="aspect-ratio:16/10; border-radius:4px; background:linear-gradient(135deg,#7C3AED,#4C1D95);"></div>
+                      <div style="aspect-ratio:16/10; border-radius:4px; background:linear-gradient(135deg,#FF5D8F,#7C3AED);"></div>
+                      <div style="aspect-ratio:16/10; border-radius:4px; background:linear-gradient(135deg,#4C1D95,#17101F);"></div>
+                    </div>
+                  </div>
+                </div>
+              </div></div><div class="mock-tv-stand"></div></div>
+            </div>
           </div>
-          <div class="step">
-            <div class="num">2</div>
-            <h3 data-i18n="step2Title">Guests scan the code</h3>
-            <p data-i18n="step2Text">They type their name and they're in, from any phone and any network. Nothing to download.</p>
+
+          <div class="step flip">
+            <div class="step-visual">
+              <div style="padding:0 40px;"><div class="mock-phone" aria-hidden="true"><div class="mock-phone-screen" style="aspect-ratio:9/18.5;">
+                <div style="flex:1; background:radial-gradient(circle at 50% 30%, #4C1D95 0%, #0B0710 70%); display:flex; flex-direction:column; align-items:center; padding:30px 14px 0; gap:6px;">
+                  <svg width="28" height="28" viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/><rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/><rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/><circle cx="70" cy="66" r="7" fill="#FF5D8F"/><polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/></svg>
+                  <div style="font-family:'Fredoka'; font-weight:600; font-size:14px;">Karalo</div>
+                  <div style="flex:1; display:flex; align-items:center; font-size:11px; font-weight:600; color:#C4B5FD; text-align:center;">You're about to join the session</div>
+                </div>
+                <div style="background:#17101F; border-top:1px solid #241834; border-radius:16px 16px 0 0; padding:16px 14px 22px; display:flex; flex-direction:column; gap:9px;">
+                  <div style="font-size:11px; font-weight:700;">What's your name?</div>
+                  <div style="background:#0B0710; border:1.5px solid #FF5D8F; border-radius:8px; padding:8px 10px; font-size:11px; font-weight:600;">Maya</div>
+                  <div style="background:#FF5D8F; color:#0B0710; border-radius:999px; padding:8px; text-align:center; font-size:11px; font-weight:800;">Join Session</div>
+                </div>
+              </div></div></div>
+            </div>
+            <div class="step-copy">
+              <div class="num coral">2</div>
+              <h3 data-i18n="step2Title">Guests scan the code</h3>
+              <p data-i18n="step2Text">They type their name and they're in, from any phone and any network. Nothing to download.</p>
+            </div>
           </div>
+
           <div class="step">
-            <div class="num">3</div>
-            <h3 data-i18n="step3Title">Pick songs and sing</h3>
-            <p data-i18n="step3Text">Songs join a shared queue and play one after another. Everyone sees what's coming up next.</p>
+            <div class="step-copy">
+              <div class="num">3</div>
+              <h3 data-i18n="step3Title">Pick songs and sing</h3>
+              <p data-i18n="step3Text">Songs join a shared queue and play one after another. Everyone sees what's coming up next.</p>
+            </div>
+            <div class="step-visual">
+              <div class="mock-combo" aria-hidden="true">
+              <div class="mock-tv"><div class="mock-tv-body"><div class="mock-tv-screen">
+                <div style="position:absolute; inset:0; display:grid; grid-template-columns:1.7fr 1fr; gap:12px; padding:16px;">
+                  <div style="display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:0;">
+                    <div style="font-size:8px; font-weight:800; letter-spacing:0.12em; color:#FF5D8F;">NOW SINGING</div>
+                    <div style="font-family:'Fredoka'; font-weight:600; font-size:15px; line-height:1.25;"><span style="color:#FF5D8F;">Tonight we light</span> the city up, we never stop the show</div>
+                    <div style="font-size:9px; color:#C9BFD6; font-weight:600;">Sung by Maya</div>
+                    <div style="height:3px; border-radius:2px; background:#3A2D47;"><div style="width:45%; height:100%; border-radius:2px; background:#FF5D8F;"></div></div>
+                  </div>
+                  <div></div>
+                </div>
+              </div></div><div class="mock-tv-stand"></div></div>
+              <div class="mock-phone"><div class="mock-phone-screen">
+                <div style="flex:1; background:#0B0710; padding:26px 12px 12px; display:flex; flex-direction:column; gap:10px;">
+                  <div style="font-size:12px; font-weight:700;">Now Playing</div>
+                  <div style="background:#17101F; border:1px solid #241834; border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:10px;">
+                    <div style="display:flex; gap:8px; align-items:center;"><div style="width:32px; height:32px; border-radius:6px; background:linear-gradient(135deg,#FF5D8F,#7C3AED);"></div><div><div style="font-size:11px; font-weight:700;">City Lights</div><div style="font-size:9px; color:#FF5D8F; font-weight:600;">Sung by Maya</div></div></div>
+                    <div style="display:flex; justify-content:center; align-items:center; gap:10px;">
+                      <div style="width:32px; height:32px; border-radius:50%; background:#FF5D8F; display:flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/></svg></div>
+                      <div style="width:26px; height:26px; border-radius:50%; background:#241834; border:1px solid #3A2D47; display:flex; align-items:center; justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24"><path d="M5 4l11 8-11 8V4z" fill="#F5F3F7"/><rect x="16.5" y="4" width="2.5" height="16" fill="#F5F3F7"/></svg></div>
+                    </div>
+                  </div>
+                  <div style="font-size:12px; font-weight:700;">Up Next</div>
+                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#7C3AED,#4C1D95); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Golden Hour</div><div style="font-size:8px; color:#A79BB5;">Sung by Léa</div></div></div>
+                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#4C1D95,#17101F); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Neon Summer</div><div style="font-size:8px; color:#A79BB5;">Sung by Sam</div></div></div>
+                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#7C3AED,#FF5D8F); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Shallow</div><div style="font-size:8px; color:#A79BB5;">Sung by Maya</div></div></div>
+                </div>
+              </div></div>
+            </div>
+            </div>
           </div>
         </div>
       </div>
@@ -386,7 +470,6 @@
     // English is in the markup; French replaces it. The choice follows ?lang=fr|en in the link,
     // then the visitor's last choice, then the browser language.
     const fr = {
-      joinHint: "Vous rejoignez une soirée? <strong>Scannez le code QR affiché sur la télé</strong> pour ajouter vos chansons.",
       navHow: "Comment ça marche",
       navFeatures: "Fonctionnalités",
       navCta: "Accès anticipé",
