@@ -27,6 +27,9 @@ gcloud compute ssh --zone "$zone" "$vm" --command "
   rm -rf /tmp/karalo-deploy && mkdir -p /tmp/karalo-deploy && tar -xzf /tmp/deploy-files.tgz -C /tmp/karalo-deploy
   if [ -n '$setup_host' ]; then sudo sh /tmp/karalo-deploy/setup-server.sh '$setup_host'; fi
   sudo rm -rf /opt/karalo/* && sudo tar -xzf /tmp/karalo-backend.tgz -C /opt/karalo
+  host=\$(sudo sed -n 's|^KARALO_PUBLIC_BASE_URL=https://||p' /etc/karalo/karalo.env)
+  sed \"s/KARALO_HOSTNAME/\$host/\" /tmp/karalo-deploy/Caddyfile | sudo tee /etc/caddy/Caddyfile >/dev/null
+  sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null && sudo systemctl reload caddy
   sudo systemctl restart karalo
   sleep 8 && systemctl is-active karalo
 "
