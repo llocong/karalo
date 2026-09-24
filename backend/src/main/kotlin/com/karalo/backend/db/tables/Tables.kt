@@ -36,6 +36,13 @@ object Participants : Table("participants") {
     val participantTokenHash = text("participant_token_hash")
     val createdAt = timestamp("created_at")
     val lastSeenAt = timestamp("last_seen_at")
+
+    // Last *meaningful* action (join, add/remove/reorder a song, playback command, search,
+    // rename) -- unlike lastSeenAt, which every authenticated call bumps, passive queue refreshes
+    // included. This is what inactive-guest cleanup reads (see ParticipantRepository.pruneInactive).
+    // Nullable only so createMissingTablesAndColumns can add it to an existing DB; every row gets
+    // a value (new rows on join, older ones via the startup backfill in connectDatabase).
+    val lastActiveAt = timestamp("last_active_at").nullable()
     override val primaryKey = PrimaryKey(id)
 
     init {
@@ -62,5 +69,28 @@ object QueueItems : Table("queue_items") {
 
     init {
         index(isUnique = false, sessionId, status, position)
+    }
+}
+
+/**
+ * Songs that finished playing on the TV, from the queue or via Play Now. Deliberately carries no
+ * guest reference: queue_items rows move here once played, which is what lets an inactive guest's
+ * row be deleted without tripping queue_items' foreign key to participants.
+ */
+object PlayHistory : Table("play_history") {
+    val id = text("id")
+    val sessionId = text("session_id").references(Sessions.id)
+    val videoId = varchar("video_id", 11)
+    val title = varchar("title", 200)
+    val channelName = varchar("channel_name", 200)
+    val thumbnailUrl = varchar("thumbnail_url", 500).nullable()
+    val durationSeconds = integer("duration_seconds").nullable()
+    val playSource = text("source") // "QUEUE" or "PLAY_NOW"
+    val skipped = bool("skipped").default(false)
+    val playedAt = timestamp("played_at") // when it finished, matching queue_items.played_at
+    override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(isUnique = false, sessionId, playedAt)
     }
 }

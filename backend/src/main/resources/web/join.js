@@ -27,15 +27,24 @@
   const sessionId = lookup.data.sessionId;
 
   // Already joined this session on this phone? Skip straight to search if the token still works.
+  // Its 401 is handled right here (not by apiFetch's usual redirect, which would reload this very
+  // page): forget the token, keep the name for the prefill below.
   const existing = loadParticipant(sessionId);
   if (existing) {
-    const me = await apiFetch(`/api/sessions/${sessionId}/me`, { sessionId });
+    const me = await apiFetch(`/api/sessions/${sessionId}/me`, { sessionId, redirectOnUnauthorized: false });
     if (me.ok) {
+      // Records saved before the code was stored alongside the token get it now, so a later 401
+      // can bring this guest back to this page (see sendBackToJoin in shared.js).
+      if (!existing.code) saveParticipant(sessionId, Object.assign(existing, { code }));
       location.href = `/search.html?sessionId=${sessionId}`;
       return;
     }
+    rememberDisplayName(existing.displayName);
     clearParticipant(sessionId);
   }
+
+  nameInput.value = rememberedDisplayName();
+  updateNameField();
 
   subtitle.textContent = `${lookup.data.participantCount} ${lookup.data.participantCount === 1 ? "person" : "people"} already here`;
   // "flex", not "block" -- .join-sheet's CSS gap (the spacing between the label/input/button)
@@ -58,7 +67,8 @@
       joinButton.disabled = false;
       return;
     }
-    saveParticipant(sessionId, result.data);
+    saveParticipant(sessionId, Object.assign(result.data, { code }));
+    rememberDisplayName(result.data.displayName);
     location.href = `/search.html?sessionId=${sessionId}`;
   });
 

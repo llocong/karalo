@@ -270,6 +270,7 @@
     // avoids a stale name reappearing if the modal is reopened without a page reload.
     participant.displayName = response.data.displayName;
     saveParticipant(sessionId, participant);
+    rememberDisplayName(participant.displayName);
     avatarEl.textContent = participant.displayName.trim().charAt(0).toUpperCase();
     closeNicknameModal();
     showToast("Nickname updated");

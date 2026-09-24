@@ -1,7 +1,6 @@
 package com.karalo.backend.db
 
 import com.karalo.backend.config.AppConfig
-import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.QueueItems
 import com.karalo.backend.db.tables.Sessions
 import com.karalo.backend.db.tables.TvInstallations
@@ -110,8 +109,8 @@ class SessionRepository(
         transaction {
             val code = SessionCodeGenerator.normalize(rawCode)
             val session = Sessions.selectAll().where { Sessions.code eq code }.singleOrNull() ?: throw ApiException.NotFound("Unknown session code")
-            val count = Participants.selectAll().where { Participants.sessionId eq session[Sessions.id] }.count()
-            PublicSessionDto(sessionId = session[Sessions.id], code = session[Sessions.code], participantCount = count.toInt())
+            val count = activeParticipantCount(session[Sessions.id])
+            PublicSessionDto(sessionId = session[Sessions.id], code = session[Sessions.code], participantCount = count)
         }
 
     fun resolveSessionIdForCode(rawCode: String): String =
@@ -146,6 +145,9 @@ class SessionRepository(
         durationSeconds: Int?,
     ): NowPlayingDto =
         transaction {
+            // Starting a new Play-Now song over one still playing ends that one (the TV sends no
+            // separate end for it), so it gets its history entry here.
+            recordPlayNowIfPlaying(sessionId)
             Sessions.update({ Sessions.id eq sessionId }) {
                 it[nowPlayingSource] = "PLAY_NOW"
                 it[playNowVideoId] = videoId
@@ -167,6 +169,7 @@ class SessionRepository(
      */
     fun playNowEnd(sessionId: String): NowPlayingDto? =
         transaction {
+            recordPlayNowIfPlaying(sessionId)
             Sessions.update({ Sessions.id eq sessionId }) {
                 it[nowPlayingSource] = "QUEUE"
                 it[playNowVideoId] = null
@@ -179,6 +182,23 @@ class SessionRepository(
             syncNowPlayingToQueueHead(sessionId)
             resolveNowPlaying(sessionId)
         }
+
+    /** Adds the current Play-Now song (if one is playing) to play_history. Idempotent per song. */
+    private fun recordPlayNowIfPlaying(sessionId: String) {
+        val session = Sessions.selectAll().where { Sessions.id eq sessionId }.singleOrNull() ?: return
+        if (session[Sessions.nowPlayingSource] != "PLAY_NOW") return
+        val videoId = session[Sessions.playNowVideoId] ?: return
+        recordPlayed(
+            sessionId = sessionId,
+            videoId = videoId,
+            title = session[Sessions.playNowTitle].orEmpty(),
+            channelName = session[Sessions.playNowChannelName].orEmpty(),
+            thumbnailUrl = session[Sessions.playNowThumbnailUrl],
+            durationSeconds = session[Sessions.playNowDurationSeconds],
+            source = "PLAY_NOW",
+            skipped = false,
+        )
+    }
 
     /** Points `nowPlayingQueueItemId` at whatever the current PENDING head is (or clears it). */
     internal fun syncNowPlayingToQueueHead(sessionId: String) {
@@ -237,7 +257,7 @@ class SessionRepository(
 
     internal fun toSummary(session: ResultRow): SessionSummaryDto {
         val sessionId = session[Sessions.id]
-        val participantCount = Participants.selectAll().where { Participants.sessionId eq sessionId }.count().toInt()
+        val participantCount = activeParticipantCount(sessionId)
         val queueLength =
             QueueItems
                 .selectAll()
