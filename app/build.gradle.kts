@@ -99,6 +99,7 @@ dependencies {
     implementation(project(":feature-search"))
     implementation(project(":feature-player"))
     implementation(project(":feature-home"))
+    implementation(project(":feature-history"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

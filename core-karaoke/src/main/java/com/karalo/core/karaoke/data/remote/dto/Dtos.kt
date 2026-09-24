@@ -77,3 +77,43 @@ data class WsEnvelopeDto(
     val ts: String,
     val data: kotlinx.serialization.json.JsonElement,
 )
+
+@Serializable
+data class HistoryPlayDto(
+    val id: String,
+    val videoId: String,
+    val title: String,
+    val channelName: String,
+    val thumbnailUrl: String? = null,
+    val playedAt: String,
+    val nightStartedAt: String,
+)
+
+@Serializable
+data class HistoryByDateDto(
+    val items: List<HistoryPlayDto>,
+    val nextCursor: String? = null,
+    val paused: Boolean = false,
+)
+
+@Serializable
+data class MostPlayedSongDto(
+    val videoId: String,
+    val title: String,
+    val channelName: String,
+    val thumbnailUrl: String? = null,
+    val playCount: Int,
+    val lastPlayedAt: String,
+)
+
+@Serializable
+data class MostPlayedDto(
+    val items: List<MostPlayedSongDto>,
+    val nextOffset: Int? = null,
+    val paused: Boolean = false,
+)
+
+@Serializable
+data class HistoryPausedDto(
+    val paused: Boolean,
+)

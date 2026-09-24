@@ -36,6 +36,24 @@ interface KaraokeRepository {
     /** Reports the TV's actual ExoPlayer play/pause state, so phones' queue page reflects reality. */
     suspend fun reportPlaybackState(isPlaying: Boolean): AppResult<Unit>
 
+    /** One page of this TV's song history, newest first; [before] is the previous page's `next`. */
+    suspend fun historyByDate(
+        before: String?,
+        limit: Int,
+    ): AppResult<HistoryPage<HistoryPlay, String>>
+
+    /** One page of this TV's song history aggregated per video, most played first. */
+    suspend fun mostPlayed(
+        offset: Int,
+        limit: Int,
+    ): AppResult<HistoryPage<MostPlayedSong, Int>>
+
+    /** Stops (or resumes) recording plays; returns the new state. Existing history is untouched. */
+    suspend fun setHistoryPaused(paused: Boolean): AppResult<Boolean>
+
+    /** Permanently removes every song from this TV's history. */
+    suspend fun clearHistory(): AppResult<Unit>
+
     /** Latest known snapshot, kept current by realtime events + periodic/reconnect REST reconcile. */
     val queueSnapshot: StateFlow<KaraokeQueueSnapshot>
 

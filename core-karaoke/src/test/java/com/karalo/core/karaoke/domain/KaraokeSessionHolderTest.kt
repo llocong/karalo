@@ -43,6 +43,20 @@ private class FakeRepo : KaraokeRepository {
     override suspend fun playNowEnd(): AppResult<NowPlaying?> = error("unused")
 
     override suspend fun reportPlaybackState(isPlaying: Boolean): AppResult<Unit> = error("unused")
+
+    override suspend fun historyByDate(
+        before: String?,
+        limit: Int,
+    ): AppResult<HistoryPage<HistoryPlay, String>> = error("unused")
+
+    override suspend fun mostPlayed(
+        offset: Int,
+        limit: Int,
+    ): AppResult<HistoryPage<MostPlayedSong, Int>> = error("unused")
+
+    override suspend fun setHistoryPaused(paused: Boolean): AppResult<Boolean> = error("unused")
+
+    override suspend fun clearHistory(): AppResult<Unit> = error("unused")
 }
 
 /**
