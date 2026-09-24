@@ -59,100 +59,80 @@
     .accent { color: var(--accent); }
     .muted { color: var(--muted); }
 
-    /* ---------- Join hint (people arriving here from the phone app without a session) ---------- */
+    /* ---------- Top bar: join hint + header, floating over the hero photo ---------- */
+    .topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; }
     .join-hint {
       background: var(--primary-depth);
       color: var(--text);
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 500;
       text-align: center;
-      padding: 10px 16px;
+      padding: 10px 20px;
     }
-    .join-hint strong { color: #fff; }
+    .join-hint strong { color: var(--text); font-weight: 800; }
 
-    /* ---------- Header ---------- */
     header.site {
-      position: sticky; top: 0; z-index: 10;
-      background: rgba(11, 7, 16, 0.82);
+      background: rgba(11, 7, 16, 0.55);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(36, 24, 52, 0.7);
+      border-bottom: 1px solid rgba(245, 243, 247, 0.1);
     }
-    header.site .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
-    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .brand .wordmark { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 22px; }
-    nav.links { display: flex; align-items: center; gap: 26px; font-size: 15px; font-weight: 600; }
-    nav.links a { text-decoration: none; color: var(--muted); }
+    header.site .wrap { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+    .brand .wordmark { display: flex; align-items: baseline; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 24px; }
+    .brand .wordmark span { display: inline-block; }
+    nav.links { display: flex; align-items: center; gap: 28px; font-size: 15px; font-weight: 600; }
+    nav.links a { text-decoration: none; color: var(--body); }
     nav.links a:hover { color: var(--text); }
     nav.links a.btn, nav.links a.btn:hover { color: var(--bg); }
     .lang {
-      border: 1px solid var(--border); background: var(--surface); color: var(--text);
-      border-radius: 999px; padding: 6px 12px; font: 700 13px 'Manrope', sans-serif; cursor: pointer;
+      border: 1px solid #3A2D47; background: transparent; color: var(--text);
+      border-radius: 999px; padding: 6px 11px; font: 800 13px 'Manrope', sans-serif; cursor: pointer;
     }
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      border-radius: 999px; padding: 14px 26px; font-weight: 800; font-size: 16px;
+      border-radius: 999px; padding: 15px 26px; font-weight: 800; font-size: 16px;
       text-decoration: none; border: none; cursor: pointer; font-family: 'Manrope', sans-serif;
       transition: transform .15s ease, box-shadow .15s ease;
     }
     .btn:hover { transform: translateY(-1px); }
-    .btn-primary { background: var(--accent); color: var(--bg); box-shadow: 0 10px 30px -10px rgba(255, 93, 143, .7); }
-    .btn-ghost { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
-    .btn-small { padding: 9px 18px; font-size: 14px; }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-ghost { background: rgba(11, 7, 16, 0.6); color: var(--text); border: 1px solid #5A4A6B; font-weight: 700; }
+    .btn-small { padding: 11px 20px; font-size: 15px; white-space: nowrap; }
 
-    /* ---------- Hero ---------- */
-    .hero { position: relative; padding: 72px 0 88px; }
-    .hero::before {
-      content: ""; position: absolute; inset: -120px 0 auto 0; height: 720px; z-index: -1;
-      background:
-        radial-gradient(600px 380px at 78% 40%, rgba(124, 58, 237, .35), transparent 70%),
-        radial-gradient(420px 300px at 12% 20%, rgba(255, 93, 143, .16), transparent 70%);
+    /* ---------- Hero: full-screen photo, text on the right ---------- */
+    .hero {
+      position: relative; overflow: hidden; height: 100vh; min-height: 560px;
+      background: var(--bg); display: flex; align-items: center; padding: 0;
     }
-    .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+    .hero-photo {
+      position: absolute; left: 0; top: -8%; width: 100%; height: 116%;
+      object-fit: cover; object-position: 20% 25%; will-change: transform;
+    }
+    .hero-shade {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(270deg, rgba(11, 7, 16, 0.92) 0%, rgba(11, 7, 16, 0.78) 36%, rgba(11, 7, 16, 0) 66%),
+        linear-gradient(0deg, rgba(11, 7, 16, 0.7) 0%, rgba(11, 7, 16, 0) 35%);
+    }
+    .hero .wrap {
+      position: relative; width: 100%; padding: 110px 24px 48px;
+      display: flex; justify-content: flex-end;
+    }
+    /* Wide enough for "Karaoke night," on one line at the largest heading size. */
+    .hero-copy { display: flex; flex-direction: column; gap: 20px; align-items: flex-start; max-width: 540px; }
     .eyebrow {
       display: inline-flex; align-items: center; gap: 8px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: var(--muted);
-      margin-bottom: 22px;
+      background: rgba(11, 7, 16, 0.6); border: 1px solid #3A2D47;
+      border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 600; color: var(--text);
     }
-    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-    .hero h1 { font-size: clamp(40px, 6vw, 64px); }
-    .hero .lead { font-size: 19px; color: var(--body); margin: 22px 0 32px; max-width: 520px; }
+    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .hero h1 { font-size: clamp(40px, 6vw, 76px); line-height: 1.02; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); }
+    .hero .lead { font-size: 18px; line-height: 1.6; color: #E4DDEC; max-width: 500px; }
     .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
-    .hero .facts { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 30px; font-size: 14px; font-weight: 700; color: var(--body); }
-    .hero .facts > span { display: inline-flex; align-items: center; gap: 9px; }
-    .check { width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 93, 143, .16); display: inline-grid; place-items: center; flex: none; }
-    .check svg { width: 14px; height: 14px; }
-
-    /* Real screenshots of the app: the TV one in a thin-bezel TV frame on a pedestal stand, the
-       phone one in an iPhone 15 Pro template. */
-    /* Fixed proportions so the phone always overlaps only the TV's bottom-right corner. */
-    .scene { position: relative; aspect-ratio: 100 / 104; }
-    .tv { position: relative; width: 86%; }
-    .tv-body {
-      position: relative; border-radius: 14px; padding: 1.2%;
-      background: linear-gradient(180deg, #2A2830 0%, #121116 12%, #0B0A0E 100%);
-      box-shadow: 0 0 0 1px #34313B, 0 50px 90px -40px rgba(124, 58, 237, .65), 0 30px 60px -30px rgba(0, 0, 0, .9);
-    }
-    .tv-screen { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: #000; }
-    .tv-screen img { display: block; width: 100%; height: 100%; object-fit: cover; }
-    .tv-screen::after { /* glass reflection */
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(118deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 28%, transparent 42%);
-    }
-    .tv-chin { height: 10px; display: grid; place-items: center; }
-    .tv-chin i { width: 4px; height: 4px; border-radius: 50%; background: #3A3642; }
-    .tv-stand { display: flex; flex-direction: column; align-items: center; }
-    .tv-neck { width: 9%; height: 26px; background: linear-gradient(90deg, #1C1A21, #3A3742 50%, #1C1A21); }
-    .tv-foot {
-      width: 34%; height: 9px; border-radius: 6px 6px 10px 10px;
-      background: linear-gradient(180deg, #4A4653, #1A181E);
-      box-shadow: 0 14px 24px -8px rgba(0, 0, 0, .8);
-    }
-
-    /* iPhone 15 Pro (black titanium) device template from mockuphone.com, with the real queue
-       screenshot composited into its screen. */
-    .iphone { position: absolute; right: 0; top: 33%; width: 34%; height: auto; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .75)); }
+    .hero .facts { display: flex; gap: 22px; flex-wrap: wrap; font-size: 15px; font-weight: 600; color: var(--text); }
+    .hero .facts > span { display: inline-flex; align-items: center; gap: 8px; }
+    .check { width: 18px; height: 18px; flex: none; }
 
     /* ---------- Sections ---------- */
     section { padding: 88px 0; }
@@ -212,9 +192,14 @@
     footer.site a:hover { color: var(--text); }
 
     @media (max-width: 900px) {
-      .hero { padding: 48px 0 96px; }
-      .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 64px; }
       nav.links { gap: 10px; }
+      /* On narrow screens the text spans the photo, so darken it from the bottom instead. */
+      .hero { align-items: flex-end; }
+      .hero .wrap { justify-content: flex-start; padding-bottom: 40px; }
+      .hero-shade {
+        background:
+          linear-gradient(0deg, rgba(11, 7, 16, 0.96) 0%, rgba(11, 7, 16, 0.85) 45%, rgba(11, 7, 16, 0.2) 75%, rgba(11, 7, 16, 0.45) 100%);
+      }
       .steps, .features { grid-template-columns: 1fr; }
       .uses { display: flex; flex-wrap: wrap; }
       nav.links a:not(.btn) { display: none; }
@@ -225,41 +210,49 @@
       .hero .ctas .btn { flex: 1 1 auto; }
       .brand .wordmark { font-size: 20px; }
       .join-hint { font-size: 13px; }
+      header.site .wrap { gap: 12px; padding: 14px 16px; }
+      .btn-small { padding: 10px 16px; font-size: 14px; }
       .uses > span { font-size: 14px; padding: 10px 14px 10px 12px; }
     }
   </style>
 </head>
 <body>
-  <div class="join-hint" data-i18n-html="joinHint">Joining a party? <strong>Scan the QR code shown on the TV</strong> to add your songs.</div>
+  <div class="topbar">
+    <div class="join-hint" data-i18n-html="joinHint">Joining a party? <strong>Scan the QR code shown on the TV</strong> to add your songs.</div>
 
-  <header class="site">
-    <div class="wrap">
-      <a class="brand" href="#top" aria-label="Karalo">
-        <svg width="34" height="34" viewBox="0 0 96 96" fill="none" aria-hidden="true">
-          <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
-          <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
-          <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
-          <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
-          <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
-          <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
-          <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
-        </svg>
-        <span class="wordmark">Karalo</span>
-      </a>
-      <nav class="links">
-        <a href="#how" data-i18n="navHow">How it works</a>
-        <a href="#features" data-i18n="navFeatures">Features</a>
-        <button class="lang" id="langToggle" type="button" aria-label="Français">FR</button>
-        <a class="btn btn-primary btn-small" href="#access" data-i18n="navCta">Get early access</a>
-      </nav>
-    </div>
-  </header>
+    <header class="site">
+      <div class="wrap">
+        <a class="brand" href="#top" aria-label="Karalo">
+          <svg width="34" height="34" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+            <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
+            <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
+            <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
+            <line x1="42" y1="32" x2="54" y2="32" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="42" y1="38" x2="54" y2="38" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
+            <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
+            <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
+            <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
+          </svg>
+          <span class="wordmark" aria-hidden="true"><span style="transform:translateY(-1px)">K</span><span style="transform:translateY(1px)">a</span><span style="transform:translateY(-2px)">r</span><span style="transform:translateY(1px)">a</span><span style="transform:translateY(-1px)">l</span><span style="transform:translateY(1px)">o</span></span>
+        </a>
+        <nav class="links">
+          <a href="#how" data-i18n="navHow">How it works</a>
+          <a href="#features" data-i18n="navFeatures">Features</a>
+          <button class="lang" id="langToggle" type="button" aria-label="Français">FR</button>
+          <a class="btn btn-primary btn-small" href="#access" data-i18n="navCta">Get early access</a>
+        </nav>
+      </div>
+    </header>
+  </div>
 
   <main id="top">
     <!-- ---------- Hero ---------- -->
-    <section class="hero">
+    <section class="hero" id="hero">
+      <img class="hero-photo" id="heroPhoto" src="/images/hero-living-room.jpg" alt="" />
+      <div class="hero-shade"></div>
       <div class="wrap">
-        <div>
+        <div class="hero-copy">
           <div class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow">For Android TV</span></div>
           <h1 data-i18n-html="heroTitle">Karaoke night,<br><span class="accent">on your TV.</span></h1>
           <p class="lead" data-i18n="heroLead">Everyone picks songs from their own phone and sings on the big screen. Guests just scan a QR code: no app to install, no account to create.</p>
@@ -268,24 +261,10 @@
             <a class="btn btn-ghost" href="#how" data-i18n="heroSecondary">See how it works</a>
           </div>
           <div class="facts">
-            <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#FF5D8F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="fact1">No app for guests</span></span>
-            <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#FF5D8F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="fact2">No accounts</span></span>
-            <span><span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#FF5D8F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-i18n="fact3">Free</span></span>
+            <span><svg class="check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#7C3AED"/><path d="M7 12.5l3 3 7-7" stroke="#F5F3F7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="fact1">No app for guests</span></span>
+            <span><svg class="check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#7C3AED"/><path d="M7 12.5l3 3 7-7" stroke="#F5F3F7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="fact2">No accounts</span></span>
+            <span><svg class="check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#7C3AED"/><path d="M7 12.5l3 3 7-7" stroke="#F5F3F7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="fact3">Free</span></span>
           </div>
-        </div>
-
-        <div class="scene">
-          <div class="tv">
-            <div class="tv-body">
-              <div class="tv-screen">
-                <img src="/images/shot-tv-player.jpg" width="1280" height="720" alt="Karalo on a TV, playing the karaoke version of Dancing Queen with the lyrics on screen and a QR code to join" data-i18n-alt="tvAlt" />
-              </div>
-              <div class="tv-chin"><i></i></div>
-            </div>
-            <div class="tv-stand"><div class="tv-neck"></div><div class="tv-foot"></div></div>
-          </div>
-
-          <img class="iphone" src="/images/iphone-queue.webp" width="540" height="1064" alt="The Karalo queue on a phone: Dancing Queen now playing, sung by Maya, and four songs up next with who is singing each" data-i18n-alt="phoneAlt" />
         </div>
       </div>
     </section>
@@ -419,8 +398,6 @@
       fact1: "Aucune appli pour les invités",
       fact2: "Aucun compte",
       fact3: "Gratuit",
-      tvAlt: "Karalo sur une télé, qui joue la version karaoké de Dancing Queen avec les paroles à l'écran et un code QR pour se joindre",
-      phoneAlt: "La file Karalo sur un téléphone : Dancing Queen en cours, chantée par Maya, et quatre chansons à suivre avec qui chante chacune",
       howKicker: "Comment ça marche",
       howTitle: "Prêt à chanter en trois étapes",
       howLead: "Karalo tourne sur la télé. Vos invités utilisent le téléphone qu'ils ont déjà.",
@@ -483,6 +460,21 @@
       : saved || ((navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en");
     if (current === "fr") apply("fr");
     toggle.addEventListener("click", () => { current = current === "fr" ? "en" : "fr"; apply(current); });
+
+    const hero = document.getElementById("hero");
+    const heroPhoto = document.getElementById("heroPhoto");
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      let frame = null;
+      const parallax = () => {
+        frame = null;
+        const y = Math.max(0, -hero.getBoundingClientRect().top);
+        heroPhoto.style.transform = `translate3d(0, ${y * 0.12}px, 0)`;
+      };
+      const onScroll = () => { if (!frame) frame = requestAnimationFrame(parallax); };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      parallax();
+    }
   </script>
 </body>
 </html>
