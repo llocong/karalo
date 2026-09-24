@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
 private val QUIET_ZONE_PADDING = 8.dp
 
 /**
- * Single reusable QR display used in all 3 karaoke placements (nav-drawer card, player overlay,
+ * Single reusable QR display used in all 3 karaoke placements (Home join banner, player overlay,
  * empty-queue waiting screen) so sizing/contrast stay visually identical everywhere the spec
  * requires it. [sizeDp] is the only thing callers vary.
  *

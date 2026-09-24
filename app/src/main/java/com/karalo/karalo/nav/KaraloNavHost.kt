@@ -12,6 +12,7 @@ import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -176,6 +177,10 @@ fun KaraloNavHost(
     // subtrees: every navigation to or from the player would otherwise dispose and recreate the
     // whole NavHost (and hence Home/Search's own state, rememberSaveable included) from scratch.
     // movableContentOf instead relocates the existing composition node, preserving its state.
+    //
+    // Being remembered, it would also capture sessionJoinUrl's *first* value (null, until the
+    // session resolves) for good -- read through rememberUpdatedState so Home sees later updates.
+    val currentSessionJoinUrl by rememberUpdatedState(sessionJoinUrl)
     val screens =
         remember {
             movableContentOf {
@@ -213,6 +218,7 @@ fun KaraloNavHost(
                             searchRailFocusRequester = searchRailFocusRequester,
                             settingsContentFocusTrigger = settingsContentFocusTrigger,
                             settingsRailFocusRequester = settingsRailFocusRequester,
+                            sessionJoinUrl = currentSessionJoinUrl,
                         )
                     }
                     composable(
@@ -296,7 +302,6 @@ fun KaraloNavHost(
                         activateTopLevel(NavDestination.Settings.route)
                         settingsContentFocusTrigger++
                     },
-                    sessionJoinUrl = sessionJoinUrl,
                 )
             },
             content = screens,
