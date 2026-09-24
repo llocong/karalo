@@ -46,6 +46,7 @@ internal fun MainTabsHost(
     searchRailFocusRequester: FocusRequester,
     settingsContentFocusTrigger: Int,
     settingsRailFocusRequester: FocusRequester,
+    sessionJoinUrl: String?,
     modifier: Modifier = Modifier,
 ) {
     var homeEverActive by rememberSaveable { mutableStateOf(activeDestination == NavDestination.Home.route) }
@@ -73,6 +74,7 @@ internal fun MainTabsHost(
                 railFocusRequester = homeRailFocusRequester,
                 firstVideoFocusRequester = homeFirstVideoFocusRequester,
                 homeReselectTrigger = homeReselectTrigger,
+                sessionJoinUrl = sessionJoinUrl,
                 modifier = Modifier.tabVisibility(activeDestination == NavDestination.Home.route),
             )
         }

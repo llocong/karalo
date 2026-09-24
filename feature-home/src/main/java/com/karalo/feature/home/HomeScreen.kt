@@ -80,6 +80,9 @@ fun HomeScreen(
     claimInitialPlaceholderFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
     firstVideoFocusRequester: FocusRequester? = null,
+    // Null until the karaoke session is known (briefly at launch, or for as long as the backend is
+    // unreachable) -- the join banner is simply absent until then.
+    sessionJoinUrl: String? = null,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -96,6 +99,7 @@ fun HomeScreen(
         claimInitialPlaceholderFocus = claimInitialPlaceholderFocus,
         railFocusRequester = railFocusRequester,
         firstVideoFocusRequester = firstVideoFocusRequester ?: remember { FocusRequester() },
+        sessionJoinUrl = sessionJoinUrl,
         modifier = modifier,
     )
 }
@@ -111,6 +115,7 @@ internal fun HomeScreenContent(
     claimInitialPlaceholderFocus: Boolean = false,
     railFocusRequester: FocusRequester? = null,
     firstVideoFocusRequester: FocusRequester = remember { FocusRequester() },
+    sessionJoinUrl: String? = null,
     modifier: Modifier = Modifier,
 ) {
     // The video last clicked into, restored on a genuine return from the player (not merely
@@ -294,6 +299,19 @@ internal fun HomeScreenContent(
                 restoreFocusRequester = restoreFocusRequester,
                 railFocusRequester = railFocusRequester,
                 onItemFocused = trackedOnItemFocused,
+                header =
+                    sessionJoinUrl?.let { joinUrl ->
+                        {
+                            JoinPartyCard(
+                                joinUrl = joinUrl,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = SAFE_ZONE_HORIZONTAL)
+                                        .padding(bottom = SHELF_SPACING),
+                            )
+                        }
+                    },
             )
             HomeShelf(
                 title = POP_TITLE,
@@ -335,6 +353,10 @@ private fun HomeShelf(
     restoreFocusRequester: FocusRequester? = null,
     railFocusRequester: FocusRequester? = null,
     onItemFocused: ((Any) -> Unit)? = null,
+    // Rendered above the title, *inside* the shelf's own bring-into-view area -- so the join
+    // banner above Top Picks scrolls back into view along with it (rather than staying scrolled
+    // off, since the banner itself is never focused and nothing else would ever reveal it again).
+    header: (@Composable () -> Unit)? = null,
 ) {
     // Requests the whole shelf (title included) into view -- not just the focused card -- when
     // any card in this shelf gains focus, so scrolling back up to an earlier shelf always reveals
@@ -366,6 +388,7 @@ private fun HomeShelf(
                 .bringIntoViewRequester(shelfBringIntoViewRequester)
                 .onFocusChanged { shelfHasFocus = it.hasFocus },
     ) {
+        header?.invoke()
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,

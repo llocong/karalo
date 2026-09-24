@@ -45,7 +45,7 @@ unofficial extraction over the official YouTube API, module boundaries, the kara
 
 ## Karaoke remote control
 
-Phones join the TV's karaoke session by scanning a QR code shown in the nav drawer, over the
+Phones join the TV's karaoke session by scanning a QR code shown at the top of Home, over the
 player, or on the "waiting for the next song" screen — no app install, no account. From a plain
 mobile browser they enter a name, search, and add songs to a shared queue that plays automatically
 when nothing else is. Clicking a Home/Search result on the TV directly always plays instantly
