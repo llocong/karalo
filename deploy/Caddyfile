@@ -1,6 +1,15 @@
 # Caddy gets and renews the HTTPS certificate for this hostname on its own, and passes WebSocket
-# upgrades through to the backend. deploy/setup-server.sh replaces KARALO_HOSTNAME.
+# upgrades through to the backend. deploy/setup-server.sh and deploy/deploy.sh replace
+# KARALO_HOSTNAME.
 KARALO_HOSTNAME {
-	encode gzip
+	encode zstd gzip
+
+	# Let browsers keep static files instead of downloading them on every visit. Fonts never
+	# change under the same name; images might, so they're kept for a week.
+	@fonts path /fonts/*.woff2
+	header @fonts Cache-Control "public, max-age=31536000, immutable"
+	@images path /images/*
+	header @images Cache-Control "public, max-age=604800"
+
 	reverse_proxy 127.0.0.1:8080
 }

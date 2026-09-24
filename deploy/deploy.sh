@@ -18,8 +18,8 @@ trap 'rm -rf "$work"' EXIT
 export COPYFILE_DISABLE=1
 git -C "$repo" archive HEAD | tar -x -C "$work"
 (cd "$work" && ./gradlew -p backend installDist -q)
-tar -czf "$work/karalo-backend.tgz" -C "$work/backend/build/install/karalo-backend" .
-tar -czf "$work/deploy-files.tgz" -C "$work/deploy" .
+tar --no-xattrs -czf "$work/karalo-backend.tgz" -C "$work/backend/build/install/karalo-backend" .
+tar --no-xattrs -czf "$work/deploy-files.tgz" -C "$work/deploy" .
 
 gcloud compute scp --zone "$zone" "$work/karalo-backend.tgz" "$work/deploy-files.tgz" "$vm":/tmp/
 gcloud compute ssh --zone "$zone" "$vm" --command "
@@ -27,6 +27,9 @@ gcloud compute ssh --zone "$zone" "$vm" --command "
   rm -rf /tmp/karalo-deploy && mkdir -p /tmp/karalo-deploy && tar -xzf /tmp/deploy-files.tgz -C /tmp/karalo-deploy
   if [ -n '$setup_host' ]; then sudo sh /tmp/karalo-deploy/setup-server.sh '$setup_host'; fi
   sudo rm -rf /opt/karalo/* && sudo tar -xzf /tmp/karalo-backend.tgz -C /opt/karalo
+  host=\$(sudo sed -n 's|^KARALO_PUBLIC_BASE_URL=https://||p' /etc/karalo/karalo.env)
+  sed \"s/KARALO_HOSTNAME/\$host/\" /tmp/karalo-deploy/Caddyfile | sudo tee /etc/caddy/Caddyfile >/dev/null
+  sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null && sudo systemctl reload caddy
   sudo systemctl restart karalo
   sleep 8 && systemctl is-active karalo
 "

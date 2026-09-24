@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy · Karalo</title>
+  <meta name="description" content="What Karalo collects, why, and how long it keeps it." />
+  <meta name="theme-color" content="#0B0710" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect x='6' y='6' width='84' height='84' rx='22' fill='%237C3AED'/%3E%3Crect x='40' y='26' width='16' height='20' rx='8' fill='%23F5F3F7'/%3E%3Crect x='41' y='46' width='14' height='4' rx='2' fill='%23FF5D8F'/%3E%3Cpolygon points='43,50 53,50 51,70 45,70' fill='%23F5F3F7'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <style>
+    /* Self-hosted fonts (same rules as /fonts/fonts.css), inline so they need no extra request. */
+    @font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 500 700; font-display: swap; src: url(/fonts/fredoka-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+    @font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 500 700; font-display: swap; src: url(/fonts/fredoka-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    @font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url(/fonts/manrope-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+    @font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url(/fonts/manrope-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+    /* Same brand tokens as index.html. */
+    :root {
+      color-scheme: dark;
+      --bg: #0B0710; --surface: #17101F; --border: #241834;
+      --primary: #7C3AED; --accent: #FF5D8F; --text: #F5F3F7; --muted: #A79BB5;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+    header { border-bottom: 1px solid var(--border); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; max-width: 1120px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+    .brand span { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 22px; }
+    .lang { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 6px 12px; font: 700 13px 'Manrope', sans-serif; cursor: pointer; }
+    main { padding: 56px 0 80px; }
+    h1, h2 { font-family: 'Fredoka', sans-serif; font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+    h1 { font-size: clamp(34px, 5vw, 46px); margin: 0 0 8px; }
+    h2 { font-size: 23px; margin: 40px 0 10px; }
+    p, li { color: #D8CCE6; }
+    ul { padding-left: 22px; }
+    li { margin: 6px 0; }
+    strong { color: var(--text); }
+    .updated { color: var(--muted); font-size: 14px; margin: 0 0 28px; }
+    .summary { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px 24px; }
+    .summary p { margin: 0; }
+    footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; max-width: 1120px; }
+    footer a { color: var(--muted); text-decoration: none; }
+    [lang-block] { display: none; }
+    html[lang="en"] [lang-block="en"], html[lang="fr"] [lang-block="fr"] { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a class="brand" href="/">
+        <svg width="34" height="34" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+          <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
+          <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
+          <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
+          <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
+          <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
+          <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
+          <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
+        </svg>
+        <span>Karalo</span>
+      </a>
+      <button class="lang" id="langToggle" type="button">FR</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- ================= English ================= -->
+    <div lang-block="en">
+      <h1>Privacy policy</h1>
+      <p class="updated">Last updated: September 23, 2026</p>
+
+      <div class="summary">
+        <p><strong>In short:</strong> Karalo has no accounts and no ads, and doesn't track you. To run a karaoke session, it stores the name you type, the songs added to the queue, and a random ID for the TV. That's it.</p>
+      </div>
+
+      <h2>What we collect</h2>
+      <ul>
+        <li><strong>The name you enter</strong> when you join a session from your phone. It's shown next to the songs you add. Use any name or nickname you like.</li>
+        <li><strong>The songs in the queue</strong>: each song's title, channel name, picture and length, who added it, and whether it has played.</li>
+        <li><strong>A random ID for each TV</strong>, created by the app the first time it runs, plus the session's code and playback state (playing, paused, which song). It doesn't identify you or the TV's owner.</li>
+        <li><strong>Your searches</strong>: what you search for from your phone is sent to our server, which looks up karaoke versions and sends back the results.</li>
+        <li><strong>Server logs</strong>: for troubleshooting, the server records which pages and searches were requested and when, without IP addresses. When a request fails (for example, while the server is restarting), the error log also records the requesting device's IP address. All server logs are deleted after 30 days.</li>
+      </ul>
+      <p>We don't collect email addresses, phone numbers, contacts, location or advertising IDs, and we don't use analytics or advertising trackers. Apart from the error logs above, our server only keeps IP addresses briefly in memory to limit abuse (for example, too many requests per minute).</p>
+
+      <h2>What stays on your phone</h2>
+      <p>Your phone's browser stores a random access token for the session you joined, your name, and your language choice. They aren't cookies, and they don't leave your phone except to talk to Karalo. Clearing your browser data removes them.</p>
+
+      <h2>Other services involved</h2>
+      <ul>
+        <li><strong>Google Cloud</strong> hosts our server, in the United States.</li>
+        <li><strong>Cloudflare</strong> provides the domain name (DNS) for karalo.app. It doesn't receive the content of your visits.</li>
+        <li><strong>Song videos and pictures</strong> are loaded from the servers of the video platform that hosts them, directly by the TV and your phone, so that platform can see those devices' IP addresses.</li>
+      </ul>
+      <p>We don't sell or share your information with anyone else.</p>
+
+      <h2>How long we keep it</h2>
+      <p>Session data (names, queue, TV ID) is kept on our server so that a TV's session and queue are still there next time. Backups are kept for 7 days. We don't delete session data automatically yet. If you'd like your name or a TV's data removed, email us and we'll delete it.</p>
+
+      <h2>Children</h2>
+      <p>Karalo is a party app for everyone, and it doesn't ask for anyone's age or real name. A parent can ask us to delete a name their child entered.</p>
+
+      <h2>Your rights</h2>
+      <p>You can ask us what we hold about you, to correct it, or to delete it. Because there are no accounts, tell us the name you used and roughly when, or the TV's session code.</p>
+
+      <h2>Contact</h2>
+      <p>The person responsible for protecting personal information at Karalo is its owner. Write to <a href="mailto:hello@karalo.app">hello@karalo.app</a> for any question or request about your information.</p>
+
+      <h2>Changes</h2>
+      <p>If this policy changes, we'll update the date above. If a change is significant (for example, if we add crash reporting to the TV app), we'll say so on this page.</p>
+    </div>
+
+    <!-- ================= Français ================= -->
+    <div lang-block="fr">
+      <h1>Politique de confidentialité</h1>
+      <p class="updated">Dernière mise à jour : 23 septembre 2026</p>
+
+      <div class="summary">
+        <p><strong>En bref :</strong> Karalo n'a ni comptes ni publicités, et ne vous suit pas. Pour faire fonctionner une soirée karaoké, l'appli conserve le nom que vous entrez, les chansons ajoutées à la file et un identifiant aléatoire pour la télé. C'est tout.</p>
+      </div>
+
+      <h2>Ce que nous recueillons</h2>
+      <ul>
+        <li><strong>Le nom que vous entrez</strong> quand vous rejoignez une soirée depuis votre téléphone. Il s'affiche à côté des chansons que vous ajoutez. Utilisez le nom ou le surnom que vous voulez.</li>
+        <li><strong>Les chansons de la file</strong> : le titre, le nom de la chaîne, l'image et la durée de chaque chanson, qui l'a ajoutée et si elle a joué.</li>
+        <li><strong>Un identifiant aléatoire pour chaque télé</strong>, créé par l'appli à son premier lancement, ainsi que le code de la soirée et l'état de la lecture (en cours, en pause, quelle chanson). Il ne vous identifie pas, ni le propriétaire de la télé.</li>
+        <li><strong>Vos recherches</strong> : ce que vous cherchez depuis votre téléphone est envoyé à notre serveur, qui trouve les versions karaoké et renvoie les résultats.</li>
+        <li><strong>Les journaux du serveur</strong> : pour le dépannage, le serveur note quelles pages et quelles recherches ont été demandées, et quand, sans adresse IP. Quand une requête échoue (par exemple pendant un redémarrage du serveur), le journal d'erreurs note aussi l'adresse IP de l'appareil. Tous les journaux du serveur sont effacés après 30 jours.</li>
+      </ul>
+      <p>Nous ne recueillons ni adresse courriel, ni numéro de téléphone, ni contacts, ni localisation, ni identifiant publicitaire, et nous n'utilisons aucun outil d'analyse ou de pistage publicitaire. Outre les journaux d'erreurs ci-dessus, notre serveur ne garde les adresses IP que brièvement en mémoire pour limiter les abus (par exemple, trop de requêtes par minute).</p>
+
+      <h2>Ce qui reste sur votre téléphone</h2>
+      <p>Le navigateur de votre téléphone conserve un jeton d'accès aléatoire pour la soirée que vous avez rejointe, votre nom et votre choix de langue. Ce ne sont pas des témoins (cookies), et ils ne quittent votre téléphone que pour communiquer avec Karalo. Effacer les données de votre navigateur les supprime.</p>
+
+      <h2>Autres services utilisés</h2>
+      <ul>
+        <li><strong>Google Cloud</strong> héberge notre serveur, aux États-Unis.</li>
+        <li><strong>Cloudflare</strong> fournit le nom de domaine (DNS) de karalo.app. Il ne reçoit pas le contenu de vos visites.</li>
+        <li><strong>Les vidéos et images des chansons</strong> sont chargées depuis les serveurs de la plateforme vidéo qui les héberge, directement par la télé et votre téléphone. Cette plateforme peut donc voir l'adresse IP de ces appareils.</li>
+      </ul>
+      <p>Nous ne vendons ni ne partageons vos renseignements avec qui que ce soit d'autre.</p>
+
+      <h2>Combien de temps nous les conservons</h2>
+      <p>Les données des soirées (noms, file, identifiant de la télé) sont conservées sur notre serveur pour que la soirée et la file d'une télé soient toujours là la prochaine fois. Les sauvegardes sont conservées 7 jours. Nous n'effaçons pas encore automatiquement les données des soirées. Si vous souhaitez que votre nom ou les données d'une télé soient supprimés, écrivez-nous et nous les effacerons.</p>
+
+      <h2>Enfants</h2>
+      <p>Karalo est une appli de fête pour tous, et elle ne demande ni l'âge ni le vrai nom de personne. Un parent peut nous demander d'effacer un nom entré par son enfant.</p>
+
+      <h2>Vos droits</h2>
+      <p>Vous pouvez nous demander ce que nous détenons à votre sujet, le faire corriger ou le faire effacer. Comme il n'y a pas de comptes, indiquez-nous le nom utilisé et à peu près quand, ou le code de la soirée.</p>
+
+      <h2>Nous joindre</h2>
+      <p>La personne responsable de la protection des renseignements personnels chez Karalo est son propriétaire. Écrivez à <a href="mailto:hello@karalo.app">hello@karalo.app</a> pour toute question ou demande au sujet de vos renseignements.</p>
+
+      <h2>Modifications</h2>
+      <p>Si cette politique change, nous mettrons à jour la date ci-dessus. Si un changement est important (par exemple, si nous ajoutons des rapports de plantage à l'appli télé), nous l'indiquerons sur cette page.</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 Karalo</span>
+      <a href="/" id="homeLink">karalo.app</a>
+    </div>
+  </footer>
+
+  <script>
+    // Same language rules as the landing page: ?lang=, then the saved choice, then the browser.
+    const toggle = document.getElementById("langToggle");
+    function apply(lang) {
+      document.documentElement.lang = lang;
+      document.title = lang === "fr" ? "Confidentialité · Karalo" : "Privacy · Karalo";
+      toggle.textContent = lang === "fr" ? "EN" : "FR";
+      try { localStorage.setItem("karalo-lang", lang); } catch (e) { /* private mode */ }
+    }
+    let saved = null;
+    try { saved = localStorage.getItem("karalo-lang"); } catch (e) { /* private mode */ }
+    const fromLink = new URLSearchParams(location.search).get("lang");
+    let current = fromLink === "fr" || fromLink === "en"
+      ? fromLink
+      : saved || ((navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en");
+    apply(current);
+    toggle.addEventListener("click", () => { current = current === "fr" ? "en" : "fr"; apply(current); });
+  </script>
+</body>
+</html>
