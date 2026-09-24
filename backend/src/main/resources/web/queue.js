@@ -50,13 +50,14 @@
   function render(snapshot) {
     applyTheme(snapshot.theme);
     currentPlaybackState = snapshot.playbackState;
-    const isPaused = currentPlaybackState === "PAUSED";
-    pauseResumeButton.innerHTML = isPaused ? PLAY_ICON : PAUSE_ICON;
-    pauseResumeButton.setAttribute("aria-label", isPaused ? "Play" : "Pause");
+    // Nothing playing on the TV: nothing to pause or resume, so the button rests, disabled, on Play.
+    const hasNowPlaying = Boolean(snapshot.nowPlaying);
+    const showPlay = !hasNowPlaying || currentPlaybackState === "PAUSED";
+    pauseResumeButton.innerHTML = showPlay ? PLAY_ICON : PAUSE_ICON;
+    pauseResumeButton.setAttribute("aria-label", showPlay ? "Play" : "Pause");
+    pauseResumeButton.disabled = !hasNowPlaying;
     // Nothing to skip to -- same rule the TV's own on-screen Next button follows.
     skipButton.disabled = snapshot.queue.length === 0;
-    // Nothing playing on the TV, so nothing to pause or resume.
-    pauseResumeButton.disabled = !snapshot.nowPlaying;
 
     renderNowPlaying(snapshot.nowPlaying);
     renderMiniPlayer(snapshot.nowPlaying);
