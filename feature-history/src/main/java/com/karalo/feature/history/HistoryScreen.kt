@@ -40,10 +40,11 @@ import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
 import com.karalo.core.ui.components.SidePanel
 import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
+import com.karalo.core.ui.theme.KaraloPagePadding
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-private val SAFE_ZONE_HORIZONTAL = 58.dp
-private val SAFE_ZONE_VERTICAL = 28.dp
+private val SAFE_ZONE_HORIZONTAL = KaraloPagePadding
+private val SAFE_ZONE_VERTICAL = KaraloPagePadding
 
 // Start fetching the next page while this many entries are still below the last visible one,
 // so holding DOWN rarely reaches the end of what's loaded.

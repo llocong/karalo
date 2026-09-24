@@ -1,6 +1,7 @@
 package com.karalo.core.testing
 
 import com.karalo.core.common.error.AppError
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import com.karalo.core.karaoke.domain.HistoryPage
 import com.karalo.core.karaoke.domain.HistoryPlay
@@ -51,6 +52,12 @@ class FakeKaraokeRepository : KaraokeRepository {
 
     private val sessionJoinUrlFlow = MutableStateFlow<String?>(null)
     override val sessionJoinUrl: StateFlow<String?> = sessionJoinUrlFlow.asStateFlow()
+
+    private val seasonalThemeFlow = MutableStateFlow(SeasonalTheme.DEFAULT)
+    override val seasonalTheme: StateFlow<SeasonalTheme> = seasonalThemeFlow.asStateFlow()
+
+    /** When set, [setSeasonalTheme] fails with this error and leaves the theme unchanged. */
+    var setSeasonalThemeError: AppError? = null
 
     /** Test-only setters — production code only ever observes these as read-only flows. */
     fun setQueueSnapshot(snapshot: KaraokeQueueSnapshot) {
@@ -137,5 +144,11 @@ class FakeKaraokeRepository : KaraokeRepository {
         historyError?.let { return AppResult.Failure(it) }
         historyPlays.clear()
         return AppResult.Success(Unit)
+    }
+
+    override suspend fun setSeasonalTheme(theme: SeasonalTheme): AppResult<SeasonalTheme> {
+        setSeasonalThemeError?.let { return AppResult.Failure(it) }
+        seasonalThemeFlow.value = theme
+        return AppResult.Success(theme)
     }
 }

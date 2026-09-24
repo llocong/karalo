@@ -11,11 +11,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.karalo.core.ui.theme.KaraloPagePadding
 
 // Safe-zone content margins recommended by the TV layout guidelines
 // (developer.android.com/design/ui/tv/guides/styles/layouts).
-private val SAFE_ZONE_HORIZONTAL = 58.dp
-private val SAFE_ZONE_VERTICAL = 28.dp
 
 @Composable
 fun ErrorState(
@@ -27,7 +26,7 @@ fun ErrorState(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SAFE_ZONE_VERTICAL),
+                .padding(KaraloPagePadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

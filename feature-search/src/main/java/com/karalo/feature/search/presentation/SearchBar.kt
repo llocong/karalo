@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -37,10 +36,12 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.karalo.core.ui.theme.KaraloPagePadding
+import com.karalo.core.ui.theme.LocalKaraloTokens
 
 // Safe-zone content margin (developer.android.com/design/ui/tv/guides/styles/layouts), duplicated
 // locally per this codebase's established convention (see HomeScreen.kt/SearchResultsRow.kt).
-private val SAFE_ZONE_HORIZONTAL = 58.dp
+private val SAFE_ZONE_HORIZONTAL = KaraloPagePadding
 private val MIC_BUTTON_SIZE = 56.dp
 private val MIC_TO_FIELD_GAP = 16.dp
 private val SEARCH_FIELD_HORIZONTAL_PADDING = 24.dp
@@ -110,17 +111,18 @@ private fun MicButton(
             is VoiceSearchState.Error -> "Voice search, unavailable"
             VoiceSearchState.Idle -> "Voice search"
         }
+    val tokens = LocalKaraloTokens.current
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         colors =
             ClickableSurfaceDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                focusedContainerColor = MaterialTheme.colorScheme.primary,
-                focusedContentColor = Color.White,
-                pressedContainerColor = MaterialTheme.colorScheme.primary,
-                pressedContentColor = Color.White,
+                containerColor = tokens.control,
+                contentColor = tokens.onControl,
+                focusedContainerColor = tokens.control,
+                focusedContentColor = tokens.onControl,
+                pressedContainerColor = tokens.control,
+                pressedContentColor = tokens.onControl,
             ),
         modifier =
             Modifier

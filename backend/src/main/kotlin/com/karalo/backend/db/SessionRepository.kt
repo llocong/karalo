@@ -9,6 +9,7 @@ import com.karalo.backend.domain.SessionCodeGenerator
 import com.karalo.backend.domain.TokenGenerator
 import com.karalo.backend.domain.model.NowPlayingDto
 import com.karalo.backend.domain.model.PublicSessionDto
+import com.karalo.backend.domain.model.SeasonalTheme
 import com.karalo.backend.domain.model.SessionEnsureResponseDto
 import com.karalo.backend.domain.model.SessionSummaryDto
 import com.karalo.backend.youtube.formatVideoTitle
@@ -110,7 +111,12 @@ class SessionRepository(
             val code = SessionCodeGenerator.normalize(rawCode)
             val session = Sessions.selectAll().where { Sessions.code eq code }.singleOrNull() ?: throw ApiException.NotFound("Unknown session code")
             val count = activeParticipantCount(session[Sessions.id])
-            PublicSessionDto(sessionId = session[Sessions.id], code = session[Sessions.code], participantCount = count)
+            PublicSessionDto(
+                sessionId = session[Sessions.id],
+                code = session[Sessions.code],
+                participantCount = count,
+                theme = session[Sessions.theme],
+            )
         }
 
     fun resolveSessionIdForCode(rawCode: String): String =
@@ -124,6 +130,28 @@ class SessionRepository(
             Sessions.selectAll().where { Sessions.id eq sessionId }.singleOrNull()?.get(Sessions.playbackState)
                 ?: throw ApiException.NotFound("Unknown session")
         }
+
+    fun getTheme(sessionId: String): String =
+        transaction {
+            Sessions.selectAll().where { Sessions.id eq sessionId }.singleOrNull()?.get(Sessions.theme)
+                ?: throw ApiException.NotFound("Unknown session")
+        }
+
+    /** Stores the session's seasonal theme; rejects anything that isn't a [SeasonalTheme] name. */
+    fun setTheme(
+        sessionId: String,
+        theme: String,
+    ): String {
+        val valid = SeasonalTheme.entries.firstOrNull { it.name == theme }
+            ?: throw ApiException.Validation("theme must be one of ${SeasonalTheme.entries.joinToString()}")
+        transaction {
+            Sessions.update({ Sessions.id eq sessionId }) {
+                it[Sessions.theme] = valid.name
+                it[updatedAt] = Instant.now()
+            }
+        }
+        return valid.name
+    }
 
     fun setPlaybackState(
         sessionId: String,
@@ -282,6 +310,7 @@ class SessionRepository(
             nowPlaying = resolveNowPlaying(sessionId),
             participantCount = participantCount,
             queueLength = queueLength,
+            theme = session[Sessions.theme],
         )
     }
 

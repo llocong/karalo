@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.karalo.core.common.logging.Logger
 import com.karalo.core.common.model.PlayableItemRef
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import com.karalo.core.common.session.SearchSessionHolder
 import com.karalo.feature.search.domain.SearchResultItem
@@ -17,8 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val TOP_PICKS_QUERY = "karaoke"
-private const val POP_QUERY = "karaoke pop"
-private const val ROCK_QUERY = "karaoke rock"
+private const val HALLOWEEN_QUERY = "halloween karaoke"
 
 @HiltViewModel
 class HomeViewModel
@@ -31,20 +31,22 @@ class HomeViewModel
         private val _uiState = MutableStateFlow(HomeUiState())
         val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-        init {
-            // Sequential, not launched independently per shelf: each search (and the YouTube
-            // "proof of origin" token it mints along the way, via a single shared, main-thread-
-            // bound WebView -- see WebViewPoTokenProvider) is real, non-trivial network+parse
-            // work, confirmed on a real TV to take 1-3.5s per shelf. Firing all three at once
-            // used to mean three of these racing simultaneously right as Home first composes,
-            // which measurably caused hundreds of skipped frames on a real (2GB RAM) reference
-            // TV. Loading one at a time trades faster *aggregate* completion for the row that's
-            // actually responsive the whole way through -- each shelf still appears as soon as
-            // its own search finishes, just without the pile-up.
+        private val requestedShelves = mutableSetOf<SeasonalTheme>()
+
+        /**
+         * Loads the shelf the active theme shows -- Top Picks by default, "Halloween Hits" for the
+         * Halloween theme -- the first time that theme is on, so Home never searches for a shelf
+         * it isn't showing.
+         */
+        fun onSeasonalThemeChanged(theme: SeasonalTheme) {
+            if (!requestedShelves.add(theme)) return
             viewModelScope.launch {
-                loadShelf(TOP_PICKS_QUERY) { state -> _uiState.update { it.copy(topPicks = state) } }
-                loadShelf(POP_QUERY) { state -> _uiState.update { it.copy(pop = state) } }
-                loadShelf(ROCK_QUERY) { state -> _uiState.update { it.copy(rock = state) } }
+                when (theme) {
+                    SeasonalTheme.DEFAULT ->
+                        loadShelf(TOP_PICKS_QUERY) { state -> _uiState.update { it.copy(topPicks = state) } }
+                    SeasonalTheme.HALLOWEEN ->
+                        loadShelf(HALLOWEEN_QUERY) { state -> _uiState.update { it.copy(halloween = state) } }
+                }
             }
         }
 

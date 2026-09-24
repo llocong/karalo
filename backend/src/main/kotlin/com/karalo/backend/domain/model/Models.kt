@@ -8,6 +8,9 @@ enum class NowPlayingSource { QUEUE, PLAY_NOW }
 
 enum class QueueItemStatus { PENDING, PLAYED, SKIPPED, REMOVED }
 
+/** The session's seasonal look, picked on the TV and applied to the TV and every joined phone. */
+enum class SeasonalTheme { DEFAULT, HALLOWEEN }
+
 @Serializable
 data class QueueItemDto(
     val id: String,
@@ -39,6 +42,7 @@ data class QueueSnapshotDto(
     val playbackState: String,
     val nowPlaying: NowPlayingDto?,
     val queue: List<QueueItemDto>,
+    val theme: String = SeasonalTheme.DEFAULT.name,
 )
 
 @Serializable
@@ -50,6 +54,7 @@ data class SessionSummaryDto(
     val nowPlaying: NowPlayingDto?,
     val participantCount: Int,
     val queueLength: Int,
+    val theme: String = SeasonalTheme.DEFAULT.name,
 )
 
 @Serializable
@@ -63,6 +68,7 @@ data class PublicSessionDto(
     val sessionId: String,
     val code: String,
     val participantCount: Int,
+    val theme: String = SeasonalTheme.DEFAULT.name,
 )
 
 @Serializable
@@ -187,4 +193,9 @@ data class MostPlayedDto(
 @Serializable
 data class HistoryPausedDto(
     val paused: Boolean,
+)
+
+@Serializable
+data class ThemeDto(
+    val theme: String,
 )

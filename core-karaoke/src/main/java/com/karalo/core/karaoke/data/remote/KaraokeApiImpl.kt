@@ -11,6 +11,7 @@ import com.karalo.core.karaoke.data.remote.dto.MostPlayedDto
 import com.karalo.core.karaoke.data.remote.dto.NowPlayingPayloadDto
 import com.karalo.core.karaoke.data.remote.dto.QueueSnapshotDto
 import com.karalo.core.karaoke.data.remote.dto.SessionEnsureResponseDto
+import com.karalo.core.karaoke.data.remote.dto.ThemeDto
 import com.karalo.core.karaoke.di.KaraokeHttpClient
 import com.karalo.core.karaoke.domain.PlayNowSong
 import kotlinx.coroutines.CoroutineDispatcher
@@ -171,6 +172,18 @@ class KaraokeApiImpl
                 bearer = tvSecret,
                 body = json.encodeToString(HistoryPausedDto.serializer(), HistoryPausedDto(paused)),
             ).map { it.paused }
+
+        override suspend fun setTheme(
+            sessionId: String,
+            tvSecret: String,
+            theme: String,
+        ): AppResult<String> =
+            execute<ThemeDto>(
+                path = "/api/sessions/$sessionId/theme",
+                method = "PUT",
+                bearer = tvSecret,
+                body = json.encodeToString(ThemeDto.serializer(), ThemeDto(theme)),
+            ).map { it.theme }
 
         override suspend fun clearHistory(
             sessionId: String,

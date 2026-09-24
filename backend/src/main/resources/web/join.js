@@ -25,6 +25,7 @@
     return;
   }
   const sessionId = lookup.data.sessionId;
+  applyTheme(lookup.data.theme);
 
   // Already joined this session on this phone? Skip straight to search if the token still works.
   // Its 401 is handled right here (not by apiFetch's usual redirect, which would reload this very

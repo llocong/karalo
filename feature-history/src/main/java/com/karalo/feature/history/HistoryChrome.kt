@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,9 +39,11 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.karalo.core.ui.theme.KaraloPageHeaderHeight
+import com.karalo.core.ui.theme.KaraloPagePadding
 
-private val SAFE_ZONE_HORIZONTAL = 58.dp
-private val SAFE_ZONE_VERTICAL = 28.dp
+private val SAFE_ZONE_HORIZONTAL = KaraloPagePadding
+private val SAFE_ZONE_VERTICAL = KaraloPagePadding
 
 // Sized after YouTube's own TV History page: 36dp pills, 18dp icons, roomy side padding.
 private val COMPACT_BUTTON_HEIGHT = 36.dp
@@ -75,7 +78,12 @@ internal fun HistoryHeader(
     // own TV History page, so the list gets the rest of the screen.
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = SAFE_ZONE_HORIZONTAL).padding(bottom = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = SAFE_ZONE_HORIZONTAL)
+                .padding(bottom = 16.dp)
+                .heightIn(min = KaraloPageHeaderHeight),
     ) {
         Text(
             text = "History",

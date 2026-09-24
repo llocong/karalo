@@ -31,6 +31,7 @@ private fun manrope(weight: FontWeight) =
 
 private val FredokaSemiBold = FontFamily(fredoka(FontWeight.SemiBold))
 private val ManropeRegular = FontFamily(manrope(FontWeight.Normal))
+private val ManropeMedium = FontFamily(manrope(FontWeight.Medium))
 private val ManropeSemiBold = FontFamily(manrope(FontWeight.SemiBold))
 private val ManropeBold = FontFamily(manrope(FontWeight.Bold))
 private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
@@ -40,6 +41,17 @@ private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
 // role (Manrope) on the brand board.
 val KaraloLogoTextStyle =
     TextStyle(fontFamily = FredokaSemiBold, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 24.sp)
+
+// Video tile labels ("Title - Artist" on one text run, wrapping to 2 lines) -- Manrope Medium, a
+// step lighter than body text's neighbors so a row of tiles reads as content rather than chrome.
+val KaraloTileLabelTextStyle =
+    TextStyle(
+        fontFamily = ManropeMedium,
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp,
+    )
 
 // The full 15-style TV Material typography scale (developer.android.com/design/ui/tv/guides/
 // styles/typography), sized up from the guide's phone-derived base tokens for 10-foot legibility.

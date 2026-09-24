@@ -18,7 +18,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
+import com.karalo.core.ui.theme.LocalKaraloTokens
 
 private const val STROKE_WIDTH_DP = 4
 private const val SWEEP_ANGLE_DEGREES = 270f
@@ -37,7 +37,8 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
             ),
         label = "loadingRotationValue",
     )
-    val color = MaterialTheme.colorScheme.primary
+    // Violet by default, the seasonal theme's accent otherwise -- like the app's other brand controls.
+    val color = LocalKaraloTokens.current.control
 
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(48.dp)) {

@@ -7,6 +7,13 @@
   <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/fonts/fonts.css" />
+  <script>
+    // Paint in the last-known seasonal theme before first render (see applyTheme in shared.js).
+    try {
+      var t = localStorage.getItem("karalo_theme");
+      if (t && t !== "DEFAULT") document.documentElement.dataset.theme = t.toLowerCase();
+    } catch (e) {}
+  </script>
   <link rel="stylesheet" href="/shared.css" />
   <style>
     /* The header staying in place while results scroll is NOT implemented with position:
@@ -42,6 +49,27 @@
       -webkit-overflow-scrolling: touch;
       padding: 0 20px 100px;
     }
+    /* The Halloween theme's playlist banner, above the Playlists grid. */
+    .seasonal-banner {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #3B1466 0%, #1A0C24 60%, #3A1A08 100%);
+      border: 1px solid #4A2A1A;
+      cursor: pointer;
+    }
+    html[data-theme="halloween"] .seasonal-banner.halloween-only { display: flex !important; flex-direction: column; gap: 6px; }
+    .seasonal-banner > * { position: relative; }
+    .seasonal-banner .glow {
+      position: absolute; right: -30px; top: -30px; width: 130px; height: 130px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 122, 26, 0.4) 0%, rgba(255, 122, 26, 0) 65%);
+    }
+    .seasonal-banner .bat { position: absolute; right: 22px; top: 18px; width: 34px; }
+    .seasonal-banner .kicker { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: #A3E635; }
+    .seasonal-banner .title { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 22px; }
+    .seasonal-banner .subtitle { font-size: 13px; color: #C9BFD6; }
     .section-heading {
       font-family: 'Manrope', sans-serif;
       font-weight: 700;
@@ -62,9 +90,9 @@
             <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
             <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
             <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
-            <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
+            <rect x="41" y="46" width="14" height="4" rx="2" class="logo-accent"/>
             <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
-            <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
+            <circle cx="70" cy="66" r="7" class="logo-accent"/>
             <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
           </svg>
           <div class="wordmark" style="font-size:18px">Karalo</div>
@@ -84,6 +112,13 @@
 
     <div class="scroll-area">
       <div id="playlistsSection" style="display:none">
+        <div class="seasonal-banner halloween-only" id="halloweenBanner" role="button" tabindex="0">
+          <div class="glow"></div>
+          <svg class="bat" viewBox="0 0 24 12" aria-hidden="true"><path d="M0 5 Q4 0 8 4 Q10 1 12 4 Q14 1 16 4 Q20 0 24 5 Q20 4 18 7 Q15 5 12 9 Q9 5 6 7 Q4 4 0 5Z" fill="#0B0710"/></svg>
+          <div class="kicker">HALLOWEEN PLAYLIST</div>
+          <div class="title">Spooky Sing-Along</div>
+          <div class="subtitle">Thriller, Ghostbusters, Monster Mash and more</div>
+        </div>
         <div class="section-heading">Playlists</div>
         <div id="playlistsGrid" class="playlist-grid"></div>
       </div>
@@ -119,7 +154,7 @@
         </div>
         <div class="transport">
           <button class="icon-button" id="pauseResumeButton" aria-label="Pause">
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/></svg>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" class="on-accent-fill"/><rect x="14" y="5" width="4" height="14" rx="1.5" class="on-accent-fill"/></svg>
           </button>
           <button class="icon-button secondary" id="skipButton" aria-label="Skip">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 4l11 8-11 8V4z" fill="#F5F3F7"/><rect x="16.5" y="4" width="2.5" height="16" fill="#F5F3F7"/></svg>

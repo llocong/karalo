@@ -1,26 +1,23 @@
 package com.karalo.feature.player.presentation
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.karalo.core.ui.components.KaraloLogoMark
 import com.karalo.core.ui.components.KaraokeQrCode
 import com.karalo.core.ui.theme.KaraloBackground
 import com.karalo.core.ui.theme.KaraloLogoTextStyle
 import com.karalo.core.ui.theme.KaraloOutline
-import com.karalo.core.ui.R as CoreUiR
 
 /** Same size/position as the player's own persistent overlay -- see [PlayerScreen]'s own doc for
  *  why the QR must stay in the identical bottom-left spot throughout all of Karaoke Mode. One
@@ -62,11 +59,7 @@ fun KaraokeWaitingScreen(
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
-                painter = painterResource(CoreUiR.drawable.ic_karalo_logo),
-                contentDescription = null,
-                modifier = Modifier.size(SPLASH_LOGO_SIZE),
-            )
+            KaraloLogoMark(size = SPLASH_LOGO_SIZE)
             Text(
                 text = "Karalo",
                 style = KaraloLogoTextStyle.copy(fontSize = 48.sp, lineHeight = 56.sp),

@@ -1,5 +1,7 @@
 package com.karalo.backend.db.tables
 
+import com.karalo.backend.domain.model.SeasonalTheme
+
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.timestamp
 
@@ -34,6 +36,10 @@ object Sessions : Table("sessions") {
     // when the song starts, and forced on when history is paused mid-song -- so a song is only
     // recorded if history was on for its whole run, and resuming never adds one retroactively.
     val nowPlayingHistorySuppressed = bool("now_playing_history_suppressed").default(false)
+
+    // Seasonal theme the host picked on the TV (a SeasonalTheme name), shown on the TV and on
+    // every phone in the session.
+    val theme = text("theme").default(SeasonalTheme.DEFAULT.name)
     val updatedAt = timestamp("updated_at")
     override val primaryKey = PrimaryKey(id)
 }

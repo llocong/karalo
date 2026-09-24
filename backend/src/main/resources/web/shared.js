@@ -1,6 +1,23 @@
 // Shared fetch/localStorage helpers for the karaoke mobile web app. No build step, no framework —
 // see the karaoke implementation plan's "Mobile web app" section for why.
 
+// The session's seasonal theme, picked on the TV (Settings). Sent by the backend with the session
+// lookup and every queue snapshot; remembered so the next page load paints in it straight away
+// (see the inline script in each page's <head>) instead of flashing the default first.
+const THEME_KEY = "karalo_theme";
+
+function applyTheme(theme) {
+  if (!theme) return;
+  const name = theme === "DEFAULT" ? "" : String(theme).toLowerCase();
+  if (name) document.documentElement.dataset.theme = name;
+  else delete document.documentElement.dataset.theme;
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (e) {
+    // Storage blocked (private mode) -- the theme still applies for this page.
+  }
+}
+
 function storageKey(sessionId) {
   return `karalo_participant_${sessionId}`;
 }

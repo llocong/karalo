@@ -30,17 +30,17 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
+import com.karalo.core.ui.theme.KaraloPagePadding
 
 private const val NO_RESULTS_MESSAGE = "No karaoke songs found"
 
 // Safe-zone vertical content margin recommended by the TV layout guidelines
 // (developer.android.com/design/ui/tv/guides/styles/layouts) -- horizontal is applied per-child
 // instead (on the search bar and each row's own contentPadding), see the Column's own comment below.
-private val SAFE_ZONE_VERTICAL = 28.dp
+private val SAFE_ZONE_VERTICAL = KaraloPagePadding
 
 @Composable
 fun SearchScreen(
@@ -263,6 +263,7 @@ internal fun SearchScreenContent(
         }
     }
 }
+
 /** Hosts the results row; only composed when there is at least one result to focus. */
 @Composable
 private fun ColumnScope.ResultsContent(

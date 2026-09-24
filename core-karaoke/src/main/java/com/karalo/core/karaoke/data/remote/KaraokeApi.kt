@@ -14,6 +14,7 @@ import com.karalo.core.karaoke.domain.PlayNowSong
  * heavyweight abstraction" style (see `:core-network`'s bare `OkHttpClient`,
  * `PlaybackRepositoryImpl`), and proportionate to the small (3-call) surface the TV actually needs.
  */
+@Suppress("TooManyFunctions") // one method per backend endpoint
 interface KaraokeApi {
     suspend fun ensureSession(
         tvInstallationId: String,
@@ -74,4 +75,11 @@ interface KaraokeApi {
         sessionId: String,
         tvSecret: String,
     ): AppResult<Unit>
+
+    /** Sets the session's seasonal theme (a SeasonalTheme wire name); returns the stored value. */
+    suspend fun setTheme(
+        sessionId: String,
+        tvSecret: String,
+        theme: String,
+    ): AppResult<String>
 }

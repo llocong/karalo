@@ -37,6 +37,7 @@ fun Route.queueRoutes(deps: AppDependencies) {
                 // a second time in "upcoming" would be confusing on the mobile Queue screen, so
                 // it's filtered out here at the presentation boundary only.
                 queue = deps.queueRepository.listPending(sessionId).filterNot { it.id == nowPlaying?.queueItemId },
+                theme = deps.sessionRepository.getTheme(sessionId),
             ),
         )
     }

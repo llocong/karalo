@@ -32,21 +32,26 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.size.Precision
 import com.karalo.core.common.text.formatDuration
+import com.karalo.core.ui.theme.KaraloBadgeBackground
+import com.karalo.core.ui.theme.KaraloTileLabelTextStyle
 
 private const val THUMBNAIL_ASPECT_RATIO = 16f / 9f
-private const val DURATION_BADGE_BACKGROUND_ALPHA = 0.8f
-private const val CARD_CORNER_RADIUS_DP = 8
+private const val CARD_CORNER_RADIUS_DP = 10
 private const val FOCUSED_SCALE = 1.1f
 private const val UNFOCUSED_SCALE = 1f
 private const val FOCUS_SCALE_DURATION_MS = 300
 private const val UNFOCUS_SCALE_DURATION_MS = 500
 private val FOCUSED_BORDER_WIDTH = 3.dp
+private val LABEL_TOP_SPACING = 9.dp
+private val BADGE_INSET = 7.dp
+private val BADGE_SHAPE = RoundedCornerShape(5.dp)
 
 /**
- * A D-pad-focusable result card: thumbnail image slot, title, and an optional subtitle, scaling up
- * with a border on focus so the currently-selected item is unambiguous from a couch. The video's
- * duration, when known, is badged over the bottom-right corner of the thumbnail, per the brand
- * board's home-screen video grid.
+ * A D-pad-focusable video tile: a rounded 16:9 thumbnail with its label (title, then an optional
+ * subtitle) underneath on the page background, scaling up with an accent outline around the
+ * thumbnail on focus so the currently-selected item is unambiguous from a couch. The video's
+ * duration, when known, is badged over the bottom-right corner of the thumbnail, per the "Karalo
+ * Themes" design's home-screen rows.
  *
  * Hand-rolled on plain [Modifier.clickable]/[Modifier.border]/[Modifier.graphicsLayer] rather than
  * `androidx.tv.material3`'s `Card`/`Surface` (the previous implementation): that component
@@ -87,8 +92,6 @@ fun FocusableCard(
             animationSpec = tween(if (isFocused) FOCUS_SCALE_DURATION_MS else UNFOCUS_SCALE_DURATION_MS),
             label = "cardScale",
         )
-    val containerColor =
-        if (isFocused) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
     // Always attached (never conditionally added/removed across recomposition) with a transparent
     // color while unfocused, rather than only on isFocused -- functionally invisible either way,
     // but keeps the modifier chain's node count stable instead of inserting/removing a node on
@@ -128,20 +131,27 @@ fun FocusableCard(
         Column(
             modifier =
                 Modifier
-                    // Scale, corner clipping, and the container fill/border all read from the same
-                    // isFocused-derived values above -- combining scale with the shape/clip into one
-                    // graphicsLayer (rather than a separate Modifier.clip) keeps this to a single
-                    // RenderNode instead of two.
+                    // Scales the thumbnail and its label together, so the label stays attached
+                    // under the tile as it grows.
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
-                        this.shape = shape
-                        clip = true
-                    }.background(containerColor, shape)
-                    .border(BorderStroke(FOCUSED_BORDER_WIDTH, borderColor), shape)
-                    .padding(bottom = 8.dp),
+                    },
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            // Only the thumbnail is a rounded "card" -- the label sits on the page background below
+            // it, outside the focus outline. The corner clip and outline share one graphicsLayer.
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier =
+                    Modifier
+                        .graphicsLayer {
+                            this.shape = shape
+                            clip = true
+                        }
+                        // Placeholder fill while the thumbnail loads (or if it has none).
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(BorderStroke(FOCUSED_BORDER_WIDTH, borderColor), shape),
+            ) {
                 val context = LocalContext.current
                 AsyncImage(
                     // Precision.INEXACT matches TvCarousel's adjacent-item prefetch requests (see
@@ -171,13 +181,9 @@ fun FocusableCard(
                         modifier =
                             Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(6.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.background.copy(
-                                        alpha = DURATION_BADGE_BACKGROUND_ALPHA,
-                                    ),
-                                    RoundedCornerShape(4.dp),
-                                ).padding(horizontal = 6.dp, vertical = 2.dp),
+                                .padding(BADGE_INSET)
+                                .background(KaraloBadgeBackground, BADGE_SHAPE)
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                 }
             }
@@ -189,23 +195,23 @@ fun FocusableCard(
                 // because androidx.tv.material3's Surface/Card provide a real one derived from the
                 // container color, but this component deliberately doesn't use Surface/Card (see
                 // this file's own doc for why), so nothing here overrides that black default
-                // without setting it explicitly. onSurface pairs with this card's own containerColor
-                // (colorScheme.surface/surfaceVariant), matching the subtitle/duration Text below.
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyMedium,
+                // without setting it explicitly.
+                color = MaterialTheme.colorScheme.onBackground,
+                style = KaraloTileLabelTextStyle,
+                // Up to 2 lines then an ellipsis; always reserving both keeps every tile in a row
+                // the same height, so the row doesn't shift as it scrolls past short titles.
                 maxLines = 2,
                 minLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(top = LABEL_TOP_SPACING),
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = KaraloTileLabelTextStyle,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 12.dp),
                 )
             }
         }

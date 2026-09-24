@@ -7,6 +7,13 @@
   <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/fonts/fonts.css" />
+  <script>
+    // Paint in the last-known seasonal theme before first render (see applyTheme in shared.js).
+    try {
+      var t = localStorage.getItem("karalo_theme");
+      if (t && t !== "DEFAULT") document.documentElement.dataset.theme = t.toLowerCase();
+    } catch (e) {}
+  </script>
   <link rel="stylesheet" href="/shared.css" />
   <style>
     body {
@@ -23,8 +30,10 @@
          worst case, the leftover space is zero and .join-sheet sits directly under the heading. */
       min-height: 100vh;
       min-height: 100dvh;
-      background: radial-gradient(circle at 50% 32%, #4C1D95 0%, #0B0710 70%);
+      background: var(--join-bg);
       display: flex;
+      position: relative;
+      overflow-x: hidden;
       flex-direction: column;
     }
     .join-top {
@@ -43,7 +52,9 @@
       gap: 10px;
       text-align: center;
     }
-    .join-heading .headline { font-size: 16px; color: #C4B5FD; font-weight: 600; }
+    .join-heading .headline { font-size: 16px; color: var(--soft); font-weight: 600; }
+    .join-heading .greeting { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 30px; color: var(--accent); }
+    .bat { position: absolute; pointer-events: none; }
     .join-heading .subtitle { font-size: 13px; color: var(--muted); }
     .join-sheet {
       margin-top: auto;
@@ -60,6 +71,8 @@
   </style>
 </head>
 <body>
+  <svg class="bat halloween-only" style="left:40px; top:150px; width:44px;" viewBox="0 0 24 12" aria-hidden="true"><path d="M0 5 Q4 0 8 4 Q10 1 12 4 Q14 1 16 4 Q20 0 24 5 Q20 4 18 7 Q15 5 12 9 Q9 5 6 7 Q4 4 0 5Z" fill="#4A2A5E" stroke="#FF7A1A" stroke-opacity="0.55" stroke-width="0.5"/></svg>
+  <svg class="bat halloween-only" style="right:48px; top:210px; width:30px; transform:rotate(14deg);" viewBox="0 0 24 12" aria-hidden="true"><path d="M0 5 Q4 0 8 4 Q10 1 12 4 Q14 1 16 4 Q20 0 24 5 Q20 4 18 7 Q15 5 12 9 Q9 5 6 7 Q4 4 0 5Z" fill="#4A2A5E" stroke="#FF7A1A" stroke-opacity="0.55" stroke-width="0.5"/></svg>
   <div class="join-top">
     <div class="brand">
       <svg width="52" height="52" viewBox="0 0 96 96" fill="none">
@@ -68,14 +81,15 @@
         <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
         <line x1="42" y1="32" x2="54" y2="32" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round"/>
         <line x1="42" y1="38" x2="54" y2="38" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round"/>
-        <rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/>
+        <rect x="41" y="46" width="14" height="4" rx="2" class="logo-accent"/>
         <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
-        <circle cx="70" cy="66" r="7" fill="#FF5D8F"/>
+        <circle cx="70" cy="66" r="7" class="logo-accent"/>
         <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
       </svg>
       <div class="wordmark">Karalo</div>
     </div>
     <div class="join-heading">
+      <div class="greeting halloween-only">Happy Halloween</div>
       <div class="headline">You're about to join the session</div>
       <p class="subtitle" id="subtitle">Checking session…</p>
       <div class="error-text" id="error" style="display:none"></div>

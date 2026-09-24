@@ -5,6 +5,7 @@ import com.karalo.backend.domain.ApiException
 import com.karalo.backend.domain.model.ConsumeNextRequestDto
 import com.karalo.backend.domain.model.PlayNowStartRequestDto
 import com.karalo.backend.domain.model.PlaybackStateRequestDto
+import com.karalo.backend.domain.model.ThemeDto
 import com.karalo.backend.plugins.appJson
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -12,6 +13,7 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
@@ -78,5 +80,16 @@ fun Route.tvRoutes(deps: AppDependencies) {
         deps.sessionRepository.setPlaybackState(sessionId, body.playbackState)
         deps.broadcaster.broadcast(sessionId, "SESSION_UPDATED", buildJsonObject { put("playbackState", body.playbackState) })
         call.respond(HttpStatusCode.OK, buildJsonObject { put("ok", true) })
+    }
+
+    // The host's seasonal theme pick from TV Settings. Phones re-fetch the queue snapshot (which
+    // carries the theme) on SESSION_UPDATED, so the broadcast is all it takes to restyle them.
+    put("/api/sessions/{sessionId}/theme") {
+        val sessionId = requireSessionId(call)
+        deps.sessionRepository.requireTvAuth(sessionId, call.bearerToken())
+        val body = call.receive<ThemeDto>()
+        val theme = deps.sessionRepository.setTheme(sessionId, body.theme)
+        deps.broadcaster.broadcast(sessionId, "SESSION_UPDATED", buildJsonObject { put("theme", theme) })
+        call.respond(ThemeDto(theme))
     }
 }

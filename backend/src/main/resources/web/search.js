@@ -14,17 +14,19 @@
   const resultsEl = document.getElementById("results");
   let debounceTimer = null;
 
-  // Same shelves as the TV's Home screen (see feature-home/HomeViewModel.kt's TOP_PICKS_QUERY/
-  // POP_QUERY/ROCK_QUERY) plus R&B added with the identical "karaoke " + lowercase(name) rule --
-  // fetched through the exact same backend search endpoint real search results use, so a
-  // playlist's songs are genuinely equivalent to what the TV shelf would show, not a separate
-  // curated list.
+  // Top Picks is the TV Home screen's shelf (see feature-home/HomeViewModel.kt's TOP_PICKS_QUERY);
+  // the others follow the same "karaoke " + lowercase(name) rule -- all fetched through the exact
+  // same backend search endpoint real search results use, not a separate curated list.
   const PLAYLISTS = [
     { name: "Top Picks", query: "karaoke", image: "/images/playlist-top-picks.png" },
     { name: "Pop", query: "karaoke pop", image: "/images/playlist-pop.png" },
     { name: "Rock", query: "karaoke rock", image: "/images/playlist-rock.png" },
     { name: "R&B", query: "karaoke r&b", image: "/images/playlist-rnb.png" },
   ];
+  // The Halloween theme's banner playlist -- same query as the TV's "Halloween Hits" shelf (see
+  // feature-home/HomeViewModel.kt's HALLOWEEN_QUERY). Only fetched when the banner is tapped.
+  const HALLOWEEN_PLAYLIST = { name: "Halloween Hits", query: "halloween karaoke" };
+  document.getElementById("halloweenBanner").addEventListener("click", () => openPlaylist(HALLOWEEN_PLAYLIST));
   const BACK_ARROW_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 4l-8 8 8 8" stroke="#7C3AED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const playlistHeaderEl = document.getElementById("playlistHeader");

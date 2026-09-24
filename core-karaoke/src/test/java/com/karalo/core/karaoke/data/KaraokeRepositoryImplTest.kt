@@ -2,7 +2,9 @@ package com.karalo.core.karaoke.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import com.karalo.core.common.error.AppError
 import com.karalo.core.common.logging.Logger
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import com.karalo.core.karaoke.data.remote.KaraokeApi
 import com.karalo.core.karaoke.data.remote.dto.QueueSnapshotDto
@@ -97,6 +99,54 @@ class KaraokeRepositoryImplTest {
             advanceUntilIdle()
 
             coVerify { api.ensureSession("tv-1", "old-secret") }
+        }
+
+    @Test
+    fun `the backend's theme is published and remembered for the next launch`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = repository(dataStore)
+            coEvery { api.ensureSession("tv-1", null) } returns
+                AppResult.Success(
+                    SessionEnsureResponseDto(tvSecret = "s", session = sessionSummary().copy(theme = "HALLOWEEN")),
+                )
+            coEvery { api.fetchQueue(any(), any()) } returns
+                AppResult.Success(QueueSnapshotDto("IDLE", null, emptyList(), theme = "HALLOWEEN"))
+
+            repository.ensureSession()
+            advanceUntilIdle()
+
+            assertEquals(SeasonalTheme.HALLOWEEN, repository.seasonalTheme.value)
+            assertEquals("HALLOWEEN", dataStore.data.value[SEASONAL_THEME_KEY])
+        }
+
+    @Test
+    fun `the remembered theme applies at launch even when the backend is unreachable`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val dataStore = FakeDataStore()
+            dataStore.updateData { it.toMutablePreferences().apply { this[SEASONAL_THEME_KEY] = "HALLOWEEN" } }
+            val repository = repository(dataStore)
+            coEvery { api.ensureSession("tv-1", null) } returns AppResult.Failure(AppError.Network())
+
+            repository.ensureSession()
+
+            assertEquals(SeasonalTheme.HALLOWEEN, repository.seasonalTheme.value)
+        }
+
+    @Test
+    fun `a theme change the backend refuses is reverted`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val repository = repository(FakeDataStore())
+            coEvery { api.ensureSession("tv-1", null) } returns
+                AppResult.Success(SessionEnsureResponseDto(tvSecret = "s", session = sessionSummary()))
+            coEvery { api.setTheme("session-1", "s", "HALLOWEEN") } returns AppResult.Failure(AppError.Network())
+            repository.ensureSession()
+            advanceUntilIdle()
+
+            val result = repository.setSeasonalTheme(SeasonalTheme.HALLOWEEN)
+
+            assert(result is AppResult.Failure)
+            assertEquals(SeasonalTheme.DEFAULT, repository.seasonalTheme.value)
         }
 
     @Test

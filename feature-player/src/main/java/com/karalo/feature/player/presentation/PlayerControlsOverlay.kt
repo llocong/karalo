@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -43,8 +45,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.IconButton
+import androidx.tv.material3.IconButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.karalo.core.ui.theme.LocalKaraloTokens
 import kotlin.math.roundToInt
 
 private const val SEEK_STEP_MS = 10_000L
@@ -103,7 +107,12 @@ internal fun PlayerControlsOverlay(
             ControlButton(
                 onClick = onPlayPauseClick,
                 enabled = true,
-                modifier = Modifier.focusRequester(playFocusRequester),
+                modifier =
+                    Modifier
+                        .focusRequester(playFocusRequester)
+                        // With Next disabled there's nothing to its right; without this, the
+                        // focus search would jump up to the seekbar's dot instead.
+                        .focusProperties { if (!hasNextInQueue) right = FocusRequester.Cancel },
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -112,7 +121,26 @@ internal fun PlayerControlsOverlay(
             }
             // Disabled once the persistent remote queue is empty -- same rule the webapp's own
             // Skip button follows, not the local browse list's now-removed hasNext.
-            ControlButton(onClick = onNextClick, enabled = hasNextInQueue) {
+            // If Next has focus when the queue runs out, it stops being focusable (see
+            // ControlButton) -- hand focus to Play/Pause rather than leaving the remote with
+            // nothing focused.
+            var nextHadFocus by remember { mutableStateOf(false) }
+            LaunchedEffect(hasNextInQueue) {
+                if (!hasNextInQueue && nextHadFocus) {
+                    nextHadFocus = false
+                    playFocusRequester.requestFocus()
+                }
+            }
+            ControlButton(
+                onClick = onNextClick,
+                enabled = hasNextInQueue,
+                modifier =
+                    Modifier.onFocusChanged {
+                        // Only tracked while enabled, so the focus loss caused by disabling
+                        // doesn't erase the fact that Next was the focused control.
+                        if (hasNextInQueue) nextHadFocus = it.isFocused
+                    },
+            ) {
                 Icon(imageVector = Icons.Filled.SkipNext, contentDescription = "Next")
             }
         }
@@ -126,7 +154,29 @@ private fun RowScope.ControlButton(
     modifier: Modifier = Modifier,
     icon: @Composable () -> Unit,
 ) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = modifier.padding(end = 16.dp)) {
+    // The default theme keeps TV Material's own neutral button colors; a seasonal theme tints the
+    // icons and the focused fill with its accent.
+    val tokens = LocalKaraloTokens.current
+    val colors =
+        if (tokens.isHalloween) {
+            IconButtonDefaults.colors(
+                contentColor = tokens.control,
+                focusedContainerColor = tokens.control,
+                focusedContentColor = tokens.onControl,
+                pressedContainerColor = tokens.control,
+                pressedContentColor = tokens.onControl,
+            )
+        } else {
+            IconButtonDefaults.colors()
+        }
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = colors,
+        // TV Material keeps disabled buttons focusable; a disabled control here (Next with an
+        // empty queue) is skipped by the D-pad instead, so focus never lands on a dead button.
+        modifier = modifier.focusProperties { canFocus = enabled }.padding(end = 16.dp),
+    ) {
         icon()
     }
 }
@@ -170,7 +220,7 @@ private fun SeekBar(
                     .fillMaxWidth(fraction)
                     .height(6.dp)
                     .align(Alignment.CenterStart)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+                    .background(LocalKaraloTokens.current.control, RoundedCornerShape(3.dp)),
         )
 
         val dotSizePx = with(LocalDensity.current) { DOT_SIZE.roundToPx() }

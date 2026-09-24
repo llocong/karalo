@@ -282,6 +282,62 @@ class SessionFlowTest {
         }
 
     @Test
+    fun `the TV sets the seasonal theme and phones see it`() =
+        testApplication {
+            application { module(testConfig()) }
+            val client = createClient { install(ContentNegotiation) { json() } }
+            val ensure = Json.parseToJsonElement(client.post("/api/tvs/tv-6/session/ensure").bodyAsText()).jsonObject
+            val secret = ensure["tvSecret"]!!.jsonPrimitive.content
+            val session = ensure["session"]!!.jsonObject
+            val sessionId = session["id"]!!.jsonPrimitive.content
+            val code = session["code"]!!.jsonPrimitive.content
+            assertEquals("DEFAULT", session["theme"]!!.jsonPrimitive.content)
+            val guestToken =
+                Json
+                    .parseToJsonElement(
+                        client
+                            .post("/api/sessions/$code/participants") {
+                                contentType(ContentType.Application.Json)
+                                setBody("""{"displayName":"Alice"}""")
+                            }.bodyAsText(),
+                    ).jsonObject["participantToken"]!!
+                    .jsonPrimitive
+                    .content
+
+            suspend fun setTheme(
+                theme: String,
+                token: String?,
+            ) = client.put("/api/sessions/$sessionId/theme") {
+                token?.let { header("Authorization", "Bearer $it") }
+                contentType(ContentType.Application.Json)
+                setBody("""{"theme":"$theme"}""")
+            }
+
+            assertEquals(HttpStatusCode.Unauthorized, setTheme("HALLOWEEN", null).status)
+            assertEquals(HttpStatusCode.Unauthorized, setTheme("HALLOWEEN", guestToken).status)
+            assertEquals(HttpStatusCode.BadRequest, setTheme("CHRISTMAS", secret).status)
+
+            val set = setTheme("HALLOWEEN", secret)
+            assertEquals(HttpStatusCode.OK, set.status)
+            assertEquals("HALLOWEEN", Json.parseToJsonElement(set.bodyAsText()).jsonObject["theme"]!!.jsonPrimitive.content)
+
+            val publicSession = Json.parseToJsonElement(client.get("/api/sessions/$code").bodyAsText()).jsonObject
+            assertEquals("HALLOWEEN", publicSession["theme"]!!.jsonPrimitive.content)
+            val snapshot =
+                Json
+                    .parseToJsonElement(
+                        client.get("/api/sessions/$sessionId/queue") { header("Authorization", "Bearer $guestToken") }.bodyAsText(),
+                    ).jsonObject
+            assertEquals("HALLOWEEN", snapshot["theme"]!!.jsonPrimitive.content)
+            val restored =
+                Json
+                    .parseToJsonElement(
+                        client.post("/api/tvs/tv-6/session/ensure") { header("Authorization", "Bearer $secret") }.bodyAsText(),
+                    ).jsonObject
+            assertEquals("HALLOWEEN", restored["session"]!!.jsonObject["theme"]!!.jsonPrimitive.content)
+        }
+
+    @Test
     fun `history endpoints require the TV secret and support pause and clear`() =
         testApplication {
             application { module(testConfig()) }

@@ -10,13 +10,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import androidx.tv.material3.MaterialTheme
 import com.karalo.core.common.logging.Logger
 import com.karalo.core.common.mediakeys.MediaKeyRouter
 import com.karalo.core.common.session.SearchSessionHolder
 import com.karalo.core.karaoke.domain.KaraokeRepository
 import com.karalo.core.karaoke.domain.KaraokeSessionHolder
 import com.karalo.core.ui.theme.KaraloTheme
+import com.karalo.core.ui.theme.LocalKaraloTokens
 import com.karalo.karalo.nav.KaraloNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -68,7 +68,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val sessionJoinUrl by karaokeRepository.sessionJoinUrl.collectAsState()
-            KaraloTheme {
+            val seasonalTheme by karaokeRepository.seasonalTheme.collectAsState()
+            KaraloTheme(seasonalTheme = seasonalTheme) {
                 KaraloNavHost(
                     karaokeSessionHolder = karaokeSessionHolder,
                     searchSessionHolder = searchSessionHolder,
@@ -76,7 +77,7 @@ class MainActivity : ComponentActivity() {
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background),
+                            .background(LocalKaraloTokens.current.pageBackground),
                 )
             }
         }

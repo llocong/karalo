@@ -23,10 +23,10 @@
   let reconnectDelayMs = 1000;
   let dragInProgress = false;
 
-  const PLAY_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="#0B0710"/></svg>';
-  const PAUSE_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/></svg>';
+  const PLAY_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" class="on-accent-fill"/></svg>';
+  const PAUSE_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" class="on-accent-fill"/><rect x="14" y="5" width="4" height="14" rx="1.5" class="on-accent-fill"/></svg>';
   const HANDLE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="6" r="1.4" fill="#63576F"/><circle cx="8" cy="12" r="1.4" fill="#63576F"/><circle cx="8" cy="18" r="1.4" fill="#63576F"/><circle cx="16" cy="6" r="1.4" fill="#63576F"/><circle cx="16" cy="12" r="1.4" fill="#63576F"/><circle cx="16" cy="18" r="1.4" fill="#63576F"/></svg>';
-  const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#0B0710" stroke-width="2.4" stroke-linecap="round"/></svg>';
+  const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 
   function thumbHtml(url) {
     // Escaped: a phone supplies this URL when adding a song, and every other phone renders it.
@@ -48,6 +48,7 @@
   }
 
   function render(snapshot) {
+    applyTheme(snapshot.theme);
     currentPlaybackState = snapshot.playbackState;
     const isPaused = currentPlaybackState === "PAUSED";
     pauseResumeButton.innerHTML = isPaused ? PLAY_ICON : PAUSE_ICON;

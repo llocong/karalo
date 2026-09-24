@@ -1,5 +1,6 @@
 package com.karalo.core.karaoke.domain
 
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,12 @@ interface KaraokeRepository {
     /** Permanently removes every song from this TV's history. */
     suspend fun clearHistory(): AppResult<Unit>
 
+    /**
+     * Sets the session's seasonal theme -- applied on the TV right away, and pushed by the backend
+     * to every phone joined to the session. Returns the theme the backend stored.
+     */
+    suspend fun setSeasonalTheme(theme: SeasonalTheme): AppResult<SeasonalTheme>
+
     /** Latest known snapshot, kept current by realtime events + periodic/reconnect REST reconcile. */
     val queueSnapshot: StateFlow<KaraokeQueueSnapshot>
 
@@ -62,4 +69,10 @@ interface KaraokeRepository {
 
     /** The known join URL once the session is established, for the QR placements. Null until then. */
     val sessionJoinUrl: StateFlow<String?>
+
+    /**
+     * The session's seasonal theme: the last one seen on this TV (persisted) until the backend
+     * confirms the current one, then kept current by ensure, every queue reconcile, and [setSeasonalTheme].
+     */
+    val seasonalTheme: StateFlow<SeasonalTheme>
 }

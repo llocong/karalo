@@ -1,5 +1,6 @@
 package com.karalo.core.karaoke.domain
 
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import com.karalo.core.testing.MainDispatcherExtension
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +28,7 @@ private class FakeRepo : KaraokeRepository {
     val eventsFlow = MutableSharedFlow<KaraokeEvent>(extraBufferCapacity = 1)
     override val events: SharedFlow<KaraokeEvent> = eventsFlow
     override val sessionJoinUrl: StateFlow<String?> = MutableStateFlow(null)
+    override val seasonalTheme: StateFlow<SeasonalTheme> = MutableStateFlow(SeasonalTheme.DEFAULT)
 
     var consumeNextResult: AppResult<NowPlaying?> = AppResult.Success(null)
     var consumeNextCallCount = 0
@@ -57,6 +59,8 @@ private class FakeRepo : KaraokeRepository {
     override suspend fun setHistoryPaused(paused: Boolean): AppResult<Boolean> = error("unused")
 
     override suspend fun clearHistory(): AppResult<Unit> = error("unused")
+
+    override suspend fun setSeasonalTheme(theme: SeasonalTheme): AppResult<SeasonalTheme> = error("unused")
 }
 
 /**

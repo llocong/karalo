@@ -34,6 +34,8 @@ data class QueueSnapshotDto(
     val playbackState: String,
     val nowPlaying: NowPlayingDto?,
     val queue: List<QueueItemDto>,
+    // The session's seasonal theme (see SeasonalTheme's wire names); absent from older backends.
+    val theme: String = "DEFAULT",
 )
 
 @Serializable
@@ -45,6 +47,12 @@ data class SessionSummaryDto(
     val nowPlaying: NowPlayingDto?,
     val participantCount: Int,
     val queueLength: Int,
+    val theme: String = "DEFAULT",
+)
+
+@Serializable
+data class ThemeDto(
+    val theme: String,
 )
 
 @Serializable

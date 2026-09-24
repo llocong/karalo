@@ -39,17 +39,7 @@ class BaselineProfileGenerator {
             startActivityAndWait()
             device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE).depth(0)), UI_SETTLE_TIMEOUT_MS)
 
-            // Top Picks: the shelf that's focused and visible immediately on launch.
-            repeat(SHELF_BROWSE_PRESSES) {
-                device.pressDPadRight()
-                device.waitForIdle()
-            }
-
-            // Down into Pop, then browse it too -- covers the same scroll/focus code paths a
-            // second time on a freshly-entered row (restoreFocusItemKey/focusRestorer logic
-            // differs slightly from the first shelf's initial-focus path).
-            device.pressDPadDown()
-            device.waitForIdle()
+            // Home's one shelf (Top Picks, or Halloween Hits): focused and visible on launch.
             repeat(SHELF_BROWSE_PRESSES) {
                 device.pressDPadRight()
                 device.waitForIdle()
