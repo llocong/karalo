@@ -55,6 +55,8 @@
     pauseResumeButton.setAttribute("aria-label", isPaused ? "Play" : "Pause");
     // Nothing to skip to -- same rule the TV's own on-screen Next button follows.
     skipButton.disabled = snapshot.queue.length === 0;
+    // Nothing playing on the TV, so nothing to pause or resume.
+    pauseResumeButton.disabled = !snapshot.nowPlaying;
 
     renderNowPlaying(snapshot.nowPlaying);
     renderMiniPlayer(snapshot.nowPlaying);
