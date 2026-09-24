@@ -6,7 +6,7 @@ KARALO_HOSTNAME {
 
 	# Let browsers keep static files instead of downloading them on every visit. Fonts never
 	# change under the same name; images might, so they're kept for a week.
-	@fonts path /fonts/*
+	@fonts path /fonts/*.woff2
 	header @fonts Cache-Control "public, max-age=31536000, immutable"
 	@images path /images/*
 	header @images Cache-Control "public, max-age=604800"
