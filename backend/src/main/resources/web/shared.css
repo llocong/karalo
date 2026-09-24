@@ -66,6 +66,16 @@ input, textarea {
   font-weight: 600;
   color: var(--text);
 }
+/* The brand's per-letter baseline wave (K -0.06em, a +0.06, r -0.08, a +0.03, l -0.06, o +0.06),
+   in em so it scales with the wordmark's font size. Markup: one <span> per letter. */
+.wordmark.wave { display: inline-flex; align-items: baseline; }
+.wordmark.wave span { display: inline-block; }
+.wordmark.wave span:nth-child(1) { transform: translateY(-0.06em); }
+.wordmark.wave span:nth-child(2) { transform: translateY(0.06em); }
+.wordmark.wave span:nth-child(3) { transform: translateY(-0.08em); }
+.wordmark.wave span:nth-child(4) { transform: translateY(0.03em); }
+.wordmark.wave span:nth-child(5) { transform: translateY(-0.06em); }
+.wordmark.wave span:nth-child(6) { transform: translateY(0.06em); }
 
 /* ---------- Generic form controls ---------- */
 input[type="text"] {

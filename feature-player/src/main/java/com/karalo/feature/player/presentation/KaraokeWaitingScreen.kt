@@ -10,13 +10,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.karalo.core.ui.components.KaraloLogoMark
+import com.karalo.core.ui.components.KaraloWordmark
 import com.karalo.core.ui.components.KaraokeQrCode
 import com.karalo.core.ui.theme.KaraloBackground
-import com.karalo.core.ui.theme.KaraloLogoTextStyle
 import com.karalo.core.ui.theme.KaraloOutline
 
 /** Same size/position as the player's own persistent overlay -- see [PlayerScreen]'s own doc for
@@ -29,6 +26,9 @@ internal val KARAOKE_QR_SIZE = 220.dp / KARAOKE_QR_SIZE_DIVISOR
 private const val KARAOKE_QR_SIZE_DIVISOR = 3
 
 private val SPLASH_LOGO_SIZE = 120.dp
+
+// Same size as the plain "Karalo" text it replaces (Fredoka 48sp).
+private val SPLASH_WORDMARK_SIZE = 48.dp
 
 /**
  * Shown in place of a frozen/blank video frame when the current song ends and the persistent
@@ -60,12 +60,7 @@ fun KaraokeWaitingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             KaraloLogoMark(size = SPLASH_LOGO_SIZE)
-            Text(
-                text = "Karalo",
-                style = KaraloLogoTextStyle.copy(fontSize = 48.sp, lineHeight = 56.sp),
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(top = 24.dp),
-            )
+            KaraloWordmark(fontSize = SPLASH_WORDMARK_SIZE, modifier = Modifier.padding(top = 24.dp))
         }
         if (sessionJoinUrl != null) {
             KaraokeQrCode(

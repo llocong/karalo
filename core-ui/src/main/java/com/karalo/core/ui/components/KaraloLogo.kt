@@ -31,9 +31,13 @@ private const val MARK_VIEWPORT = 96f
 private const val LOCKUP_MARK_SIZE = 144f
 private const val LOCKUP_GAP = 40f
 private const val WORDMARK_WIDTH = 300.4f
+private const val WORDMARK_HEIGHT = 85.7f
 private const val WORDMARK_TOP = 29f
 private const val LOCKUP_WIDTH = LOCKUP_MARK_SIZE + LOCKUP_GAP + WORDMARK_WIDTH
 private const val LOCKUP_HEIGHT = LOCKUP_MARK_SIZE
+
+// The wordmark's glyphs are outlined at 1em = 100 viewport units.
+private const val WORDMARK_EM = 100f
 
 /**
  * "Karalo" in Fredoka SemiBold with the brand's per-letter baseline wave (K -0.06em, a +0.06, r
@@ -190,6 +194,40 @@ private fun karaloLockupVector(accent: Color): ImageVector =
                 }
             }
         }.build()
+
+private fun karaloWordmarkVector(): ImageVector =
+    ImageVector
+        .Builder(
+            name = "KaraloWordmark",
+            defaultWidth = WORDMARK_WIDTH.dp,
+            defaultHeight = WORDMARK_HEIGHT.dp,
+            viewportWidth = WORDMARK_WIDTH,
+            viewportHeight = WORDMARK_HEIGHT,
+        ).apply {
+            for (glyph in WORDMARK_GLYPHS) {
+                addPath(pathData = addPathNodes(glyph), fill = SolidColor(KaraloOnBackground))
+            }
+        }.build()
+
+private val KaraloWordmarkVector: ImageVector by lazy { karaloWordmarkVector() }
+
+/**
+ * The "Karalo" wordmark alone (with its baseline wave), for layouts that stack it under the mark
+ * rather than beside it. [fontSize] is the text size it stands in for: the vector is scaled so its
+ * letters match Fredoka SemiBold at that size.
+ */
+@Composable
+fun KaraloWordmark(
+    fontSize: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val scale = fontSize.value / WORDMARK_EM
+    Image(
+        imageVector = KaraloWordmarkVector,
+        contentDescription = "Karalo",
+        modifier = modifier.width((WORDMARK_WIDTH * scale).dp).height((WORDMARK_HEIGHT * scale).dp),
+    )
+}
 
 /** The icon-only mark, e.g. for the collapsed nav rail. Its accent parts follow the active theme. */
 @Composable
