@@ -8,7 +8,9 @@ import com.karalo.backend.domain.model.QueueItemDto
 import com.karalo.backend.youtube.formatVideoTitle
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -108,7 +110,9 @@ class QueueRepository(
             QueueItems.selectAll().where { (QueueItems.id eq queueItemId) and (QueueItems.sessionId eq sessionId) }.singleOrNull()
                 ?: throw ApiException.NotFound("Queue item not found")
         if (item[QueueItems.status] != "PENDING") throw ApiException.Conflict("Queue item is not pending")
-        QueueItems.update({ QueueItems.id eq queueItemId }) { it[status] = "REMOVED" }
+        // Deleted outright rather than kept as a REMOVED row: queue_items only ever holds songs
+        // still in the queue, so it never pins a guest row in place (see pruneInactive).
+        QueueItems.deleteWhere { QueueItems.id eq queueItemId }
         // If the deleted item happened to be the resolved "now playing" pointer (shouldn't
         // normally happen — a PLAYING item isn't PENDING — but re-sync defensively so a stale
         // pointer can never linger after a delete).
@@ -158,8 +162,8 @@ class QueueRepository(
         }
 
     /**
-     * "The currently-playing QUEUE item finished/was skipped" — marks it PLAYED or SKIPPED and
-     * advances the now-playing pointer to whatever's newly at the head. Only meaningful when
+     * "The currently-playing QUEUE item finished/was skipped" — moves it to play_history (as
+     * played or skipped; see [recordPlayed]), removes it from the queue, and advances the now-playing pointer to whatever's newly at the head. Only meaningful when
      * something is actually currently playing FROM THE QUEUE (not a Play-Now item, which the TV
      * signals the end of via [SessionRepository.playNowEnd] instead) — a no-op on the pointer
      * otherwise, safe to call idempotently.
@@ -171,11 +175,22 @@ class QueueRepository(
         transaction {
             val session = Sessions.selectAll().where { Sessions.id eq sessionId }.single()
             val currentItemId = session[Sessions.nowPlayingQueueItemId]
-            if (session[Sessions.nowPlayingSource] == "QUEUE" && currentItemId != null) {
-                QueueItems.update({ QueueItems.id eq currentItemId }) {
-                    it[status] = if (skipped) "SKIPPED" else "PLAYED"
-                    it[playedAt] = Instant.now()
-                }
+            val current =
+                currentItemId
+                    ?.takeIf { session[Sessions.nowPlayingSource] == "QUEUE" }
+                    ?.let { id -> QueueItems.selectAll().where { QueueItems.id eq id }.singleOrNull() }
+            if (current != null) {
+                recordPlayed(
+                    sessionId = sessionId,
+                    videoId = current[QueueItems.videoId],
+                    title = current[QueueItems.title],
+                    channelName = current[QueueItems.channelName],
+                    thumbnailUrl = current[QueueItems.thumbnailUrl],
+                    durationSeconds = current[QueueItems.durationSeconds],
+                    source = "QUEUE",
+                    skipped = skipped,
+                )
+                QueueItems.deleteWhere { QueueItems.id eq current[QueueItems.id] }
             }
             sessionRepository.syncNowPlayingToQueueHead(sessionId)
             sessionRepository.resolveNowPlaying(sessionId)

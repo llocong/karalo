@@ -1,6 +1,7 @@
 package com.karalo.backend.routes
 
 import com.karalo.backend.config.AppConfig
+import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.module
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
@@ -19,7 +20,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 import java.io.File
+import java.time.Duration
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -225,5 +230,51 @@ class SessionFlowTest {
 
             val response = client.get("/api/sessions/$sessionId/queue")
             assertEquals(HttpStatusCode.Unauthorized, response.status)
+        }
+
+    @Test
+    fun `an inactive guest drops out of the count, loses their token, and can rejoin`() =
+        testApplication {
+            application { module(testConfig()) }
+            val client = createClient { install(ContentNegotiation) { json() } }
+            val ensure = Json.parseToJsonElement(client.post("/api/tvs/tv-4/session/ensure").bodyAsText()).jsonObject
+            val code = ensure["session"]!!.jsonObject["code"]!!.jsonPrimitive.content
+            val sessionId = ensure["session"]!!.jsonObject["id"]!!.jsonPrimitive.content
+
+            suspend fun join(name: String) =
+                Json
+                    .parseToJsonElement(
+                        client
+                            .post("/api/sessions/$code/participants") {
+                                contentType(ContentType.Application.Json)
+                                setBody("""{"displayName":"$name"}""")
+                            }.bodyAsText(),
+                    ).jsonObject
+
+            suspend fun count() =
+                Json
+                    .parseToJsonElement(client.get("/api/sessions/$code").bodyAsText())
+                    .jsonObject["participantCount"]!!
+                    .jsonPrimitive
+                    .content
+                    .toInt()
+
+            val alice = join("Alice")
+            join("Bob")
+            assertEquals(2, count())
+
+            transaction {
+                Participants.update({ Participants.id eq alice["participantId"]!!.jsonPrimitive.content }) {
+                    it[lastActiveAt] = Instant.now().minus(Duration.ofHours(3))
+                }
+            }
+            assertEquals(1, count())
+
+            val oldToken = alice["participantToken"]!!.jsonPrimitive.content
+            val me = client.get("/api/sessions/$sessionId/me") { header("Authorization", "Bearer $oldToken") }
+            assertEquals(HttpStatusCode.Unauthorized, me.status)
+
+            join("Alice")
+            assertEquals(2, count())
         }
 }

@@ -268,7 +268,9 @@
     // Persisted locally too -- every subsequent apiFetch call reads the bearer token from here,
     // and the queue-add flow reads displayName from here for nothing else, but keeping it in sync
     // avoids a stale name reappearing if the modal is reopened without a page reload.
-    participant.displayName = response.data.displayName;
+    // Re-read rather than reusing the object loaded at page start: apiFetch may have re-joined
+    // this guest since (new token), which saving that older object would silently undo.
+    Object.assign(participant, loadParticipant(sessionId), { displayName: response.data.displayName });
     saveParticipant(sessionId, participant);
     avatarEl.textContent = participant.displayName.trim().charAt(0).toUpperCase();
     closeNicknameModal();

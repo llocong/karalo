@@ -29,6 +29,9 @@
   // Already joined this session on this phone? Skip straight to search if the token still works.
   const existing = loadParticipant(sessionId);
   if (existing) {
+    // Records saved before the code was kept alongside the token: add it now, so apiFetch can
+    // transparently re-join if this guest was dropped for inactivity (see rejoin in shared.js).
+    if (!existing.code) saveParticipant(sessionId, Object.assign(existing, { code }));
     const me = await apiFetch(`/api/sessions/${sessionId}/me`, { sessionId });
     if (me.ok) {
       location.href = `/search.html?sessionId=${sessionId}`;
@@ -58,7 +61,7 @@
       joinButton.disabled = false;
       return;
     }
-    saveParticipant(sessionId, result.data);
+    saveParticipant(sessionId, Object.assign(result.data, { code }));
     location.href = `/search.html?sessionId=${sessionId}`;
   });
 

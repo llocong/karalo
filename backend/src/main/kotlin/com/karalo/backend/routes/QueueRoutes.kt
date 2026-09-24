@@ -44,7 +44,7 @@ fun Route.queueRoutes(deps: AppDependencies) {
     rateLimit(QueueAddRateLimit) {
         post("/api/sessions/{sessionId}/queue") {
             val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
-            val (participantId, displayName) = deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken())
+            val (participantId, displayName) = deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken(), markActive = true)
             val body = call.receive<AddQueueItemRequestDto>()
             val item =
                 deps.queueRepository.add(
@@ -66,7 +66,7 @@ fun Route.queueRoutes(deps: AppDependencies) {
     delete("/api/sessions/{sessionId}/queue/{queueItemId}") {
         val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
         val queueItemId = call.parameters["queueItemId"] ?: throw ApiException.Validation("Missing queueItemId")
-        deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken())
+        deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken(), markActive = true)
         deps.queueRepository.delete(sessionId, queueItemId)
         deps.broadcaster.broadcast(sessionId, "QUEUE_ITEM_REMOVED", buildJsonObject { put("queueItemId", queueItemId) })
         call.respond(HttpStatusCode.NoContent)
@@ -74,7 +74,7 @@ fun Route.queueRoutes(deps: AppDependencies) {
 
     patch("/api/sessions/{sessionId}/queue/reorder") {
         val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
-        deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken())
+        deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken(), markActive = true)
         val body = call.receive<ReorderRequestDto>()
         val reordered = deps.queueRepository.reorder(sessionId, body.orderedQueueItemIds)
         deps.broadcaster.broadcast(sessionId, "QUEUE_UPDATED", appJson.encodeToJsonElement(reordered))

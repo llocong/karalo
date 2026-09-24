@@ -18,7 +18,36 @@ function clearParticipant(sessionId) {
   localStorage.removeItem(storageKey(sessionId));
 }
 
+// A guest idle for a couple of hours (and with nothing left in the queue) is quietly dropped from
+// the session by the backend, and their token stops working. Rather than surfacing that, re-join
+// under the same name and carry on -- they simply count as a fresh guest again. Needs the session
+// code, which join.js stores alongside the token.
+async function rejoin(sessionId) {
+  const stale = loadParticipant(sessionId);
+  if (!stale || !stale.code || !stale.displayName) return false;
+  const response = await fetch(`/api/sessions/${encodeURIComponent(stale.code)}/participants`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ displayName: stale.displayName }),
+  });
+  if (!response.ok) return false;
+  const joined = await response.json().catch(() => null);
+  if (!joined) return false;
+  saveParticipant(sessionId, Object.assign(joined, { code: stale.code }));
+  return true;
+}
+
 async function apiFetch(path, options = {}) {
+  const result = await apiFetchOnce(path, options);
+  if (result.status !== 401 || !options.sessionId || options.isRetry) return result;
+  if (!(await rejoin(options.sessionId))) {
+    clearParticipant(options.sessionId);
+    return result;
+  }
+  return apiFetchOnce(path, Object.assign({}, options, { isRetry: true }));
+}
+
+async function apiFetchOnce(path, options) {
   const sessionId = options.sessionId;
   const participant = sessionId ? loadParticipant(sessionId) : null;
   const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});

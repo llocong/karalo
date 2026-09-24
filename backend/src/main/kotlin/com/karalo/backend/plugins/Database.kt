@@ -2,6 +2,7 @@ package com.karalo.backend.plugins
 
 import com.karalo.backend.config.AppConfig
 import com.karalo.backend.db.tables.Participants
+import com.karalo.backend.db.tables.PlayHistory
 import com.karalo.backend.db.tables.QueueItems
 import com.karalo.backend.db.tables.Sessions
 import com.karalo.backend.db.tables.TvInstallations
@@ -9,6 +10,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.transactions.transaction
 
 /**
@@ -33,7 +35,30 @@ fun connectDatabase(config: AppConfig): Database {
         }
     val database = Database.connect(HikariDataSource(hikariConfig))
     transaction(database) {
-        SchemaUtils.createMissingTablesAndColumns(TvInstallations, Sessions, Participants, QueueItems)
+        SchemaUtils.createMissingTablesAndColumns(TvInstallations, Sessions, Participants, QueueItems, PlayHistory)
+        migrateToPlayHistory()
     }
     return database
+}
+
+/**
+ * One-off data migration for databases created before play_history and last_active_at existed --
+ * idempotent, so it simply runs on every boot and does nothing once there's nothing left to move:
+ * - gives every guest a last_active_at (their last_seen_at is the closest thing on record);
+ * - copies played/skipped songs into play_history, then deletes every finished queue_items row
+ *   (removed songs included), so queue_items only holds songs still in the queue.
+ */
+internal fun Transaction.migrateToPlayHistory() {
+    exec("UPDATE participants SET last_active_at = last_seen_at WHERE last_active_at IS NULL")
+    exec(
+        """
+        INSERT INTO play_history
+            (id, session_id, video_id, title, channel_name, thumbnail_url, duration_seconds, source, skipped, played_at)
+        SELECT id, session_id, video_id, title, channel_name, thumbnail_url, duration_seconds, 'QUEUE',
+               status = 'SKIPPED', COALESCE(played_at, created_at)
+        FROM queue_items
+        WHERE status IN ('PLAYED', 'SKIPPED')
+        """.trimIndent(),
+    )
+    exec("DELETE FROM queue_items WHERE status IN ('PLAYED', 'SKIPPED', 'REMOVED')")
 }

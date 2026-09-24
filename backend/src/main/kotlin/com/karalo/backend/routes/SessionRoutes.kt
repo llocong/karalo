@@ -69,7 +69,7 @@ fun Route.participantSessionRoutes(deps: AppDependencies) {
     rateLimit(CommandRateLimit) {
         post("/api/sessions/{sessionId}/commands/{command}") {
             val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
-            val (_, displayName) = deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken())
+            val (_, displayName) = deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken(), markActive = true)
             val command =
                 when (call.parameters["command"]) {
                     "pause" -> "PAUSE"
@@ -99,7 +99,7 @@ fun Route.searchRoutes(deps: AppDependencies) {
     rateLimit(SearchRateLimit) {
         get("/api/sessions/{sessionId}/search") {
             val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
-            deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken())
+            deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken(), markActive = true)
             val query = call.request.queryParameters["q"]?.trim().orEmpty()
             if (query.isEmpty() || query.length > 100) throw ApiException.Validation("q must be 1-100 characters")
             val results = deps.youtubeSearch.search(query)
