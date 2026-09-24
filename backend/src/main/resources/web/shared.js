@@ -18,36 +18,31 @@ function clearParticipant(sessionId) {
   localStorage.removeItem(storageKey(sessionId));
 }
 
-// A guest idle for a couple of hours (and with nothing left in the queue) is quietly dropped from
-// the session by the backend, and their token stops working. Rather than surfacing that, re-join
-// under the same name and carry on -- they simply count as a fresh guest again. Needs the session
-// code, which join.js stores alongside the token.
-async function rejoin(sessionId) {
+// The last name this phone joined (or renamed itself) with, kept across sessions and after a guest
+// is dropped -- the Join page prefills it, so coming back is one tap.
+const DISPLAY_NAME_KEY = "karalo_display_name";
+
+function rememberDisplayName(name) {
+  if (name) localStorage.setItem(DISPLAY_NAME_KEY, name);
+}
+
+function rememberedDisplayName() {
+  return localStorage.getItem(DISPLAY_NAME_KEY) || "";
+}
+
+// A 401 means the backend no longer knows this guest -- it drops guests idle for a couple of hours
+// with nothing left in the queue. They're treated as a new guest: the token is forgotten (the name
+// is kept, see rememberDisplayName) and they go back to the Join page for this session.
+function sendBackToJoin(sessionId) {
   const stale = loadParticipant(sessionId);
-  if (!stale || !stale.code || !stale.displayName) return false;
-  const response = await fetch(`/api/sessions/${encodeURIComponent(stale.code)}/participants`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ displayName: stale.displayName }),
-  });
-  if (!response.ok) return false;
-  const joined = await response.json().catch(() => null);
-  if (!joined) return false;
-  saveParticipant(sessionId, Object.assign(joined, { code: stale.code }));
-  return true;
+  if (stale) rememberDisplayName(stale.displayName);
+  clearParticipant(sessionId);
+  // Records saved before the session code was stored alongside the token can't find their Join
+  // page; the landing page is the best fallback (scanning the TV's QR code again works as usual).
+  location.href = stale && stale.code ? `/join/${encodeURIComponent(stale.code)}` : "/";
 }
 
 async function apiFetch(path, options = {}) {
-  const result = await apiFetchOnce(path, options);
-  if (result.status !== 401 || !options.sessionId || options.isRetry) return result;
-  if (!(await rejoin(options.sessionId))) {
-    clearParticipant(options.sessionId);
-    return result;
-  }
-  return apiFetchOnce(path, Object.assign({}, options, { isRetry: true }));
-}
-
-async function apiFetchOnce(path, options) {
   const sessionId = options.sessionId;
   const participant = sessionId ? loadParticipant(sessionId) : null;
   const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
@@ -63,6 +58,12 @@ async function apiFetchOnce(path, options) {
     return { ok: true, status: response.status, data: null };
   }
   const data = await response.json().catch(() => null);
+  if (response.status === 401 && sessionId && options.redirectOnUnauthorized !== false) {
+    sendBackToJoin(sessionId);
+    // Never settles: the page is navigating away, and the caller's own error handling (a
+    // "Couldn't load the queue" toast, say) would only flash on screen on the way out.
+    return new Promise(() => {});
+  }
   if (!response.ok) {
     return { ok: false, status: response.status, error: data && data.error };
   }

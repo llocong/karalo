@@ -164,8 +164,8 @@ class ParticipantRepository {
  * queue_items row, not just PENDING ones, so this can never trip that table's foreign key (played
  * and removed songs leave queue_items altogether -- see [recordPlayed] and [QueueRepository.delete]).
  *
- * A removed guest's token stops working; the phone's web app transparently re-joins under the
- * same name on the resulting 401 (see apiFetch in shared.js), so they simply count as new again.
+ * A removed guest's token stops working: on the resulting 401 the phone's web app sends them back
+ * to the Join page as a new guest, with their name prefilled (see sendBackToJoin in shared.js).
  * Must be called inside a transaction.
  */
 internal fun pruneInactive(sessionId: String) {

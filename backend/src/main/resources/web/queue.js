@@ -7,8 +7,6 @@
   // this is a quiet bail-out rather than a second competing redirect.
   if (!sessionId || !participant) return;
 
-  const WS_CLOSE_UNAUTHORIZED = 1008; // the backend's VIOLATED_POLICY close for a rejected token
-
   const miniPlayerThumb = document.getElementById("miniPlayerThumb");
   const miniPlayerTitle = document.getElementById("miniPlayerTitle");
   const miniPlayerSubtitle = document.getElementById("miniPlayerSubtitle");
@@ -253,31 +251,22 @@
 
   function connectWebSocket() {
     const protocol = location.protocol === "https:" ? "wss" : "ws";
-    // Read fresh on every (re)connect: apiFetch may have re-joined this guest (new token) since
-    // the page loaded -- see rejoin in shared.js.
-    const current = loadParticipant(sessionId);
-    if (!current) return;
-    ws = new WebSocket(`${protocol}://${location.host}/ws/session/${sessionId}?token=${encodeURIComponent(current.participantToken)}`);
+    ws = new WebSocket(`${protocol}://${location.host}/ws/session/${sessionId}?token=${encodeURIComponent(participant.participantToken)}`);
     ws.onopen = () => {
       reconnectDelayMs = 1000;
       loadSnapshot(); // reconcile from the backend on every (re)connect, never assume.
     };
     ws.onmessage = (event) => handleEvent(JSON.parse(event.data));
-    ws.onclose = (event) => (event.code === WS_CLOSE_UNAUTHORIZED ? recoverIdentityThenReconnect() : scheduleReconnect());
+    // 1008 (policy violation) is the backend rejecting the token: this guest was dropped. /me's
+    // 401 then sends them back to the Join page (see sendBackToJoin in shared.js) instead of
+    // reconnecting with a dead token forever.
+    ws.onclose = (event) => (event.code === 1008 ? apiFetch(`/api/sessions/${sessionId}/me`, { sessionId }) : scheduleReconnect());
     ws.onerror = () => ws.close();
   }
 
   function scheduleReconnect() {
     setTimeout(connectWebSocket, reconnectDelayMs);
     reconnectDelayMs = Math.min(reconnectDelayMs * 2, 10000);
-  }
-
-  // The token was rejected (this guest was dropped for inactivity): /me's 401 makes apiFetch
-  // re-join under the same name, after which the socket reconnects with the new token. If that
-  // couldn't happen, the record is gone and retrying with it would only loop forever.
-  async function recoverIdentityThenReconnect() {
-    await apiFetch(`/api/sessions/${sessionId}/me`, { sessionId });
-    if (loadParticipant(sessionId)) scheduleReconnect();
   }
 
   function handleEvent(envelope) {
