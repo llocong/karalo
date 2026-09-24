@@ -180,16 +180,19 @@ class QueueRepository(
                     ?.takeIf { session[Sessions.nowPlayingSource] == "QUEUE" }
                     ?.let { id -> QueueItems.selectAll().where { QueueItems.id eq id }.singleOrNull() }
             if (current != null) {
-                recordPlayed(
-                    sessionId = sessionId,
-                    videoId = current[QueueItems.videoId],
-                    title = current[QueueItems.title],
-                    channelName = current[QueueItems.channelName],
-                    thumbnailUrl = current[QueueItems.thumbnailUrl],
-                    durationSeconds = current[QueueItems.durationSeconds],
-                    source = "QUEUE",
-                    skipped = skipped,
-                )
+                // Leaves the queue either way; only recorded if history was on for its whole run.
+                if (!session[Sessions.nowPlayingHistorySuppressed]) {
+                    recordPlayed(
+                        sessionId = sessionId,
+                        videoId = current[QueueItems.videoId],
+                        title = current[QueueItems.title],
+                        channelName = current[QueueItems.channelName],
+                        thumbnailUrl = current[QueueItems.thumbnailUrl],
+                        durationSeconds = current[QueueItems.durationSeconds],
+                        source = "QUEUE",
+                        skipped = skipped,
+                    )
+                }
                 QueueItems.deleteWhere { QueueItems.id eq current[QueueItems.id] }
             }
             sessionRepository.syncNowPlayingToQueueHead(sessionId)

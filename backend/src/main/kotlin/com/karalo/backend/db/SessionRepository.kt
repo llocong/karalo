@@ -150,6 +150,7 @@ class SessionRepository(
             recordPlayNowIfPlaying(sessionId)
             Sessions.update({ Sessions.id eq sessionId }) {
                 it[nowPlayingSource] = "PLAY_NOW"
+                it[nowPlayingHistorySuppressed] = Sessions.historyPaused
                 it[playNowVideoId] = videoId
                 it[playNowTitle] = title
                 it[playNowChannelName] = channelName
@@ -187,6 +188,7 @@ class SessionRepository(
     private fun recordPlayNowIfPlaying(sessionId: String) {
         val session = Sessions.selectAll().where { Sessions.id eq sessionId }.singleOrNull() ?: return
         if (session[Sessions.nowPlayingSource] != "PLAY_NOW") return
+        if (session[Sessions.nowPlayingHistorySuppressed]) return
         val videoId = session[Sessions.playNowVideoId] ?: return
         recordPlayed(
             sessionId = sessionId,
@@ -200,8 +202,13 @@ class SessionRepository(
         )
     }
 
-    /** Points `nowPlayingQueueItemId` at whatever the current PENDING head is (or clears it). */
+    /**
+     * Points `nowPlayingQueueItemId` at whatever the current PENDING head is (or clears it). A
+     * different song becoming now-playing counts as that song starting, for the history switch
+     * (see Sessions.nowPlayingHistorySuppressed).
+     */
     internal fun syncNowPlayingToQueueHead(sessionId: String) {
+        val session = Sessions.selectAll().where { Sessions.id eq sessionId }.single()
         val head =
             QueueItems
                 .selectAll()
@@ -209,9 +216,12 @@ class SessionRepository(
                 .orderBy(QueueItems.position, SortOrder.ASC)
                 .limit(1)
                 .singleOrNull()
+        val headId = head?.get(QueueItems.id)
+        val songStarts = session[Sessions.nowPlayingSource] != "QUEUE" || session[Sessions.nowPlayingQueueItemId] != headId
         Sessions.update({ Sessions.id eq sessionId }) {
             it[nowPlayingSource] = "QUEUE"
-            it[nowPlayingQueueItemId] = head?.get(QueueItems.id)
+            it[nowPlayingQueueItemId] = headId
+            if (songStarts) it[nowPlayingHistorySuppressed] = session[Sessions.historyPaused]
             it[playbackState] = if (head != null) "PLAYING" else "IDLE"
             it[updatedAt] = Instant.now()
         }

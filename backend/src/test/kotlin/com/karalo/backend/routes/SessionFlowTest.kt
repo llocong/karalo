@@ -4,10 +4,12 @@ import com.karalo.backend.config.AppConfig
 import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.module
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -17,6 +19,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -276,5 +279,63 @@ class SessionFlowTest {
 
             join("Alice")
             assertEquals(2, count())
+        }
+
+    @Test
+    fun `history endpoints require the TV secret and support pause and clear`() =
+        testApplication {
+            application { module(testConfig()) }
+            val client = createClient { install(ContentNegotiation) { json() } }
+            val ensure = Json.parseToJsonElement(client.post("/api/tvs/tv-5/session/ensure").bodyAsText()).jsonObject
+            val secret = ensure["tvSecret"]!!.jsonPrimitive.content
+            val sessionId = ensure["session"]!!.jsonObject["id"]!!.jsonPrimitive.content
+            val code = ensure["session"]!!.jsonObject["code"]!!.jsonPrimitive.content
+            val guestToken =
+                Json
+                    .parseToJsonElement(
+                        client
+                            .post("/api/sessions/$code/participants") {
+                                contentType(ContentType.Application.Json)
+                                setBody("""{"displayName":"Alice"}""")
+                            }.bodyAsText(),
+                    ).jsonObject["participantToken"]!!
+                    .jsonPrimitive
+                    .content
+
+            assertEquals(HttpStatusCode.Unauthorized, client.get("/api/sessions/$sessionId/history").status)
+            assertEquals(
+                HttpStatusCode.Unauthorized,
+                client.get("/api/sessions/$sessionId/history") { header("Authorization", "Bearer $guestToken") }.status,
+            )
+
+            client.post("/api/sessions/$sessionId/play-now/start") {
+                header("Authorization", "Bearer $secret")
+                contentType(ContentType.Application.Json)
+                setBody("""{"videoId":"abcdefghijk","title":"Song","channelName":"Channel"}""")
+            }
+            client.post("/api/sessions/$sessionId/play-now/end") { header("Authorization", "Bearer $secret") }
+
+            suspend fun history(sort: String) =
+                Json
+                    .parseToJsonElement(
+                        client.get("/api/sessions/$sessionId/history?sort=$sort") { header("Authorization", "Bearer $secret") }.bodyAsText(),
+                    ).jsonObject
+
+            assertEquals(1, history("date")["items"]!!.jsonArray.size)
+            assertEquals("1", history("most_played")["items"]!!.jsonArray[0].jsonObject["playCount"]!!.jsonPrimitive.content)
+
+            val pause =
+                client.put("/api/sessions/$sessionId/history/paused") {
+                    header("Authorization", "Bearer $secret")
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"paused":true}""")
+                }
+            assertEquals(HttpStatusCode.OK, pause.status)
+            assertEquals("true", history("date")["paused"]!!.jsonPrimitive.content)
+
+            val clear = client.delete("/api/sessions/$sessionId/history") { header("Authorization", "Bearer $secret") }
+            assertEquals(HttpStatusCode.NoContent, clear.status)
+            assertEquals(0, history("date")["items"]!!.jsonArray.size)
+            assertEquals(HttpStatusCode.BadRequest, client.get("/api/sessions/$sessionId/history?sort=nope") { header("Authorization", "Bearer $secret") }.status)
         }
 }
