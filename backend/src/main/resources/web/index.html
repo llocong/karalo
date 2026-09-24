@@ -103,7 +103,7 @@
     /* ---------- Hero: full-screen photo, text on the right ---------- */
     .hero {
       position: relative; overflow: hidden; height: 100vh; min-height: 560px;
-      background: var(--bg); display: flex; align-items: center; padding: 0;
+      background: var(--bg); display: flex; align-items: flex-end; padding: 0;
     }
     .hero-photo {
       position: absolute; left: 0; top: 0; width: 100%; height: 116%;
@@ -116,11 +116,11 @@
         linear-gradient(0deg, #0B0710 0%, rgba(11, 7, 16, 0.75) 14%, rgba(11, 7, 16, 0) 40%);
     }
     .hero .wrap {
-      position: relative; width: 100%; padding: 110px 24px 48px;
+      position: relative; width: 100%; padding: 110px 24px clamp(48px, 9vh, 96px);
       display: flex; justify-content: flex-end;
     }
     /* Wide enough for "Karaoke night," on one line at the largest heading size. */
-    .hero-copy { display: flex; flex-direction: column; gap: 20px; align-items: flex-start; max-width: 540px; }
+    .hero-copy { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; max-width: 540px; }
     .eyebrow {
       display: inline-flex; align-items: center; gap: 8px;
       background: rgba(11, 7, 16, 0.6); border: 1px solid #3A2D47;
@@ -255,7 +255,7 @@
         <div class="hero-copy">
           <div class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow">For Android TV</span></div>
           <h1 data-i18n-html="heroTitle">Karaoke night,<br><span class="accent">on your TV.</span></h1>
-          <p class="lead" data-i18n="heroLead">Everyone picks songs from their own phone and sings on the big screen. Guests just scan a QR code: no app to install, no account to create.</p>
+          <p class="lead" data-i18n="heroLead">Guests scan a QR code and pick songs from their own phone. Everyone sings on the big screen.</p>
           <div class="ctas">
             <a class="btn btn-primary" href="#access" data-i18n="heroCta">Get early access</a>
             <a class="btn btn-ghost" href="#how" data-i18n="heroSecondary">See how it works</a>
@@ -392,7 +392,7 @@
       navCta: "Accès anticipé",
       eyebrow: "Pour Android TV",
       heroTitle: "Le karaoké,<br><span class=\"accent\">sur votre télé.</span>",
-      heroLead: "Chacun choisit ses chansons sur son propre téléphone et chante sur grand écran. Vos invités scannent un code QR : aucune appli à installer, aucun compte à créer.",
+      heroLead: "Vos invités scannent un code QR et choisissent leurs chansons sur leur téléphone. Tout le monde chante sur grand écran.",
       heroCta: "Obtenir l'accès anticipé",
       heroSecondary: "Voir comment ça marche",
       fact1: "Aucune appli pour les invités",
