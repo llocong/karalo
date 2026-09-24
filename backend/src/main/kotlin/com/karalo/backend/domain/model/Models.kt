@@ -148,3 +148,43 @@ data class ErrorBodyDto(
     val code: String,
     val message: String,
 )
+
+@Serializable
+data class HistoryPlayDto(
+    val id: String,
+    val videoId: String,
+    val title: String,
+    val channelName: String,
+    val thumbnailUrl: String?,
+    val playedAt: String,
+    val nightStartedAt: String,
+)
+
+@Serializable
+data class HistoryByDateDto(
+    val items: List<HistoryPlayDto>,
+    val nextCursor: String?,
+    val paused: Boolean,
+)
+
+@Serializable
+data class MostPlayedSongDto(
+    val videoId: String,
+    val title: String,
+    val channelName: String,
+    val thumbnailUrl: String?,
+    val playCount: Int,
+    val lastPlayedAt: String,
+)
+
+@Serializable
+data class MostPlayedDto(
+    val items: List<MostPlayedSongDto>,
+    val nextOffset: Int?,
+    val paused: Boolean,
+)
+
+@Serializable
+data class HistoryPausedDto(
+    val paused: Boolean,
+)

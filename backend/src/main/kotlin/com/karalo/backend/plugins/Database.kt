@@ -1,6 +1,7 @@
 package com.karalo.backend.plugins
 
 import com.karalo.backend.config.AppConfig
+import com.karalo.backend.db.nightStartFor
 import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.PlayHistory
 import com.karalo.backend.db.tables.QueueItems
@@ -10,8 +11,13 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
+import java.time.Instant
 
 /**
  * `maximumPoolSize = 1` is the whole atomic-position-assignment strategy, not an oversight: SQLite
@@ -37,6 +43,7 @@ fun connectDatabase(config: AppConfig): Database {
     transaction(database) {
         SchemaUtils.createMissingTablesAndColumns(TvInstallations, Sessions, Participants, QueueItems, PlayHistory)
         migrateToPlayHistory()
+        backfillNightStartedAt()
     }
     return database
 }
@@ -61,4 +68,34 @@ internal fun Transaction.migrateToPlayHistory() {
         """.trimIndent(),
     )
     exec("DELETE FROM queue_items WHERE status IN ('PLAYED', 'SKIPPED', 'REMOVED')")
+}
+
+/**
+ * Gives history rows recorded before night_started_at existed their karaoke night, walking each
+ * affected session's plays in order with the same rule new plays use (see nightStartFor).
+ * Idempotent: only sessions that still have unassigned rows are touched.
+ */
+internal fun Transaction.backfillNightStartedAt() {
+    val sessionIds =
+        PlayHistory
+            .select(PlayHistory.sessionId)
+            .where { PlayHistory.nightStartedAt.isNull() }
+            .withDistinct()
+            .map { it[PlayHistory.sessionId] }
+    for (sessionId in sessionIds) {
+        var previousPlayedAt: Instant? = null
+        var previousNight: Instant? = null
+        val plays =
+            PlayHistory
+                .select(PlayHistory.id, PlayHistory.playedAt)
+                .where { PlayHistory.sessionId eq sessionId }
+                .orderBy(PlayHistory.playedAt to SortOrder.ASC, PlayHistory.id to SortOrder.ASC)
+                .map { it[PlayHistory.id] to it[PlayHistory.playedAt] }
+        for ((id, playedAt) in plays) {
+            val night = nightStartFor(playedAt, previousPlayedAt, previousNight)
+            PlayHistory.update({ PlayHistory.id eq id }) { it[nightStartedAt] = night }
+            previousPlayedAt = playedAt
+            previousNight = night
+        }
+    }
 }

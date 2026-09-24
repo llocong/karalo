@@ -11,16 +11,21 @@ import com.karalo.core.common.result.AppResult
 import com.karalo.core.common.result.map
 import com.karalo.core.common.result.onSuccess
 import com.karalo.core.karaoke.data.remote.KaraokeApi
+import com.karalo.core.karaoke.data.remote.dto.HistoryPlayDto
+import com.karalo.core.karaoke.data.remote.dto.MostPlayedSongDto
 import com.karalo.core.karaoke.data.remote.dto.NowPlayingDto
 import com.karalo.core.karaoke.data.remote.dto.NowPlayingPayloadDto
 import com.karalo.core.karaoke.data.remote.dto.QueueItemDto
 import com.karalo.core.karaoke.data.remote.dto.QueueSnapshotDto
 import com.karalo.core.karaoke.data.ws.KaraokeWebSocketClient
 import com.karalo.core.karaoke.di.KaraokeDataStore
+import com.karalo.core.karaoke.domain.HistoryPage
+import com.karalo.core.karaoke.domain.HistoryPlay
 import com.karalo.core.karaoke.domain.KaraokeEvent
 import com.karalo.core.karaoke.domain.KaraokeQueueSnapshot
 import com.karalo.core.karaoke.domain.KaraokeRepository
 import com.karalo.core.karaoke.domain.KaraokeSession
+import com.karalo.core.karaoke.domain.MostPlayedSong
 import com.karalo.core.karaoke.domain.NowPlaying
 import com.karalo.core.karaoke.domain.NowPlayingSource
 import com.karalo.core.karaoke.domain.PlayNowSong
@@ -41,6 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
@@ -74,6 +80,7 @@ private fun backoffDelayFor(attempt: Int): Long {
  * high-frequency stream).
  */
 @Singleton
+@Suppress("TooManyFunctions") // one method per backend operation (see KaraokeRepository), plus the WS loop
 class KaraokeRepositoryImpl
     @Inject
     constructor(
@@ -160,6 +167,32 @@ class KaraokeRepositoryImpl
 
         override suspend fun reportPlaybackState(isPlaying: Boolean): AppResult<Unit> =
             withSession { sessionId, secret -> api.reportPlaybackState(sessionId, secret, isPlaying) }
+
+        override suspend fun historyByDate(
+            before: String?,
+            limit: Int,
+        ): AppResult<HistoryPage<HistoryPlay, String>> =
+            withSession { sessionId, secret ->
+                api.fetchHistoryByDate(sessionId, secret, before, limit).map { page ->
+                    HistoryPage(page.items.map { it.toDomain() }, page.nextCursor, page.paused)
+                }
+            }
+
+        override suspend fun mostPlayed(
+            offset: Int,
+            limit: Int,
+        ): AppResult<HistoryPage<MostPlayedSong, Int>> =
+            withSession { sessionId, secret ->
+                api.fetchMostPlayed(sessionId, secret, offset, limit).map { page ->
+                    HistoryPage(page.items.map { it.toDomain() }, page.nextOffset, page.paused)
+                }
+            }
+
+        override suspend fun setHistoryPaused(paused: Boolean): AppResult<Boolean> =
+            withSession { sessionId, secret -> api.setHistoryPaused(sessionId, secret, paused) }
+
+        override suspend fun clearHistory(): AppResult<Unit> =
+            withSession { sessionId, secret -> api.clearHistory(sessionId, secret) }
 
         private suspend inline fun <T> withSession(
             block: suspend (sessionId: String, secret: String) -> AppResult<T>,
@@ -308,4 +341,24 @@ private fun QueueItemDto.toDomain() =
         addedByParticipantId = addedByParticipantId,
         addedByDisplayName = addedByDisplayName,
         addedAt = addedAt,
+    )
+
+private fun HistoryPlayDto.toDomain() =
+    HistoryPlay(
+        id = id,
+        videoId = videoId,
+        title = title,
+        channelName = channelName,
+        thumbnailUrl = thumbnailUrl,
+        playedAt = Instant.parse(playedAt),
+        nightStartedAt = Instant.parse(nightStartedAt),
+    )
+
+private fun MostPlayedSongDto.toDomain() =
+    MostPlayedSong(
+        videoId = videoId,
+        title = title,
+        channelName = channelName,
+        thumbnailUrl = thumbnailUrl,
+        playCount = playCount,
     )

@@ -13,11 +13,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
+import com.karalo.feature.history.HistoryScreen
 import com.karalo.feature.home.HomeScreen
 import com.karalo.feature.search.presentation.SearchScreen
 
 /**
- * Hosts the three rail-switched top-level destinations (Home/Search/Settings) as permanent
+ * Hosts the rail-switched top-level destinations (Home/Search/History/Settings) as permanent
  * siblings instead of routing them through separate NavHost destinations. NavHost only ever keeps
  * one destination's Composable subtree alive -- switching via a real navigate() call, as this app
  * used to for these three, fully disposes the screen being left and rebuilds the one being entered
@@ -36,6 +37,7 @@ internal fun MainTabsHost(
     activeDestination: String,
     onHomeResultClick: (Int, String) -> Unit,
     onSearchResultClick: (Int, String) -> Unit,
+    onHistoryResultClick: (Int, String) -> Unit,
     homeContentFocusTrigger: Int,
     homePlayerReturnTrigger: Int,
     homeRailFocusRequester: FocusRequester,
@@ -44,6 +46,9 @@ internal fun MainTabsHost(
     searchContentFocusTrigger: Int,
     searchPlayerReturnTrigger: Int,
     searchRailFocusRequester: FocusRequester,
+    historyContentFocusTrigger: Int,
+    historyPlayerReturnTrigger: Int,
+    historyRailFocusRequester: FocusRequester,
     settingsContentFocusTrigger: Int,
     settingsRailFocusRequester: FocusRequester,
     sessionJoinUrl: String?,
@@ -51,9 +56,11 @@ internal fun MainTabsHost(
 ) {
     var homeEverActive by rememberSaveable { mutableStateOf(activeDestination == NavDestination.Home.route) }
     var searchEverActive by rememberSaveable { mutableStateOf(activeDestination == NavDestination.Search.route) }
+    var historyEverActive by rememberSaveable { mutableStateOf(activeDestination == NavDestination.History.route) }
     var settingsEverActive by rememberSaveable { mutableStateOf(activeDestination == NavDestination.Settings.route) }
     if (activeDestination == NavDestination.Home.route) homeEverActive = true
     if (activeDestination == NavDestination.Search.route) searchEverActive = true
+    if (activeDestination == NavDestination.History.route) historyEverActive = true
     if (activeDestination == NavDestination.Settings.route) settingsEverActive = true
 
     // True only for Home's very first-ever composition (now a one-time event, since Home is
@@ -85,6 +92,17 @@ internal fun MainTabsHost(
                 playerReturnTrigger = searchPlayerReturnTrigger,
                 railFocusRequester = searchRailFocusRequester,
                 modifier = Modifier.tabVisibility(activeDestination == NavDestination.Search.route),
+            )
+        }
+        if (historyEverActive) {
+            val isHistoryActive = activeDestination == NavDestination.History.route
+            HistoryScreen(
+                onResultClick = onHistoryResultClick,
+                isActive = isHistoryActive,
+                contentFocusTrigger = historyContentFocusTrigger,
+                playerReturnTrigger = historyPlayerReturnTrigger,
+                railFocusRequester = historyRailFocusRequester,
+                modifier = Modifier.tabVisibility(isHistoryActive),
             )
         }
         if (settingsEverActive) {

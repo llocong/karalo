@@ -1,6 +1,7 @@
 package com.karalo.backend.plugins
 
 import com.karalo.backend.AppDependencies
+import com.karalo.backend.routes.historyRoutes
 import com.karalo.backend.routes.participantSessionRoutes
 import com.karalo.backend.routes.publicSessionRoutes
 import com.karalo.backend.routes.queueRoutes
@@ -20,6 +21,7 @@ fun Application.installRouting(deps: AppDependencies) {
 
     routing {
         tvRoutes(deps)
+        historyRoutes(deps)
         publicSessionRoutes(deps)
         participantSessionRoutes(deps)
         queueRoutes(deps)

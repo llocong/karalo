@@ -1,6 +1,8 @@
 package com.karalo.core.karaoke.data.remote
 
 import com.karalo.core.common.result.AppResult
+import com.karalo.core.karaoke.data.remote.dto.HistoryByDateDto
+import com.karalo.core.karaoke.data.remote.dto.MostPlayedDto
 import com.karalo.core.karaoke.data.remote.dto.NowPlayingPayloadDto
 import com.karalo.core.karaoke.data.remote.dto.QueueSnapshotDto
 import com.karalo.core.karaoke.data.remote.dto.SessionEnsureResponseDto
@@ -44,5 +46,32 @@ interface KaraokeApi {
         sessionId: String,
         tvSecret: String,
         isPlaying: Boolean,
+    ): AppResult<Unit>
+
+    /** One page of the song history, newest first; [before] is the previous page's cursor. */
+    suspend fun fetchHistoryByDate(
+        sessionId: String,
+        tvSecret: String,
+        before: String?,
+        limit: Int,
+    ): AppResult<HistoryByDateDto>
+
+    /** One page of the song history aggregated per video, most played first. */
+    suspend fun fetchMostPlayed(
+        sessionId: String,
+        tvSecret: String,
+        offset: Int,
+        limit: Int,
+    ): AppResult<MostPlayedDto>
+
+    suspend fun setHistoryPaused(
+        sessionId: String,
+        tvSecret: String,
+        paused: Boolean,
+    ): AppResult<Boolean>
+
+    suspend fun clearHistory(
+        sessionId: String,
+        tvSecret: String,
     ): AppResult<Unit>
 }

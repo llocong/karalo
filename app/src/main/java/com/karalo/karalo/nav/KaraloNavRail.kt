@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -62,6 +63,7 @@ import kotlinx.coroutines.delay
 
 const val NAV_TAG_HOME = "nav_home"
 const val NAV_TAG_SEARCH = "nav_search"
+const val NAV_TAG_HISTORY = "nav_history"
 const val NAV_TAG_SETTINGS = "nav_settings"
 
 // How long focus has to stay on one rail item before its "focus to preview" navigation actually
@@ -150,23 +152,28 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     drawerState: DrawerState,
     homeFocusRequester: FocusRequester,
     searchFocusRequester: FocusRequester,
+    historyFocusRequester: FocusRequester,
     settingsFocusRequester: FocusRequester,
     onHomeClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onHomeSelect: () -> Unit,
     onSearchSelect: () -> Unit,
+    onHistorySelect: () -> Unit,
     onSettingsSelect: () -> Unit,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
+    val historyInteractionSource = remember { MutableInteractionSource() }
     val settingsInteractionSource = remember { MutableInteractionSource() }
     val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
     val isHomeFocused by homeInteractionSource.collectIsFocusedAsState()
+    val isHistoryFocused by historyInteractionSource.collectIsFocusedAsState()
     val isSettingsFocused by settingsInteractionSource.collectIsFocusedAsState()
 
-    LaunchedEffect(isSearchFocused, isHomeFocused, isSettingsFocused) {
-        val anyFocused = isSearchFocused || isHomeFocused || isSettingsFocused
+    LaunchedEffect(isSearchFocused, isHomeFocused, isHistoryFocused, isSettingsFocused) {
+        val anyFocused = isSearchFocused || isHomeFocused || isHistoryFocused || isSettingsFocused
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
     }
 
@@ -201,6 +208,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         when (route) {
             NavDestination.Home.route -> homeFocusRequester
             NavDestination.Search.route -> searchFocusRequester
+            NavDestination.History.route -> historyFocusRequester
             NavDestination.Settings.route -> settingsFocusRequester
             else -> null
         }
@@ -226,6 +234,10 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     val trackedOnSearchSelect: () -> Unit = {
         markExplicitSelect(NavDestination.Search.route)
         onSearchSelect()
+    }
+    val trackedOnHistorySelect: () -> Unit = {
+        markExplicitSelect(NavDestination.History.route)
+        onHistorySelect()
     }
     val trackedOnSettingsSelect: () -> Unit = {
         markExplicitSelect(NavDestination.Settings.route)
@@ -255,6 +267,13 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             correctStrayFocus(NavDestination.Home.route)
             delay(FOCUS_PREVIEW_DEBOUNCE_MS)
             if (!isRecentExplicitSelectElsewhere(NavDestination.Home.route)) onHomeClick()
+        }
+    }
+    LaunchedEffect(isHistoryFocused) {
+        if (isHistoryFocused) {
+            correctStrayFocus(NavDestination.History.route)
+            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
+            if (!isRecentExplicitSelectElsewhere(NavDestination.History.route)) onHistoryClick()
         }
     }
     LaunchedEffect(isSettingsFocused) {
@@ -336,6 +355,21 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                 Modifier
                     .testTag(NAV_TAG_HOME)
                     .focusRequester(homeFocusRequester)
+                    .padding(top = 8.dp),
+        )
+
+        KaraloNavItem(
+            selected = currentRoute == NavDestination.History.route,
+            onClick = trackedOnHistorySelect,
+            icon = Icons.Filled.History,
+            label = "History",
+            interactionSource = historyInteractionSource,
+            width = width,
+            revealFraction = revealFraction,
+            modifier =
+                Modifier
+                    .testTag(NAV_TAG_HISTORY)
+                    .focusRequester(historyFocusRequester)
                     .padding(top = 8.dp),
         )
 

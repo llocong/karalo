@@ -25,6 +25,15 @@ object Sessions : Table("sessions") {
     val playNowChannelName = text("play_now_channel_name").nullable()
     val playNowThumbnailUrl = text("play_now_thumbnail_url").nullable()
     val playNowDurationSeconds = integer("play_now_duration_seconds").nullable()
+
+    // Song history switch, set from the TV's History page. While true, finished songs aren't
+    // added to play_history.
+    val historyPaused = bool("history_paused").default(false)
+
+    // Whether the song playing right now must stay out of play_history: fixed to historyPaused
+    // when the song starts, and forced on when history is paused mid-song -- so a song is only
+    // recorded if history was on for its whole run, and resuming never adds one retroactively.
+    val nowPlayingHistorySuppressed = bool("now_playing_history_suppressed").default(false)
     val updatedAt = timestamp("updated_at")
     override val primaryKey = PrimaryKey(id)
 }
@@ -88,6 +97,12 @@ object PlayHistory : Table("play_history") {
     val playSource = text("source") // "QUEUE" or "PLAY_NOW"
     val skipped = bool("skipped").default(false)
     val playedAt = timestamp("played_at") // when it finished, matching queue_items.played_at
+
+    // When the karaoke night this play belongs to started: the played_at of its first song. A
+    // night ends after KARAOKE_NIGHT_GAP without a play, so one running past midnight stays one
+    // group. Set on insert (see recordPlayed); nullable only so createMissingTablesAndColumns can
+    // add it to an existing DB, whose rows the startup backfill fills in.
+    val nightStartedAt = timestamp("night_started_at").nullable()
     override val primaryKey = PrimaryKey(id)
 
     init {

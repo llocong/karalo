@@ -58,7 +58,7 @@ fun KaraloNavHost(
     // the API 30 emulator, where that workaround is skipped.
     val showNavRail = !isPlayerActive && !isPlayerComposed
 
-    // Which of Home/Search/Settings is actually shown -- flipped only after the rail's own
+    // Which of Home/Search/History/Settings is actually shown -- flipped only after the rail's own
     // 150ms focus-settle debounce (see KaraloNavRailContent), never on every intermediate
     // focus move. Kept as plain local state (not a NavHost route) precisely so switching is a
     // cheap state write rather than a NavController.navigate() call -- see MainTabsHost's own
@@ -73,6 +73,7 @@ fun KaraloNavHost(
     // content rather than on any rail item.
     var homeContentFocusTrigger by remember { mutableIntStateOf(1) }
     var searchContentFocusTrigger by remember { mutableIntStateOf(0) }
+    var historyContentFocusTrigger by remember { mutableIntStateOf(0) }
     var settingsContentFocusTrigger by remember { mutableIntStateOf(0) }
 
     // Bumped specifically when the back stack pops from Player back to Home/Search (a genuine
@@ -88,11 +89,13 @@ fun KaraloNavHost(
     var previousShowNavRail by remember { mutableStateOf(showNavRail) }
     var homePlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var searchPlayerReturnTrigger by remember { mutableIntStateOf(0) }
+    var historyPlayerReturnTrigger by remember { mutableIntStateOf(0) }
     LaunchedEffect(showNavRail) {
         if (!previousShowNavRail && showNavRail) {
             when (activeDestination) {
                 NavDestination.Home.route -> homePlayerReturnTrigger++
                 NavDestination.Search.route -> searchPlayerReturnTrigger++
+                NavDestination.History.route -> historyPlayerReturnTrigger++
             }
         }
         previousShowNavRail = showNavRail
@@ -144,6 +147,7 @@ fun KaraloNavHost(
     // e.g. Settings, if it happens to sit closer to whichever shelf/row is currently focused).
     val homeRailFocusRequester = remember { FocusRequester() }
     val searchRailFocusRequester = remember { FocusRequester() }
+    val historyRailFocusRequester = remember { FocusRequester() }
     val settingsRailFocusRequester = remember { FocusRequester() }
 
     // Hoisted here (rather than left owned locally inside HomeScreenContent) so onHomeSelect below
@@ -208,6 +212,9 @@ fun KaraloNavHost(
                             onSearchResultClick = { startIndex, videoId ->
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
+                            onHistoryResultClick = { startIndex, videoId ->
+                                navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
+                            },
                             homeContentFocusTrigger = homeContentFocusTrigger,
                             homePlayerReturnTrigger = homePlayerReturnTrigger,
                             homeRailFocusRequester = homeRailFocusRequester,
@@ -216,6 +223,9 @@ fun KaraloNavHost(
                             searchContentFocusTrigger = searchContentFocusTrigger,
                             searchPlayerReturnTrigger = searchPlayerReturnTrigger,
                             searchRailFocusRequester = searchRailFocusRequester,
+                            historyContentFocusTrigger = historyContentFocusTrigger,
+                            historyPlayerReturnTrigger = historyPlayerReturnTrigger,
+                            historyRailFocusRequester = historyRailFocusRequester,
                             settingsContentFocusTrigger = settingsContentFocusTrigger,
                             settingsRailFocusRequester = settingsRailFocusRequester,
                             sessionJoinUrl = currentSessionJoinUrl,
@@ -248,9 +258,11 @@ fun KaraloNavHost(
                     drawerState = drawerState,
                     homeFocusRequester = homeRailFocusRequester,
                     searchFocusRequester = searchRailFocusRequester,
+                    historyFocusRequester = historyRailFocusRequester,
                     settingsFocusRequester = settingsRailFocusRequester,
                     onHomeClick = { activateTopLevel(NavDestination.Home.route) },
                     onSearchClick = { activateTopLevel(NavDestination.Search.route) },
+                    onHistoryClick = { activateTopLevel(NavDestination.History.route) },
                     onSettingsClick = { activateTopLevel(NavDestination.Settings.route) },
                     onHomeSelect = {
                         // Closed explicitly here (a genuine select should always collapse the rail
@@ -296,6 +308,11 @@ fun KaraloNavHost(
                         drawerState.setValue(DrawerValue.Closed)
                         activateTopLevel(NavDestination.Search.route)
                         searchContentFocusTrigger++
+                    },
+                    onHistorySelect = {
+                        drawerState.setValue(DrawerValue.Closed)
+                        activateTopLevel(NavDestination.History.route)
+                        historyContentFocusTrigger++
                     },
                     onSettingsSelect = {
                         drawerState.setValue(DrawerValue.Closed)

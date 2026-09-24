@@ -19,7 +19,7 @@ import kotlinx.serialization.json.put
 /** Header a TV sends on `session/ensure` to register; see `AppConfig.tvRegistrationKey`. */
 const val TV_REGISTRATION_KEY_HEADER = "X-Karalo-Registration-Key"
 
-private fun requireSessionId(call: io.ktor.server.application.ApplicationCall) =
+internal fun requireSessionId(call: io.ktor.server.application.ApplicationCall) =
     call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
 
 /** Routes only the TV (holding the session's `tvSecret`) is ever authorized to call. */
