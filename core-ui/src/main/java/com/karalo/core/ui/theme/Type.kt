@@ -53,9 +53,9 @@ val KaraloTileLabelTextStyle =
         letterSpacing = 0.sp,
     )
 
-// Nav drawer item labels, also used by the search field (typed text and placeholder) so the two
-// read identically -- Manrope SemiBold, like labelMedium, a size down from it. No color: each
-// caller sets its own.
+// Nav drawer item labels, also used by the search field (typed text and placeholder) and the
+// search suggestion chips so they all read identically -- Manrope SemiBold, like labelMedium, a
+// size down from it. No color: each caller sets its own.
 val KaraloNavLabelTextStyle =
     TextStyle(
         fontFamily = ManropeSemiBold,
