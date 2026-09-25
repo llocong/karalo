@@ -173,5 +173,3 @@ merge, branch protection settings to configure once).
 - **No system media integration.** Hardware/remote media keys are handled directly by
   `MainActivity` (see `com.karalo.core.common.mediakeys`), not via a `MediaSession`, so there's no
   lock-screen/notification playback UI or guaranteed Google Assistant voice control.
-- **Placeholder art.** The launcher icon and Google TV banner (`app/src/main/res/drawable/`) are
-  simple vector placeholders, not final brand assets.
