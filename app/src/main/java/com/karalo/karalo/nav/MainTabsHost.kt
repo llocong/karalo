@@ -6,13 +6,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.layout.layout
 import com.karalo.feature.history.HistoryScreen
 import com.karalo.feature.home.HomeScreen
 import com.karalo.feature.search.presentation.SearchScreen
@@ -70,6 +72,16 @@ internal fun MainTabsHost(
     // rail focus-preview back when Home used to be disposed/remounted on every visit.
     var hasHomeEverMounted by rememberSaveable { mutableStateOf(false) }
 
+    // Each tab's visibility modifier is created once and reads the current destination only at
+    // draw/placement/focus time, so switching tabs (which the rail does on every focus-preview)
+    // never hands the screens a new modifier -- previously a fresh one per switch made every
+    // mounted screen recompose, the biggest cost in a Perfetto trace of rail scanning on the TV.
+    val currentDestination by rememberUpdatedState(activeDestination)
+    val homeVisibility = remember { Modifier.tabVisibility { currentDestination == NavDestination.Home.route } }
+    val searchVisibility = remember { Modifier.tabVisibility { currentDestination == NavDestination.Search.route } }
+    val historyVisibility = remember { Modifier.tabVisibility { currentDestination == NavDestination.History.route } }
+    val settingsVisibility = remember { Modifier.tabVisibility { currentDestination == NavDestination.Settings.route } }
+
     Box(modifier = modifier.fillMaxSize()) {
         if (homeEverActive) {
             LaunchedEffect(Unit) { hasHomeEverMounted = true }
@@ -82,7 +94,7 @@ internal fun MainTabsHost(
                 firstVideoFocusRequester = homeFirstVideoFocusRequester,
                 homeReselectTrigger = homeReselectTrigger,
                 sessionJoinUrl = sessionJoinUrl,
-                modifier = Modifier.tabVisibility(activeDestination == NavDestination.Home.route),
+                modifier = homeVisibility,
             )
         }
         if (searchEverActive) {
@@ -91,7 +103,7 @@ internal fun MainTabsHost(
                 contentFocusTrigger = searchContentFocusTrigger,
                 playerReturnTrigger = searchPlayerReturnTrigger,
                 railFocusRequester = searchRailFocusRequester,
-                modifier = Modifier.tabVisibility(activeDestination == NavDestination.Search.route),
+                modifier = searchVisibility,
             )
         }
         if (historyEverActive) {
@@ -102,14 +114,14 @@ internal fun MainTabsHost(
                 contentFocusTrigger = historyContentFocusTrigger,
                 playerReturnTrigger = historyPlayerReturnTrigger,
                 railFocusRequester = historyRailFocusRequester,
-                modifier = Modifier.tabVisibility(isHistoryActive),
+                modifier = historyVisibility,
             )
         }
         if (settingsEverActive) {
             SettingsScreen(
                 contentFocusTrigger = settingsContentFocusTrigger,
                 railFocusRequester = settingsRailFocusRequester,
-                modifier = Modifier.tabVisibility(activeDestination == NavDestination.Settings.route),
+                modifier = settingsVisibility,
             )
         }
     }
@@ -123,17 +135,16 @@ internal fun MainTabsHost(
  * two-dimensional focus search can still find a focusable node sitting (invisibly) at the same
  * screen coordinates as the active tab's content, since alpha alone doesn't affect focusability.
  */
-private fun Modifier.tabVisibility(isActive: Boolean): Modifier =
+private fun Modifier.tabVisibility(isActive: () -> Boolean): Modifier =
     this
-        .zIndex(if (isActive) 1f else 0f)
-        .graphicsLayer { alpha = if (isActive) 1f else 0f }
-        .then(
-            if (isActive) {
-                Modifier
-            } else {
-                Modifier.focusProperties {
-                    canFocus = false
-                    onEnter = { cancelFocusChange() }
-                }
-            },
-        )
+        // The active tab is placed on top of the others (zIndex at placement time).
+        .layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            layout(placeable.width, placeable.height) {
+                placeable.place(0, 0, zIndex = if (isActive()) 1f else 0f)
+            }
+        }.graphicsLayer { alpha = if (isActive()) 1f else 0f }
+        .focusProperties {
+            canFocus = isActive()
+            onEnter = { if (!isActive()) cancelFocusChange() }
+        }
