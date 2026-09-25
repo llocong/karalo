@@ -258,6 +258,7 @@ class KaraokeRepositoryImpl
                 queueSnapshotFlow.value.copy(
                     nowPlaying = payload.nowPlaying?.toDomain(),
                     playbackState = payload.playbackState ?: queueSnapshotFlow.value.playbackState,
+                    loaded = true,
                 )
         }
 
