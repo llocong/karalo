@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Join Karaoke</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect x='6' y='6' width='84' height='84' rx='22' fill='%237C3AED'/%3E%3Crect x='40' y='26' width='16' height='20' rx='8' fill='%23F5F3F7'/%3E%3Crect x='41' y='46' width='14' height='4' rx='2' fill='%23FF5D8F'/%3E%3Cpolygon points='43,50 53,50 51,70 45,70' fill='%23F5F3F7'/%3E%3C/svg%3E" />
   <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/fonts/fonts.css" />
@@ -15,6 +16,9 @@
     } catch (e) {}
   </script>
   <link rel="stylesheet" href="/shared.css" />
+  <!-- Deferred: fetched alongside the styles, run in order once the page is parsed. -->
+  <script src="/shared.js" defer></script>
+  <script src="/join.js" defer></script>
   <style>
     body {
       /* `100vh` is the mobile browser's "large viewport" -- as tall as the screen would be with
@@ -104,7 +108,5 @@
     </div>
     <button class="pill-button" id="joinButton" disabled>Join Session</button>
   </div>
-  <script src="/shared.js"></script>
-  <script src="/join.js"></script>
 </body>
 </html>

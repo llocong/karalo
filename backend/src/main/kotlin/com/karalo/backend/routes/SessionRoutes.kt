@@ -17,6 +17,8 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -102,7 +104,8 @@ fun Route.searchRoutes(deps: AppDependencies) {
             deps.participantRepository.requireParticipantAuth(sessionId, call.bearerToken(), markActive = true)
             val query = call.request.queryParameters["q"]?.trim().orEmpty()
             if (query.isEmpty() || query.length > 100) throw ApiException.Validation("q must be 1-100 characters")
-            val results = deps.youtubeSearch.search(query)
+            // Off the request threads: a scrape can take a second or more.
+            val results = withContext(Dispatchers.IO) { deps.youtubeSearch.search(query) }
             call.respond(
                 buildJsonObject {
                     put(

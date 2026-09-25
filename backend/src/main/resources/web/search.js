@@ -188,7 +188,7 @@
       const row = document.createElement("div");
       row.className = "song-row";
       row.innerHTML = `
-        <div class="thumb">${r.thumbnailUrl ? `<img src="${escapeHtml(r.thumbnailUrl)}" alt="" />` : ""}</div>
+        <div class="thumb">${thumbnailImg(r.videoId, r.thumbnailUrl)}</div>
         <div class="meta">
           <div class="title">${escapeHtml(r.title)}</div>
         </div>

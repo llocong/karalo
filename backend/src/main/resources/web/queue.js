@@ -28,11 +28,6 @@
   const HANDLE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="6" r="1.4" fill="#63576F"/><circle cx="8" cy="12" r="1.4" fill="#63576F"/><circle cx="8" cy="18" r="1.4" fill="#63576F"/><circle cx="16" cy="6" r="1.4" fill="#63576F"/><circle cx="16" cy="12" r="1.4" fill="#63576F"/><circle cx="16" cy="18" r="1.4" fill="#63576F"/></svg>';
   const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 
-  function thumbHtml(url) {
-    // Escaped: a phone supplies this URL when adding a song, and every other phone renders it.
-    return url ? `<img src="${escapeHtml(url)}" alt="" />` : "";
-  }
-
   async function loadSnapshot() {
     // A drag reloads the snapshot itself the instant it ends (see attachDragHandle's pointerup
     // handler) -- rebuilding the DOM out from under an in-progress gesture (e.g. a WS update from
@@ -66,7 +61,7 @@
 
   function renderNowPlaying(nowPlaying) {
     if (nowPlaying) {
-      nowPlayingThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
+      nowPlayingThumb.innerHTML = thumbnailImg(nowPlaying.videoId, nowPlaying.thumbnailUrl);
       nowPlayingTitle.textContent = nowPlaying.title;
       nowPlayingSungBy.textContent = nowPlaying.addedByDisplayName ? `Sung by ${nowPlaying.addedByDisplayName}` : "";
     } else {
@@ -78,7 +73,7 @@
 
   function renderMiniPlayer(nowPlaying) {
     if (nowPlaying) {
-      miniPlayerThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
+      miniPlayerThumb.innerHTML = thumbnailImg(nowPlaying.videoId, nowPlaying.thumbnailUrl);
       miniPlayerTitle.textContent = nowPlaying.title;
       miniPlayerSubtitle.textContent = "Now playing";
     } else {
@@ -101,7 +96,7 @@
       wrap.innerHTML = `
         <div class="queue-row-delete">${DELETE_ICON}</div>
         <div class="queue-row" data-id="${item.id}">
-          <div class="thumb">${thumbHtml(item.thumbnailUrl)}</div>
+          <div class="thumb">${thumbnailImg(item.videoId, item.thumbnailUrl)}</div>
           <div class="meta">
             <div class="title">${escapeHtml(item.title)}</div>
             <div class="sung-by">Sung by ${escapeHtml(item.addedByDisplayName)}</div>

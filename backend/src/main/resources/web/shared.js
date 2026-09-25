@@ -111,6 +111,15 @@ async function apiFetch(path, options = {}) {
   return { ok: true, status: response.status, data };
 }
 
+// Song thumbnails show at 64x36 (56px at most in the queue), but a search result carries YouTube's
+// 1280x720 image (~80 KB). Its 320x180 one (~15 KB) is sharp enough at phone densities, and is
+// what's loaded here whenever the video id is known. Lazy: rows below the fold wait for a scroll.
+function thumbnailImg(videoId, fallbackUrl) {
+  const src = /^[\w-]{11}$/.test(videoId || "") ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : fallbackUrl;
+  // Escaped: a phone supplies the fallback URL when adding a song, and every other phone renders it.
+  return src ? `<img src="${escapeHtml(src)}" alt="" loading="lazy" decoding="async" />` : "";
+}
+
 function showToast(message) {
   let el = document.getElementById("toast");
   if (!el) {
