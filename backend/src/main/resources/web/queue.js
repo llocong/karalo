@@ -261,9 +261,9 @@
       loadSnapshot(); // reconcile from the backend on every (re)connect, never assume.
     };
     ws.onmessage = (event) => handleEvent(JSON.parse(event.data));
-    // 1008 (policy violation) is the backend rejecting the token: this guest was dropped. /me's
-    // 401 then sends them back to the Join page (see sendBackToJoin in shared.js) instead of
-    // reconnecting with a dead token forever.
+    // 1008 (policy violation) is the backend rejecting the token: this guest timed out, or the
+    // session ended. /me's 401 then says which, and apiFetch shows the matching page (see
+    // sendToSessionOver in shared.js) instead of reconnecting with a dead token forever.
     ws.onclose = (event) => (event.code === 1008 ? apiFetch(`/api/sessions/${sessionId}/me`, { sessionId }) : scheduleReconnect());
     ws.onerror = () => ws.close();
   }

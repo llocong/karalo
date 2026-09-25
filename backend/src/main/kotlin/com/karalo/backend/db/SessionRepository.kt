@@ -5,6 +5,7 @@ import com.karalo.backend.db.tables.QueueItems
 import com.karalo.backend.db.tables.Sessions
 import com.karalo.backend.db.tables.TvInstallations
 import com.karalo.backend.domain.ApiException
+import com.karalo.backend.domain.SESSION_ENDED
 import com.karalo.backend.domain.SessionCodeGenerator
 import com.karalo.backend.domain.TokenGenerator
 import com.karalo.backend.domain.model.NowPlayingDto
@@ -82,14 +83,20 @@ class SessionRepository(
             if (presentedSecret == null || !TokenGenerator.matches(presentedSecret, existing[TvInstallations.tvSecretHash])) {
                 throw ApiException.Unauthorized("Invalid or missing TV secret")
             }
-            TvInstallations.update({ TvInstallations.id eq tvId }) { it[lastSeenAt] = now }
-            val session =
-                Sessions.selectAll().where { Sessions.tvInstallationId eq tvId }.singleOrNull()
+            val sessionId =
+                Sessions.selectAll().where { Sessions.tvInstallationId eq tvId }.singleOrNull()?.get(Sessions.id)
                     ?: throw ApiException.NotFound("Session missing for a known TV installation — data inconsistency")
+            // The TV repeats this call every few minutes while it's in the foreground: it's the
+            // session's heartbeat, and the first one after a long sleep starts it fresh.
+            touchTv(sessionId, tvId, now)
+            val session = Sessions.selectAll().where { Sessions.id eq sessionId }.single()
             SessionEnsureResponseDto(tvSecret = null, session = toSummary(session))
         }
 
-    /** Validates a TV bearer secret against whichever installation owns [sessionId]. */
+    /**
+     * Validates a TV bearer secret against whichever installation owns [sessionId]. A valid call
+     * is also a sign of life from the TV (see [touchTv]).
+     */
     fun requireTvAuth(
         sessionId: String,
         presentedSecret: String?,
@@ -104,25 +111,37 @@ class SessionRepository(
             if (presentedSecret == null || !TokenGenerator.matches(presentedSecret, tv[TvInstallations.tvSecretHash])) {
                 throw ApiException.Unauthorized("Invalid TV secret")
             }
+            touchTv(sessionId, tv[TvInstallations.id])
         }
 
     fun getPublicSession(rawCode: String): PublicSessionDto =
         transaction {
             val code = SessionCodeGenerator.normalize(rawCode)
             val session = Sessions.selectAll().where { Sessions.code eq code }.singleOrNull() ?: throw ApiException.NotFound("Unknown session code")
-            val count = activeParticipantCount(session[Sessions.id])
+            val sessionId = session[Sessions.id]
+            endSessionIfTvInactive(sessionId)
             PublicSessionDto(
-                sessionId = session[Sessions.id],
+                sessionId = sessionId,
                 code = session[Sessions.code],
-                participantCount = count,
+                participantCount = activeParticipantCount(sessionId),
                 theme = session[Sessions.theme],
+                ended = isSessionEnded(sessionId),
             )
         }
 
+    /** For joining: a session that has ended can't take new guests until its TV comes back. */
     fun resolveSessionIdForCode(rawCode: String): String =
         transaction {
             val code = SessionCodeGenerator.normalize(rawCode)
-            Sessions.selectAll().where { Sessions.code eq code }.singleOrNull()?.get(Sessions.id) ?: throw ApiException.NotFound("Unknown session code")
+            val sessionId =
+                Sessions.selectAll().where { Sessions.code eq code }.singleOrNull()?.get(Sessions.id)
+                    ?: throw ApiException.NotFound("Unknown session code")
+            endSessionIfTvInactive(sessionId)
+            if (isSessionEnded(sessionId)) {
+                commit() // keep the end just realized above; the throw below rolls back otherwise
+                throw ApiException.Unauthorized("This karaoke session is over", code = SESSION_ENDED)
+            }
+            sessionId
         }
 
     fun getPlaybackState(sessionId: String): String =

@@ -1,6 +1,7 @@
 package com.karalo.backend.routes
 
 import com.karalo.backend.AppDependencies
+import com.karalo.backend.domain.ApiException
 import io.ktor.server.routing.Route
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.webSocket
@@ -37,8 +38,15 @@ fun Route.webSocketRoutes(deps: AppDependencies) {
     webSocket("/ws/session/{sessionId}") {
         val sessionId = call.parameters["sessionId"]
         val token = call.request.queryParameters["token"]
-        if (sessionId == null || token == null || runCatching { deps.participantRepository.requireParticipantAuth(sessionId, token) }.isFailure) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "unauthorized"))
+        val failure =
+            if (sessionId == null || token == null) {
+                null
+            } else {
+                runCatching { deps.participantRepository.requireParticipantAuth(sessionId, token) }.exceptionOrNull()
+            }
+        if (sessionId == null || token == null || failure != null) {
+            // The reason carries the error code (e.g. GUEST_EXPIRED); the phone asks /me for the details.
+            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, (failure as? ApiException)?.code ?: "unauthorized"))
             return@webSocket
         }
         val room = deps.broadcaster.room(sessionId)

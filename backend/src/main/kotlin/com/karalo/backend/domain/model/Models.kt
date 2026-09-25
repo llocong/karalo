@@ -69,6 +69,8 @@ data class PublicSessionDto(
     val code: String,
     val participantCount: Int,
     val theme: String = SeasonalTheme.DEFAULT.name,
+    // True once the TV went quiet long enough to end the session, until it comes back.
+    val ended: Boolean = false,
 )
 
 @Serializable

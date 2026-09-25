@@ -1,5 +1,6 @@
 package com.karalo.backend.realtime
 
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
@@ -43,6 +44,12 @@ class SessionRoom {
         phoneSockets.forEach { socket -> runCatching { socket.send(Frame.Text(text)) } }
     }
 
+    /** Disconnects every phone, e.g. when the session ends; [reason] is the error code they'll see. */
+    suspend fun closePhones(reason: String) {
+        phoneSockets.forEach { runCatching { it.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, reason)) } }
+        phoneSockets.clear()
+    }
+
     suspend fun closeAll() {
         tvMutex.withLock { tvSocket?.close(); tvSocket = null }
         phoneSockets.forEach { runCatching { it.close() } }
@@ -72,6 +79,13 @@ class SessionBroadcaster(
         val room = rooms[sessionId] ?: return
         room.broadcastToPhones(text)
         room.sendToTv(text)
+    }
+
+    suspend fun closePhones(
+        sessionId: String,
+        reason: String,
+    ) {
+        rooms[sessionId]?.closePhones(reason)
     }
 
     /** TV-only relay (pause/resume/skip commands) — returns false if the TV isn't connected. */

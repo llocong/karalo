@@ -4,6 +4,15 @@ import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+
+/**
+ * How often the TV repeats [KaraokeRepository.ensureSession] while the app is in the foreground.
+ * Each call tells the backend the session is still alive; the backend ends a session after 30
+ * minutes without one (asleep, closed, or on another app), which removes its guests.
+ */
+val KARAOKE_HEARTBEAT_INTERVAL: Duration = 5.minutes
 
 /**
  * The TV's single window onto the backend-owned karaoke session/queue — deliberately parallel in
@@ -18,7 +27,11 @@ import kotlinx.coroutines.flow.StateFlow
  * `:feature-player`'s existing, per-nav-entry, ephemeral `PlaybackQueue`.
  */
 interface KaraokeRepository {
-    /** Idempotent -- safe (and required) to call on every app launch; never creates a duplicate session. */
+    /**
+     * Idempotent -- safe (and required) to call on every app launch and every
+     * [KARAOKE_HEARTBEAT_INTERVAL] after; never creates a duplicate session. The first call after
+     * the backend ended the session starts it fresh (same code, no guests, empty queue).
+     */
     suspend fun ensureSession(): AppResult<KaraokeSession>
 
     /** The currently-playing QUEUE item finished or was skipped -- advances the persistent queue. */

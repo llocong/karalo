@@ -150,6 +150,24 @@ class KaraokeRepositoryImplTest {
         }
 
     @Test
+    fun `repeated heartbeats reuse the one WebSocket connection`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val repository = repository(FakeDataStore())
+            coEvery { api.ensureSession("tv-1", null) } returns
+                AppResult.Success(SessionEnsureResponseDto(tvSecret = "s", session = sessionSummary()))
+            coEvery { api.ensureSession("tv-1", "s") } returns
+                AppResult.Success(SessionEnsureResponseDto(tvSecret = null, session = sessionSummary()))
+
+            repeat(3) {
+                repository.ensureSession()
+                advanceUntilIdle()
+            }
+
+            coVerify(exactly = 1) { webSocketClient.connectAndAwaitClose(any(), any(), any(), any()) }
+            coVerify(exactly = 2) { api.ensureSession("tv-1", "s") }
+        }
+
+    @Test
     fun `playNowEnd fails cleanly with no cached session rather than crashing`() =
         runTest(mainDispatcherExtension.testDispatcher) {
             val result = repository(FakeDataStore()).playNowEnd()

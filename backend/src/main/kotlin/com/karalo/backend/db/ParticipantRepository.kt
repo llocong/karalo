@@ -3,10 +3,13 @@ package com.karalo.backend.db
 import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.QueueItems
 import com.karalo.backend.domain.ApiException
+import com.karalo.backend.domain.GUEST_EXPIRED
+import com.karalo.backend.domain.SESSION_ENDED
 import com.karalo.backend.domain.TokenGenerator
 import com.karalo.backend.domain.model.MeDto
 import com.karalo.backend.domain.model.ParticipantJoinResponseDto
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -93,6 +96,10 @@ class ParticipantRepository {
      * meaningful actions (adding/removing/reordering songs, playback commands, search, rename) --
      * it also refreshes lastActiveAt, which is what keeps a guest out of [pruneInactive]'s reach.
      * Passive calls (/me, queue snapshot refreshes, the WS connect) leave it alone.
+     *
+     * Expiry is checked here on every call, not only when cleanup happens to run: a phone left
+     * open overnight gets GUEST_EXPIRED (or SESSION_ENDED, if the TV went quiet) on its next
+     * request instead of quietly picking up where it left off.
      */
     fun requireParticipantAuth(
         sessionId: String,
@@ -101,17 +108,33 @@ class ParticipantRepository {
     ): Pair<String, String> =
         transaction {
             if (presentedToken == null) throw ApiException.Unauthorized("Missing participant token")
-            val candidates = Participants.selectAll().where { Participants.sessionId eq sessionId }
-            val match =
-                candidates.firstOrNull { row ->
-                    TokenGenerator.matches(presentedToken, row[Participants.participantTokenHash])
-                } ?: throw ApiException.Unauthorized("Invalid participant token")
             val now = Instant.now()
-            Participants.update({ Participants.id eq match[Participants.id] }) {
+            endSessionIfTvInactive(sessionId, now)
+            val match =
+                Participants.selectAll().where { Participants.sessionId eq sessionId }.firstOrNull { row ->
+                    TokenGenerator.matches(presentedToken, row[Participants.participantTokenHash])
+                }
+            val participantId = match?.get(Participants.id)
+            val reason =
+                when {
+                    match == null -> if (isSessionEnded(sessionId)) SESSION_ENDED else null
+                    match[Participants.removedReason] != null -> match[Participants.removedReason]
+                    isStale(participantId!!, match[Participants.lastActiveAt], now) -> {
+                        tombstone(participantId, GUEST_EXPIRED, now)
+                        GUEST_EXPIRED
+                    }
+                    else -> null
+                }
+            if (reason != null) {
+                commit() // keep any end/expiry just recorded above; the throw rolls back otherwise
+                throw ApiException.Unauthorized(if (reason == SESSION_ENDED) "This karaoke session is over" else "Your connection timed out", code = reason)
+            }
+            if (match == null) throw ApiException.Unauthorized("Invalid participant token")
+            Participants.update({ Participants.id eq participantId!! }) {
                 it[lastSeenAt] = now
                 if (markActive) it[lastActiveAt] = now
             }
-            match[Participants.id] to match[Participants.displayName]
+            participantId!! to match[Participants.displayName]
         }
 
     fun me(
@@ -141,44 +164,76 @@ class ParticipantRepository {
         }
     }
 
-    /** Accepts either a participant token OR the owning TV's secret — used by the shared queue-read endpoint. */
-    fun isValidParticipantOrTv(
+    /**
+     * Accepts either a participant token OR the owning TV's secret — used by the shared queue-read
+     * endpoint. When neither matches, throws the guest's error, so an expired phone still learns why.
+     */
+    fun requireParticipantOrTv(
         sessionId: String,
         presentedToken: String?,
         sessionRepository: SessionRepository,
-    ): Boolean {
-        if (presentedToken == null) return false
-        val validParticipant =
-            runCatching { requireParticipantAuth(sessionId, presentedToken) }.isSuccess
-        if (validParticipant) return true
-        return runCatching { sessionRepository.requireTvAuth(sessionId, presentedToken) }.isSuccess
+    ) {
+        val guestFailure = runCatching { requireParticipantAuth(sessionId, presentedToken) }.exceptionOrNull() ?: return
+        if (presentedToken != null && runCatching { sessionRepository.requireTvAuth(sessionId, presentedToken) }.isSuccess) return
+        throw guestFailure
     }
 
     fun participantCount(sessionId: String): Int = transaction { activeParticipantCount(sessionId) }
 }
 
+/** How long a removed guest's tombstone is kept, so their old token can still say why it stopped working. */
+private val TOMBSTONE_RETENTION: Duration = Duration.ofDays(7)
+
+private fun hasQueuedSong(participantId: String): Boolean =
+    !QueueItems.selectAll().where { QueueItems.addedByParticipantId eq participantId }.empty()
+
+/** Past [GUEST_INACTIVITY_TIMEOUT] without a meaningful action, and no song of theirs left in the queue. */
+private fun isStale(
+    participantId: String,
+    lastActiveAt: Instant?,
+    now: Instant,
+): Boolean = lastActiveAt != null && lastActiveAt.isBefore(now.minus(GUEST_INACTIVITY_TIMEOUT)) && !hasQueuedSong(participantId)
+
+private fun tombstone(
+    participantId: String,
+    reason: String,
+    now: Instant,
+) = Participants.update({ Participants.id eq participantId }) {
+    it[removedAt] = now
+    it[removedReason] = reason
+}
+
 /**
  * Lazily removes guests with no meaningful activity for [GUEST_INACTIVITY_TIMEOUT] and no song
- * left in the queue -- run whenever the guest count is read, rather than by a background job. A
- * single DELETE that matches nothing unless someone really is stale. The NOT EXISTS covers *any*
- * queue_items row, not just PENDING ones, so this can never trip that table's foreign key (played
- * and removed songs leave queue_items altogether -- see [recordPlayed] and [QueueRepository.delete]).
+ * left in the queue -- run whenever the guest count is read, rather than by a background job
+ * ([ParticipantRepository.requireParticipantAuth] checks the same rule for the guest calling, so
+ * an expired guest is caught even when nothing has read the count). Removed guests become
+ * GUEST_EXPIRED tombstones, which are deleted for good after [TOMBSTONE_RETENTION]. The NOT
+ * EXISTS covers *any* queue_items row, not just PENDING ones, so this can never trip that table's
+ * foreign key (played and removed songs leave queue_items altogether -- see [recordPlayed] and
+ * [QueueRepository.delete]).
  *
- * A removed guest's token stops working: on the resulting 401 the phone's web app sends them back
- * to the Join page as a new guest, with their name prefilled (see sendBackToJoin in shared.js).
+ * A removed guest's token stops working: on the resulting 401 the phone's web app shows the
+ * "session over" page for its reason (see sendToSessionOver in shared.js).
  * Must be called inside a transaction.
  */
 internal fun pruneInactive(sessionId: String) {
-    val cutoff = Instant.now().minus(GUEST_INACTIVITY_TIMEOUT)
+    val now = Instant.now()
+    val cutoff = now.minus(GUEST_INACTIVITY_TIMEOUT)
+    val noQueuedSong = notExists(QueueItems.select(QueueItems.id).where { QueueItems.addedByParticipantId eq Participants.id })
+    Participants.update({
+        (Participants.sessionId eq sessionId) and Participants.removedAt.isNull() and (Participants.lastActiveAt less cutoff) and noQueuedSong
+    }) {
+        it[removedAt] = now
+        it[removedReason] = GUEST_EXPIRED
+    }
     Participants.deleteWhere {
-        (Participants.sessionId eq sessionId) and
-            (lastActiveAt less cutoff) and
-            notExists(QueueItems.select(QueueItems.id).where { QueueItems.addedByParticipantId eq Participants.id })
+        (Participants.sessionId eq sessionId) and (removedAt less now.minus(TOMBSTONE_RETENTION)) and noQueuedSong
     }
 }
 
 /** The session's guest count, after [pruneInactive]. Must be called inside a transaction. */
 internal fun activeParticipantCount(sessionId: String): Int {
     pruneInactive(sessionId)
-    return Participants.selectAll().where { Participants.sessionId eq sessionId }.count().toInt()
+    return Participants.selectAll().where { (Participants.sessionId eq sessionId) and Participants.removedAt.isNull() }.count().toInt()
 }

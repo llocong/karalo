@@ -41,6 +41,10 @@ object Sessions : Table("sessions") {
     // every phone in the session.
     val theme = text("theme").default(SeasonalTheme.DEFAULT.name)
     val updatedAt = timestamp("updated_at")
+
+    // Set when the TV went quiet for TV_INACTIVITY_TIMEOUT (see endSessionIfTvInactive): the
+    // session's guests and queue are gone, and its next ensure clears this again.
+    val endedAt = timestamp("ended_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -58,6 +62,11 @@ object Participants : Table("participants") {
     // Nullable only so createMissingTablesAndColumns can add it to an existing DB; every row gets
     // a value (new rows on join, older ones via the startup backfill in connectDatabase).
     val lastActiveAt = timestamp("last_active_at").nullable()
+
+    // Removed guests are kept as tombstones for a while (see pruneInactive), so an old token can
+    // still tell the phone *why* it lost access: a GuestRemovalReason name.
+    val removedAt = timestamp("removed_at").nullable()
+    val removedReason = text("removed_reason").nullable()
     override val primaryKey = PrimaryKey(id)
 
     init {

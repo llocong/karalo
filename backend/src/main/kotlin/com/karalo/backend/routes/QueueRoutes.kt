@@ -24,8 +24,7 @@ import kotlinx.serialization.json.put
 fun Route.queueRoutes(deps: AppDependencies) {
     get("/api/sessions/{sessionId}/queue") {
         val sessionId = call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
-        val ok = deps.participantRepository.isValidParticipantOrTv(sessionId, call.bearerToken(), deps.sessionRepository)
-        if (!ok) throw ApiException.Unauthorized()
+        deps.participantRepository.requireParticipantOrTv(sessionId, call.bearerToken(), deps.sessionRepository)
         val nowPlaying = deps.sessionRepository.getNowPlaying(sessionId)
         call.respond(
             QueueSnapshotDto(

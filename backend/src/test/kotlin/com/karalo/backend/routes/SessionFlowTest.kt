@@ -2,6 +2,7 @@ package com.karalo.backend.routes
 
 import com.karalo.backend.config.AppConfig
 import com.karalo.backend.db.tables.Participants
+import com.karalo.backend.db.tables.TvInstallations
 import com.karalo.backend.module
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.delete
@@ -276,9 +277,60 @@ class SessionFlowTest {
             val oldToken = alice["participantToken"]!!.jsonPrimitive.content
             val me = client.get("/api/sessions/$sessionId/me") { header("Authorization", "Bearer $oldToken") }
             assertEquals(HttpStatusCode.Unauthorized, me.status)
+            assertEquals("GUEST_EXPIRED", errorCode(me.bodyAsText()))
+            val queue = client.get("/api/sessions/$sessionId/queue") { header("Authorization", "Bearer $oldToken") }
+            assertEquals("GUEST_EXPIRED", errorCode(queue.bodyAsText()), "the shared queue read keeps the guest's reason")
 
             join("Alice")
             assertEquals(2, count())
+        }
+
+    private fun errorCode(body: String) =
+        Json.parseToJsonElement(body).jsonObject["error"]!!.jsonObject["code"]!!.jsonPrimitive.content
+
+    @Test
+    fun `once the TV has been quiet for 30 minutes, guests and joiners are told the session is over`() =
+        testApplication {
+            application { module(testConfig()) }
+            val client = createClient { install(ContentNegotiation) { json() } }
+            val ensure = Json.parseToJsonElement(client.post("/api/tvs/tv-quiet/session/ensure").bodyAsText()).jsonObject
+            val code = ensure["session"]!!.jsonObject["code"]!!.jsonPrimitive.content
+            val sessionId = ensure["session"]!!.jsonObject["id"]!!.jsonPrimitive.content
+            val secret = ensure["tvSecret"]!!.jsonPrimitive.content
+            val guest =
+                Json
+                    .parseToJsonElement(
+                        client
+                            .post("/api/sessions/$code/participants") {
+                                contentType(ContentType.Application.Json)
+                                setBody("""{"displayName":"Ly"}""")
+                            }.bodyAsText(),
+                    ).jsonObject
+            val token = guest["participantToken"]!!.jsonPrimitive.content
+
+            transaction {
+                TvInstallations.update({ TvInstallations.id eq "tv-quiet" }) { it[lastSeenAt] = Instant.now().minus(Duration.ofHours(8)) }
+            }
+
+            val search = client.get("/api/sessions/$sessionId/search?q=abba") { header("Authorization", "Bearer $token") }
+            assertEquals(HttpStatusCode.Unauthorized, search.status)
+            assertEquals("SESSION_ENDED", errorCode(search.bodyAsText()))
+
+            val lookup = Json.parseToJsonElement(client.get("/api/sessions/$code").bodyAsText()).jsonObject
+            assertEquals("true", lookup["ended"]!!.jsonPrimitive.content)
+            val join =
+                client.post("/api/sessions/$code/participants") {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"displayName":"Late"}""")
+                }
+            assertEquals("SESSION_ENDED", errorCode(join.bodyAsText()))
+
+            // The TV's next heartbeat starts the session fresh; the old guest stays out.
+            client.post("/api/tvs/tv-quiet/session/ensure") { header("Authorization", "Bearer $secret") }
+            val lookupAfter = Json.parseToJsonElement(client.get("/api/sessions/$code").bodyAsText()).jsonObject
+            assertEquals("false", lookupAfter["ended"]!!.jsonPrimitive.content)
+            val me = client.get("/api/sessions/$sessionId/me") { header("Authorization", "Bearer $token") }
+            assertEquals("SESSION_ENDED", errorCode(me.bodyAsText()))
         }
 
     @Test

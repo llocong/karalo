@@ -2,8 +2,10 @@
   const params = new URLSearchParams(location.search);
   const sessionId = params.get("sessionId");
   const participant = sessionId ? loadParticipant(sessionId) : null;
+  // No token for this session on this phone (it timed out on another tab, or storage was
+  // cleared): the guest has to scan the TV's QR code again.
   if (!sessionId || !participant) {
-    location.href = "index.html";
+    sendToSessionOver(sessionId, "away");
     return;
   }
 
