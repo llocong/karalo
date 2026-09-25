@@ -91,7 +91,11 @@ internal fun HistoryHeader(
             color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.weight(1f))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            // UP only reaches these buttons from the newest song, so DOWN goes straight back to it.
+            modifier = if (hasSongs) Modifier.downGoesTo(focus.firstSong) else Modifier,
+        ) {
             HeaderButton(
                 text = uiState.sort.label,
                 icon = Icons.Filled.Sort,

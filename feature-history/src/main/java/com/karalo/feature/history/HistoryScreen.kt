@@ -222,7 +222,8 @@ private fun HistoryList(
                 Modifier
                     .fillMaxSize()
                     .testTag(HISTORY_TAG_LIST)
-                    // Coming back DOWN from the buttons lands on the row that last had focus.
+                    // Re-entering the list lands on the row that last had focus (DOWN from the header buttons
+                    // goes straight to the newest song instead -- see HistoryHeader).
                     .focusRestorer(firstSongRequester)
                     .leftGoesTo(railFocusRequester),
             contentPadding =

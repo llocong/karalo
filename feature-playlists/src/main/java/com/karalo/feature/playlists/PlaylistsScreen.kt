@@ -1,6 +1,7 @@
 package com.karalo.feature.playlists
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -29,8 +31,10 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +46,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -70,11 +76,11 @@ import com.karalo.core.ui.theme.KaraloPageHeaderHeight
 import com.karalo.core.ui.theme.KaraloPagePadding
 import com.karalo.core.ui.theme.KaraloShelfCardGutter
 import com.karalo.core.ui.theme.KaraloShelfCardWidth
-import com.karalo.core.ui.theme.KaraloTextSecondary
-import com.karalo.core.ui.theme.KaraloTileLabelTextStyle
 import com.karalo.core.ui.theme.LocalKaraloTokens
 import com.karalo.feature.search.domain.SearchResultItem
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 // Sizes from the "Karalo TV Playlists" design, whose cqw units are 1% of the 960dp-wide screen.
 private val COVER_SIZE = 108.dp
@@ -92,9 +98,30 @@ private val TILE_SPACING = 15.dp - RING_INSET * 2
 
 // Covers line up with the title; the row itself runs to the screen's right edge.
 private val ROW_START_PADDING = KaraloPagePadding - RING_INSET
-private val COVER_LABEL_SPACING = 9.dp
-private val COVER_LABEL_FONT_SIZE = 13.sp
-private val COVER_LABEL_LINE_HEIGHT = 18.sp
+
+// The playlist name over the cover's bottom-left, on black fading from 60% at the bottom edge to
+// clear at 55% of the cover's height.
+private val COVER_NAME_FONT_SIZE = 15.sp
+private val COVER_NAME_LINE_HEIGHT = 17.sp
+private val COVER_NAME_PADDING = 10.dp
+private const val COVER_SCRIM_ALPHA = 0.6f
+private const val COVER_SCRIM_CLEAR_FRACTION = 0.45f // from the top, i.e. 55% up from the bottom
+private const val COVER_NAME_SHADOW_OFFSET_PX = 2f
+private const val COVER_NAME_SHADOW_BLUR_PX = 6f
+private val COVER_NAME_SHADOW =
+    Shadow(
+        color = Color.Black.copy(alpha = COVER_SCRIM_ALPHA),
+        offset = Offset(0f, COVER_NAME_SHADOW_OFFSET_PX),
+        blurRadius = COVER_NAME_SHADOW_BLUR_PX,
+    )
+private val COVER_NAME_SCRIM =
+    Brush.verticalGradient(
+        COVER_SCRIM_CLEAR_FRACTION to Color.Transparent,
+        1f to Color.Black.copy(alpha = COVER_SCRIM_ALPHA),
+    )
+
+// How long the row's width has to hold still before the selected cover is put back on screen.
+private const val VIEWPORT_SETTLE_MS = 150L
 private const val UNSELECTED_TILE_ALPHA = 0.85f
 
 // The row scrolls once focus passes the fourth tile, then keeps it there (see SlotPivotBringIntoViewSpec).
@@ -254,6 +281,27 @@ private fun PlaylistRow(
     downFocusRequester: FocusRequester?,
     railFocusRequester: FocusRequester?,
 ) {
+    val listState = rememberLazyListState()
+    val currentSelectedIndex by rememberUpdatedState(selectedIndex)
+    // Keeps the selected cover on screen when the row's width changes under it -- most visibly on
+    // BACK from the player, which lays this page out full-width (no rail) before the rail returns,
+    // leaving the row scrolled for the wider width and the last covers cut off at the right edge.
+    // Waits for the width to settle (the rail animates it) and only moves the row if the cover
+    // isn't fully visible, snapping it to the same slot SlotPivotBringIntoViewSpec keeps it in.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.viewportSize.width }
+            .distinctUntilChanged()
+            .collectLatest {
+                delay(VIEWPORT_SETTLE_MS)
+                val info = listState.layoutInfo
+                val item = info.visibleItemsInfo.firstOrNull { it.index == currentSelectedIndex }
+                val fullyVisible =
+                    item != null &&
+                        item.offset >= info.viewportStartOffset &&
+                        item.offset + item.size <= info.viewportEndOffset
+                if (!fullyVisible) listState.scrollToItem((currentSelectedIndex - PIVOT_SLOT).coerceAtLeast(0))
+            }
+    }
     val density = LocalDensity.current
     val bringIntoViewSpec =
         remember(density) {
@@ -263,7 +311,9 @@ private fun PlaylistRow(
         }
     CompositionLocalProvider(LocalBringIntoViewSpec provides bringIntoViewSpec) {
         LazyRow(
-            contentPadding = PaddingValues(start = ROW_START_PADDING),
+            state = listState,
+            // The same margin after the last cover as before the first.
+            contentPadding = PaddingValues(horizontal = ROW_START_PADDING),
             horizontalArrangement = Arrangement.spacedBy(TILE_SPACING),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -289,8 +339,9 @@ private fun PlaylistRow(
 }
 
 /**
- * A square playlist cover with its name below. [selected] -- the playlist the row's focus is on,
- * or was last on while focus is down in the songs -- gets the accent ring and the bright label.
+ * A square playlist cover with its name over the bottom-left, on a dark gradient. [selected] --
+ * the playlist the row's focus is on, or was last on while focus is down in the songs -- gets the
+ * accent ring; the others are dimmed.
  */
 @Composable
 private fun PlaylistTile(
@@ -303,10 +354,9 @@ private fun PlaylistTile(
     // Always drawn (transparent while unselected), like FocusableCard's border, so the modifier
     // chain stays the same on every focus move.
     val ringColor = if (selected) LocalKaraloTokens.current.accent else Color.Transparent
-    Column(
+    Box(
         modifier =
             modifier
-                .width(TILE_WIDTH)
                 // See FocusableCard: clickable alone isn't focusable while the device is in touch mode.
                 .focusProperties { canFocus = true }
                 .clickable(
@@ -314,43 +364,43 @@ private fun PlaylistTile(
                     indication = null,
                     onClick = onClick,
                 ).graphicsLayer { alpha = if (selected) 1f else UNSELECTED_TILE_ALPHA }
-                .padding(RING_INSET),
+                .padding(RING_INSET)
+                .size(COVER_SIZE)
+                .drawWithContent {
+                    drawContent()
+                    val ring = RING_WIDTH.toPx()
+                    val inset = RING_OFFSET.toPx() + ring / 2
+                    val radius = COVER_CORNER_RADIUS.toPx() + inset
+                    drawRoundRect(
+                        color = ringColor,
+                        topLeft = Offset(-inset, -inset),
+                        size = Size(size.width + inset * 2, size.height + inset * 2),
+                        cornerRadius = CornerRadius(radius, radius),
+                        style = Stroke(width = ring),
+                    )
+                }
+                // After the ring's draw, so only the cover is clipped, not the ring around it.
+                .clip(coverShape),
     ) {
         AsyncImage(
             model = playlist.cover,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier =
-                Modifier
-                    .size(COVER_SIZE)
-                    .drawWithContent {
-                        drawContent()
-                        val ring = RING_WIDTH.toPx()
-                        val inset = RING_OFFSET.toPx() + ring / 2
-                        val radius = COVER_CORNER_RADIUS.toPx() + inset
-                        drawRoundRect(
-                            color = ringColor,
-                            topLeft = Offset(-inset, -inset),
-                            size = Size(size.width + inset * 2, size.height + inset * 2),
-                            cornerRadius = CornerRadius(radius, radius),
-                            style = Stroke(width = ring),
-                        )
-                    }
-                    // After the ring's draw, so only the image is clipped, not the ring around it.
-                    .clip(coverShape),
+            modifier = Modifier.fillMaxSize(),
         )
+        Box(modifier = Modifier.fillMaxSize().background(COVER_NAME_SCRIM))
         Text(
             text = playlist.name,
             style =
-                (if (selected) MaterialTheme.typography.titleSmall else KaraloTileLabelTextStyle).copy(
-                    fontSize = COVER_LABEL_FONT_SIZE,
-                    lineHeight = COVER_LABEL_LINE_HEIGHT,
-                    letterSpacing = 0.sp,
+                MaterialTheme.typography.titleLarge.copy(
+                    fontSize = COVER_NAME_FONT_SIZE,
+                    lineHeight = COVER_NAME_LINE_HEIGHT,
+                    shadow = COVER_NAME_SHADOW,
                 ),
-            color = if (selected) MaterialTheme.colorScheme.onBackground else KaraloTextSecondary,
-            maxLines = 1,
+            color = Color.White,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = COVER_LABEL_SPACING),
+            modifier = Modifier.align(Alignment.BottomStart).padding(COVER_NAME_PADDING),
         )
     }
 }
