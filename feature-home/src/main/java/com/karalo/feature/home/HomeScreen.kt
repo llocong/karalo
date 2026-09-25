@@ -48,7 +48,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
-import com.karalo.core.ui.components.LoadingIndicator
+import com.karalo.core.ui.components.SkeletonShelf
 import com.karalo.core.ui.components.TvCarousel
 import com.karalo.core.ui.components.TvCarouselImagePrefetch
 import com.karalo.core.ui.focus.InstantBringIntoViewSpec
@@ -441,7 +441,12 @@ private fun HomeShelf(
         )
         Spacer(modifier = Modifier.height(SHELF_TITLE_SPACING))
         when (state) {
-            is ShelfUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxWidth().height(SHELF_LOADING_HEIGHT))
+            is ShelfUiState.Loading ->
+                SkeletonShelf(
+                    cardWidth = SHELF_CARD_WIDTH,
+                    contentPadding = SHELF_CONTENT_PADDING,
+                    itemSpacing = SHELF_CARD_GUTTER,
+                )
             is ShelfUiState.Error ->
                 Text(
                     text = "Couldn't load \"$title\". Check your connection and try again.",

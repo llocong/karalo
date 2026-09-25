@@ -18,6 +18,10 @@ val KaraloOutline = Color(0xFF241834)
 val KaraloOutlineStrong = Color(0xFF3A2D47)
 val KaraloTextSecondary = Color(0xFFC9BFD6)
 
+// Loading placeholders (see SkeletonShelf) and the lighter band their shimmer sweeps across them.
+val KaraloSkeleton = Color(0xFF1E1528)
+val KaraloSkeletonHighlight = Color(0xFF2E2240)
+
 // "Halloween" seasonal theme (see the "Karalo Themes" Claude Design file) -- pumpkin orange takes
 // over the coral accent's role, over a warmer, redder-black ground.
 val HalloweenPumpkin = Color(0xFFFF7A1A)

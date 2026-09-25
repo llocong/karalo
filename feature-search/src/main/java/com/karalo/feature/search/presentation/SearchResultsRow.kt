@@ -18,7 +18,7 @@ import com.karalo.feature.search.domain.SearchResultItem
 // as any Home shelf, per the app's one consistent "browse a row of videos" pattern -- results just
 // happen to be a single, ungrouped row instead of several categorized ones. Content padding and
 // item spacing are left at TvCarouselDefaults, which already match this row's previous values.
-private val RESULT_CARD_WIDTH = 240.dp
+internal val RESULT_CARD_WIDTH = 240.dp
 private const val THUMBNAIL_ASPECT_RATIO = 16f / 9f
 
 /**

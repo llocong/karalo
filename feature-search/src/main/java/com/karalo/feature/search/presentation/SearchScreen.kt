@@ -32,7 +32,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.karalo.core.ui.components.ErrorState
-import com.karalo.core.ui.components.LoadingIndicator
+import com.karalo.core.ui.components.SkeletonShelf
+import com.karalo.core.ui.components.TvCarouselDefaults
 import com.karalo.core.ui.theme.KaraloPagePadding
 
 private const val NO_RESULTS_MESSAGE = "No karaoke songs found"
@@ -240,7 +241,15 @@ internal fun SearchScreenContent(
                     queryFieldFocusRequester = focusRequester,
                     railFocusRequester = railFocusRequester,
                 )
-            is SearchUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+            // Placeholder tiles where the results row will appear (see ResultsContent).
+            is SearchUiState.Loading ->
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    SkeletonShelf(
+                        cardWidth = RESULT_CARD_WIDTH,
+                        contentPadding = TvCarouselDefaults.ContentPadding,
+                        itemSpacing = TvCarouselDefaults.ItemGutter,
+                    )
+                }
             // Results are filtered down to karaoke tracks (see KaraokeResultFilter), so an empty list
             // is a normal outcome for a query with few karaoke versions, not an error.
             is SearchUiState.Results ->

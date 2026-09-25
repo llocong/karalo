@@ -68,7 +68,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
-import com.karalo.core.ui.components.LoadingIndicator
+import com.karalo.core.ui.components.SkeletonBar
+import com.karalo.core.ui.components.SkeletonShelf
 import com.karalo.core.ui.components.TvCarousel
 import com.karalo.core.ui.components.TvCarouselImagePrefetch
 import com.karalo.core.ui.focus.SlotPivotBringIntoViewSpec
@@ -132,6 +133,8 @@ private val ROW_HEADER_SPACING = 19.dp
 private val HEADER_NAME_FONT_SIZE = 19.sp
 private val HEADER_COUNT_FONT_SIZE = 14.sp
 private val HEADER_COUNT_SPACING = 13.dp
+private val HEADER_COUNT_SKELETON_WIDTH = 64.dp
+private val HEADER_COUNT_SKELETON_HEIGHT = 12.dp
 
 // Same row padding as Home's shelf: room above and below for a focused song tile's scale-up.
 private val SONGS_ROW_VERTICAL_PADDING = 20.dp
@@ -254,7 +257,11 @@ internal fun PlaylistsScreenContent(
             railFocusRequester = railFocusRequester,
         )
         Spacer(modifier = Modifier.height(ROW_HEADER_SPACING))
-        PlaylistHeader(name = uiState.selected.name, songCount = songs?.size)
+        PlaylistHeader(
+            name = uiState.selected.name,
+            songCount = songs?.size,
+            isLoading = uiState.selectedSongs == PlaylistSongsState.Loading,
+        )
         // Keyed on the playlist so switching playlists starts its carousel back at the first song.
         key(uiState.selected.id) {
             PlaylistSongs(
@@ -405,11 +412,15 @@ private fun PlaylistTile(
     }
 }
 
-/** The selected playlist's name, with its song count once its songs have loaded. */
+/**
+ * The selected playlist's name, with its song count once its songs have loaded -- a placeholder
+ * bar in its place while they load.
+ */
 @Composable
 private fun PlaylistHeader(
     name: String,
     songCount: Int?,
+    isLoading: Boolean,
 ) {
     Row(modifier = Modifier.padding(horizontal = KaraloPagePadding)) {
         Text(
@@ -420,7 +431,14 @@ private fun PlaylistHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.alignByBaseline().weight(1f, fill = false),
         )
-        if (songCount != null) {
+        if (isLoading) {
+            Spacer(modifier = Modifier.width(HEADER_COUNT_SPACING))
+            SkeletonBar(
+                width = HEADER_COUNT_SKELETON_WIDTH,
+                height = HEADER_COUNT_SKELETON_HEIGHT,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        } else if (songCount != null) {
             Spacer(modifier = Modifier.width(HEADER_COUNT_SPACING))
             Text(
                 text = if (songCount == 1) "1 song" else "$songCount songs",
@@ -454,7 +472,12 @@ private fun PlaylistSongs(
         }
     val placeholderModifier = Modifier.fillMaxWidth().height(SONGS_PLACEHOLDER_HEIGHT)
     when (state) {
-        is PlaylistSongsState.Loading -> LoadingIndicator(modifier = placeholderModifier)
+        is PlaylistSongsState.Loading ->
+            SkeletonShelf(
+                cardWidth = KaraloShelfCardWidth,
+                contentPadding = SONGS_CONTENT_PADDING,
+                itemSpacing = KaraloShelfCardGutter,
+            )
         is PlaylistSongsState.Error ->
             SongsMessage("Couldn't load \"$playlistName\". Check your connection and try again.", placeholderModifier)
         is PlaylistSongsState.Loaded ->
