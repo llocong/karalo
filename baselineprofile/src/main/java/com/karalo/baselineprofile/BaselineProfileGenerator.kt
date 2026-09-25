@@ -10,6 +10,9 @@ import org.junit.Test
 private const val TARGET_PACKAGE = "com.karalo.karalo"
 private const val SHELF_BROWSE_PRESSES = 8
 private const val UI_SETTLE_TIMEOUT_MS = 3_000L
+private const val PLAYLIST_BROWSE_PRESSES = 6
+private const val RAIL_ITEMS_ABOVE_HISTORY = 3
+private const val PAGE_LOAD_WAIT_MS = 2_500L
 
 /**
  * Generates `:app`'s Baseline Profile by driving the real app through its most jank-sensitive
@@ -22,10 +25,10 @@ private const val UI_SETTLE_TIMEOUT_MS = 3_000L
  * reproducible, CI-independent generation (see `baselineProfile { automaticGenerationDuringBuild
  * = false }` in :app's build file for why this still isn't run automatically in CI).
  *
- * Deliberately doesn't attempt to cover every screen (Search, the player, etc.) -- a Baseline
- * Profile is meant to warm the startup + first-impression path, not the whole app; broadening it
- * indefinitely mostly just bloats the profile without a proportional real-world benefit. Extend
- * this if profiling turns up another flow with the same "live JIT compile mid-interaction" issue.
+ * Also covers moving through the rail and browsing the Playlists page (covers, then one
+ * playlist's songs), and opening History and Search: measured on the Chromecast on 2026-09-25,
+ * a first pass over flows missing from the profile missed about twice as many frame deadlines
+ * as later passes, the same live-JIT cost. The player isn't covered: it needs a real video.
  */
 @LargeTest
 class BaselineProfileGenerator {
@@ -40,9 +43,36 @@ class BaselineProfileGenerator {
             device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE).depth(0)), UI_SETTLE_TIMEOUT_MS)
 
             // Home's one shelf (Top Picks, or Halloween Hits): focused and visible on launch.
-            repeat(SHELF_BROWSE_PRESSES) {
-                device.pressDPadRight()
-                device.waitForIdle()
-            }
+            repeat(SHELF_BROWSE_PRESSES) { press { device.pressDPadRight() } }
+
+            // Back to the rail (on Home), where focusing an item previews its page: Playlists is
+            // just below Home. OK moves into its row of covers, DOWN into the focused one's songs.
+            repeat(SHELF_BROWSE_PRESSES + 1) { press { device.pressDPadLeft() } }
+            press { device.pressDPadDown() }
+            settle()
+            press { device.pressDPadCenter() }
+            repeat(PLAYLIST_BROWSE_PRESSES) { press { device.pressDPadRight() } }
+            settle()
+            press { device.pressDPadDown() }
+            repeat(PLAYLIST_BROWSE_PRESSES) { press { device.pressDPadRight() } }
+
+            // History (below Playlists), then Search (at the top of the rail).
+            press { device.pressBack() }
+            press { device.pressBack() }
+            press { device.pressDPadDown() }
+            settle()
+            repeat(RAIL_ITEMS_ABOVE_HISTORY) { press { device.pressDPadUp() } }
+            settle()
         }
+
+    private fun androidx.benchmark.macro.MacrobenchmarkScope.press(action: () -> Unit) {
+        action()
+        device.waitForIdle()
+    }
+
+    // Lets a page's first search (Playlists, Search's suggestions) come back before moving on.
+    private fun androidx.benchmark.macro.MacrobenchmarkScope.settle() {
+        device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE).depth(0)), UI_SETTLE_TIMEOUT_MS)
+        Thread.sleep(PAGE_LOAD_WAIT_MS)
+    }
 }
