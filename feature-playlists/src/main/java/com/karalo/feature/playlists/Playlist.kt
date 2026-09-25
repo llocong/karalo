@@ -14,7 +14,11 @@ data class Playlist(
     @DrawableRes val cover: Int,
 )
 
-/** In the order the "Karalo TV Playlists" design lists them. Same covers in every theme. */
+/**
+ * In the order the "Karalo TV Playlists" design lists them. Same covers in every theme. The phone
+ * remote shows the same list (PLAYLISTS in backend web/search.js, covers in web/images/playlists)
+ * -- keep the two in step.
+ */
 val PLAYLISTS: List<Playlist> =
     listOf(
         // Same query as Home's Top Picks shelf (HomeViewModel.TOP_PICKS_QUERY).
