@@ -95,13 +95,29 @@ fun KaraloNavHost(
     var searchPlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var playlistsPlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var historyPlayerReturnTrigger by remember { mutableIntStateOf(0) }
+    // Set when a phone, not the TV user, opened the player (Flow A below). Each destination's
+    // return-from-Player restore puts focus back on the video played *from it*, and there's none
+    // then -- so focus landed nowhere and the D-pad went dead. Such a return is treated like
+    // selecting that destination in the rail instead: focus moves to its content's usual start.
+    var playerOpenedRemotely by remember { mutableStateOf(false) }
     LaunchedEffect(showNavRail) {
         if (!previousShowNavRail && showNavRail) {
-            when (activeDestination) {
-                NavDestination.Home.route -> homePlayerReturnTrigger++
-                NavDestination.Search.route -> searchPlayerReturnTrigger++
-                NavDestination.Playlists.route -> playlistsPlayerReturnTrigger++
-                NavDestination.History.route -> historyPlayerReturnTrigger++
+            if (playerOpenedRemotely) {
+                playerOpenedRemotely = false
+                when (activeDestination) {
+                    NavDestination.Home.route -> homeContentFocusTrigger++
+                    NavDestination.Search.route -> searchContentFocusTrigger++
+                    NavDestination.Playlists.route -> playlistsContentFocusTrigger++
+                    NavDestination.History.route -> historyContentFocusTrigger++
+                    NavDestination.Settings.route -> settingsContentFocusTrigger++
+                }
+            } else {
+                when (activeDestination) {
+                    NavDestination.Home.route -> homePlayerReturnTrigger++
+                    NavDestination.Search.route -> searchPlayerReturnTrigger++
+                    NavDestination.Playlists.route -> playlistsPlayerReturnTrigger++
+                    NavDestination.History.route -> historyPlayerReturnTrigger++
+                }
             }
         }
         previousShowNavRail = showNavRail
@@ -116,6 +132,7 @@ fun KaraloNavHost(
     LaunchedEffect(karaokeSessionHolder) {
         karaokeSessionHolder.autoStartRequests.collect { nowPlaying ->
             if (!isPlayerActive) {
+                playerOpenedRemotely = true
                 searchSessionHolder.setLastResults(listOf(nowPlaying.toPlayableItemRef()))
                 navController.navigate(
                     NavDestination.Player.createRoute(startIndex = 0, startVideoId = nowPlaying.videoId),
