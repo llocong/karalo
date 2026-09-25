@@ -6,6 +6,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Typography
 import com.karalo.core.ui.R
@@ -29,6 +30,7 @@ private fun manrope(weight: FontWeight) =
         variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)),
     )
 
+private val FredokaMedium = FontFamily(fredoka(FontWeight.Medium))
 private val FredokaSemiBold = FontFamily(fredoka(FontWeight.SemiBold))
 private val ManropeRegular = FontFamily(manrope(FontWeight.Normal))
 private val ManropeMedium = FontFamily(manrope(FontWeight.Medium))
@@ -51,6 +53,17 @@ val KaraloTileLabelTextStyle =
         fontSize = 15.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.sp,
+    )
+
+// A seasonal greeting under the wordmark on the waiting screen ("Happy Halloween") -- Fredoka
+// Medium, a step lighter than the wordmark itself. No color: the caller uses the theme's accent.
+val KaraloSplashGreetingTextStyle =
+    TextStyle(
+        fontFamily = FredokaMedium,
+        fontWeight = FontWeight.Medium,
+        fontSize = 23.sp,
+        lineHeight = 28.sp,
+        letterSpacing = 0.02.em,
     )
 
 // Nav drawer item labels, also used by the search field (typed text and placeholder) and the

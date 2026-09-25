@@ -35,6 +35,9 @@ val HalloweenSidebarStart = Color(0xFF3B1466)
 val HalloweenSidebarEnd = Color(0xFF120812)
 val HalloweenBat = Color(0xFF4A2A5E)
 
+// The middle stop of the Halloween waiting screen's background, between the glow and the ground.
+val HalloweenDusk = Color(0xFF1E0E24)
+
 // Not part of the brand board (which doesn't specify an error color) — chosen to read clearly as
 // "error" against the violet/coral palette rather than being mistaken for the coral accent.
 val KaraloError = Color(0xFFCF6679)
