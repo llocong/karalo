@@ -27,11 +27,15 @@ fun Route.webSocketRoutes(deps: AppDependencies) {
             return@webSocket
         }
         val room = deps.broadcaster.room(sessionId)
-        room.setTvSocket(this as DefaultWebSocketServerSession)
+        val socket = this as DefaultWebSocketServerSession
+        room.setTvSocket(socket)
+        deps.sessionRepository.setTvConnected(sessionId, connected = true)
         try {
             incoming.consumeAsFlow().collect { /* TV doesn't send anything meaningful today; pings keep it alive. */ }
         } finally {
-            room.setTvSocket(null)
+            // The app closing (or the TV turning off) ends the session after TV_DISCONNECT_GRACE
+            // unless the TV comes back first.
+            if (room.clearTvSocket(socket)) deps.sessionRepository.setTvConnected(sessionId, connected = false)
         }
     }
 

@@ -22,6 +22,14 @@ import java.time.Instant
 internal val TV_INACTIVITY_TIMEOUT: Duration = Duration.ofMinutes(30)
 
 /**
+ * How long the TV's live connection can stay down, with no other call from the TV, before its
+ * session is considered over: closing Karalo or turning the TV off drops that connection, so
+ * phones lose access within minutes instead of after [TV_INACTIVITY_TIMEOUT]. Long enough to ride
+ * out a Wi-Fi blip, a backend restart or a quick app restart, which all reconnect in seconds.
+ */
+internal val TV_DISCONNECT_GRACE: Duration = Duration.ofMinutes(2)
+
+/**
  * Told about every session that ends, so open phone sockets can be closed right away (see
  * AppDependencies). A plain hook rather than a constructor dependency because the end is
  * realized lazily from both repositories, inside whatever transaction happens to notice it.
@@ -30,7 +38,8 @@ internal val TV_INACTIVITY_TIMEOUT: Duration = Duration.ofMinutes(30)
 internal var onSessionEnded: (sessionId: String) -> Unit = {}
 
 /**
- * Lazily ends [sessionId] if its TV has been quiet for [TV_INACTIVITY_TIMEOUT]: the pending queue
+ * Lazily ends [sessionId] if its TV has been quiet for [TV_INACTIVITY_TIMEOUT], or its live
+ * connection has been gone for [TV_DISCONNECT_GRACE] with no TV call since: the pending queue
  * is dropped, now-playing is cleared and every guest becomes a SESSION_ENDED tombstone, so no old
  * phone can keep using it. Play history stays. Returns true if it ended the session just now.
  * Must be called inside a transaction.
@@ -46,7 +55,11 @@ internal fun endSessionIfTvInactive(
             .selectAll()
             .where { TvInstallations.id eq session[Sessions.tvInstallationId] }
             .single()[TvInstallations.lastSeenAt]
-    if (!tvLastSeen.isBefore(now.minus(TV_INACTIVITY_TIMEOUT))) return false
+    val disconnectedAt = session[Sessions.tvDisconnectedAt]
+    val quietTooLong = tvLastSeen.isBefore(now.minus(TV_INACTIVITY_TIMEOUT))
+    val goneTooLong =
+        disconnectedAt != null && disconnectedAt.isBefore(now.minus(TV_DISCONNECT_GRACE)) && !tvLastSeen.isAfter(disconnectedAt)
+    if (!quietTooLong && !goneTooLong) return false
 
     QueueItems.deleteWhere { QueueItems.sessionId eq sessionId }
     Participants.update({ (Participants.sessionId eq sessionId) and Participants.removedAt.isNull() }) {
@@ -95,3 +108,13 @@ internal fun touchTv(
     TvInstallations.update({ TvInstallations.id eq tvId }) { it[lastSeenAt] = now }
     return restarted
 }
+
+/**
+ * Records the TV's live connection opening ([connected] true) or closing, which
+ * [endSessionIfTvInactive] reads. Must be called inside a transaction.
+ */
+internal fun setTvConnected(
+    sessionId: String,
+    connected: Boolean,
+    now: Instant = Instant.now(),
+) = Sessions.update({ Sessions.id eq sessionId }) { it[tvDisconnectedAt] = if (connected) null else now }

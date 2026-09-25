@@ -34,6 +34,17 @@ class SessionRoom {
 
     suspend fun setTvSocket(session: DefaultWebSocketSession?) = tvMutex.withLock { tvSocket = session }
 
+    /**
+     * Unregisters [session] if it's still the TV's current socket. Returns false when a reconnect
+     * already replaced it, so the old socket's close isn't mistaken for the TV going away.
+     */
+    suspend fun clearTvSocket(session: DefaultWebSocketSession): Boolean =
+        tvMutex.withLock {
+            if (tvSocket !== session) return false
+            tvSocket = null
+            true
+        }
+
     suspend fun sendToTv(text: String): Boolean =
         tvMutex.withLock {
             val socket = tvSocket ?: return false

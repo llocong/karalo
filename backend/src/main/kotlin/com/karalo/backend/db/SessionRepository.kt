@@ -114,6 +114,12 @@ class SessionRepository(
             touchTv(sessionId, tv[TvInstallations.id])
         }
 
+    /** The TV's live connection opened or closed (see [TV_DISCONNECT_GRACE]). */
+    fun setTvConnected(
+        sessionId: String,
+        connected: Boolean,
+    ) = transaction { com.karalo.backend.db.setTvConnected(sessionId, connected) }
+
     fun getPublicSession(rawCode: String): PublicSessionDto =
         transaction {
             val code = SessionCodeGenerator.normalize(rawCode)

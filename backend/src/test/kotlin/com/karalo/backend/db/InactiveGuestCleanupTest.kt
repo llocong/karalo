@@ -3,6 +3,7 @@ package com.karalo.backend.db
 import com.karalo.backend.config.AppConfig
 import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.QueueItems
+import com.karalo.backend.db.tables.Sessions
 import com.karalo.backend.db.tables.TvInstallations
 import com.karalo.backend.domain.ApiException
 import com.karalo.backend.domain.GUEST_EXPIRED
@@ -42,6 +43,12 @@ class InactiveGuestCleanupTest {
 
     private fun ageTv(by: Duration) =
         transaction { TvInstallations.update({ TvInstallations.id eq "cleanup-tv" }) { it[lastSeenAt] = Instant.now().minus(by) } }
+
+    /** The TV's live connection dropped [by] ago, and the TV hasn't called since. */
+    private fun disconnectTv(by: Duration) {
+        ageTv(by.plusSeconds(1))
+        transaction { Sessions.update({ Sessions.id eq sessionId }) { it[tvDisconnectedAt] = Instant.now().minus(by) } }
+    }
 
     private fun queuedSongs(): Long = transaction { QueueItems.selectAll().where { QueueItems.sessionId eq sessionId }.count() }
 
@@ -166,6 +173,37 @@ class InactiveGuestCleanupTest {
 
         val fresh = participantRepository.join(sessionRepository.resolveSessionIdForCode(sessionCode), "Alice")
         assertEquals("Alice", participantRepository.me(sessionId, fresh.participantToken).displayName)
+    }
+
+    @Test
+    fun `closing the TV app ends the session once its connection has been gone for 2 minutes`() {
+        val guest = participantRepository.join(sessionId, "Ly")
+        disconnectTv(Duration.ofMinutes(3))
+        assertRejectedWith(SESSION_ENDED) { participantRepository.requireParticipantAuth(sessionId, guest.participantToken, markActive = true) }
+    }
+
+    @Test
+    fun `a TV connection that dropped under 2 minutes ago keeps the session going`() {
+        val guest = participantRepository.join(sessionId, "Ly")
+        disconnectTv(Duration.ofSeconds(90))
+        participantRepository.requireParticipantAuth(sessionId, guest.participantToken, markActive = true)
+    }
+
+    @Test
+    fun `a TV call after its connection dropped keeps the session going`() {
+        val guest = participantRepository.join(sessionId, "Ly")
+        disconnectTv(Duration.ofMinutes(3))
+        ageTv(Duration.ofMinutes(1)) // e.g. its heartbeat, while the connection is still down
+        participantRepository.requireParticipantAuth(sessionId, guest.participantToken, markActive = true)
+    }
+
+    @Test
+    fun `the TV reconnecting clears the drop`() {
+        val guest = participantRepository.join(sessionId, "Ly")
+        disconnectTv(Duration.ofMinutes(1))
+        sessionRepository.setTvConnected(sessionId, connected = true)
+        ageTv(Duration.ofMinutes(10)) // well past the grace, but connected again
+        participantRepository.requireParticipantAuth(sessionId, guest.participantToken, markActive = true)
     }
 
     @Test

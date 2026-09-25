@@ -45,6 +45,10 @@ object Sessions : Table("sessions") {
     // Set when the TV went quiet for TV_INACTIVITY_TIMEOUT (see endSessionIfTvInactive): the
     // session's guests and queue are gone, and its next ensure clears this again.
     val endedAt = timestamp("ended_at").nullable()
+
+    // When the TV's live connection (/ws/tv) last dropped, null while it's connected. Closing
+    // the app drops it, which ends the session after TV_DISCONNECT_GRACE.
+    val tvDisconnectedAt = timestamp("tv_disconnected_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
