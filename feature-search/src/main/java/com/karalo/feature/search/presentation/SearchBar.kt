@@ -36,6 +36,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.karalo.core.ui.theme.KaraloNavLabelTextStyle
 import com.karalo.core.ui.theme.KaraloPagePadding
 import com.karalo.core.ui.theme.LocalKaraloTokens
 
@@ -163,11 +164,10 @@ private fun SearchQueryField(
     modifier: Modifier = Modifier,
 ) {
     val isEmpty = textFieldValue.text.isEmpty()
-    // Uses labelMedium (the Plain/Manrope role also used by the suggestion chips and the
-    // navigation drawer's item labels) rather than a Brand/Fredoka style: an editable text field
-    // needs a plain, highly-legible face for arbitrary typed text, not the expressive display font
-    // reserved for headlines -- and matching labelMedium here keeps the query field, the
-    // suggestions row, and the drawer all reading at the same face/size.
+    // Uses the navigation drawer's own item-label style (Manrope, the Plain role) rather than a
+    // Brand/Fredoka style: an editable text field needs a plain, highly-legible face for arbitrary
+    // typed text, not the expressive display font reserved for headlines -- and sharing the
+    // drawer's style keeps the query field and the drawer reading at the same face/size.
     //
     // The TextFieldValue overload (rather than the plain String one) is deliberate: it's the only
     // way to control cursor *position* explicitly, needed so that setting the field's text from a
@@ -177,7 +177,7 @@ private fun SearchQueryField(
         value = textFieldValue,
         onValueChange = onTextFieldValueChange,
         singleLine = true,
-        textStyle = MaterialTheme.typography.labelMedium.copy(color = SearchTypedText),
+        textStyle = KaraloNavLabelTextStyle.copy(color = SearchTypedText),
         cursorBrush = SolidColor(SearchTypedText),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
@@ -189,7 +189,7 @@ private fun SearchQueryField(
                     // mic is active -- not relying solely on the mic icon/description change.
                     Text(
                         text = if (isListening) LISTENING_PLACEHOLDER else SEARCH_PLACEHOLDER,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = KaraloNavLabelTextStyle,
                         color = SearchPlaceholderText,
                     )
                 }

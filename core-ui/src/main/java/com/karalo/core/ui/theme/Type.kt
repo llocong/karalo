@@ -53,6 +53,18 @@ val KaraloTileLabelTextStyle =
         letterSpacing = 0.sp,
     )
 
+// Nav drawer item labels, also used by the search field (typed text and placeholder) so the two
+// read identically -- Manrope SemiBold, like labelMedium, a size down from it. No color: each
+// caller sets its own.
+val KaraloNavLabelTextStyle =
+    TextStyle(
+        fontFamily = ManropeSemiBold,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 0.sp,
+    )
+
 // The full 15-style TV Material typography scale (developer.android.com/design/ui/tv/guides/
 // styles/typography), sized up from the guide's phone-derived base tokens for 10-foot legibility.
 // Font-role split follows the guide exactly: "Brand" (Fredoka) for Display/Headline/TitleLarge,

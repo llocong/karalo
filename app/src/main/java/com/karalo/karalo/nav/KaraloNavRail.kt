@@ -48,7 +48,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.DrawerState
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.Icon
@@ -61,6 +60,7 @@ import androidx.tv.material3.Text
 import com.karalo.core.ui.components.KaraloLogoLockup
 import com.karalo.core.ui.components.KaraloLogoMark
 import com.karalo.core.ui.icons.KaraloIcons
+import com.karalo.core.ui.theme.KaraloNavLabelTextStyle
 import com.karalo.core.ui.theme.KaraloRailItemActive
 import com.karalo.core.ui.theme.KaraloTextSecondary
 import com.karalo.core.ui.theme.LocalKaraloTokens
@@ -109,7 +109,6 @@ private val ITEM_SPACING = 12.dp
 private val ITEM_ICON_SIZE = 22.dp
 private val ITEM_LABEL_SPACING = 13.dp
 private val ITEM_SHAPE = RoundedCornerShape(10.dp)
-private val ITEM_LABEL_FONT_SIZE = 16.sp
 
 /**
  * The rail item widths (the rail itself is these plus [RAIL_HORIZONTAL_PADDING] on each side), and
@@ -569,7 +568,7 @@ private fun NavigationDrawerScope.KaraloNavItem(
             // compose it mid-animation.
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = ITEM_LABEL_FONT_SIZE),
+                style = KaraloNavLabelTextStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Clip,
                 softWrap = false,
