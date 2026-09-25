@@ -6,9 +6,24 @@ import java.text.Normalizer
 // when the user searched for one of the term's words.
 private val BLOCKED_TERMS =
     listOf(
-        "review", "reviews", "unboxing", "tutorial", "how to", "reaction", "vs",
-        "speaker", "speakers", "microphone", "microphones", "mic", "mics", "setup", "vlog",
-        "compilation", "top 10", "fails",
+        "review",
+        "reviews",
+        "unboxing",
+        "tutorial",
+        "how to",
+        "reaction",
+        "vs",
+        "speaker",
+        "speakers",
+        "microphone",
+        "microphones",
+        "mic",
+        "mics",
+        "setup",
+        "vlog",
+        "compilation",
+        "top 10",
+        "fails",
     ).associateWith(::wholeWords)
 
 // Karaoke equipment. Always blocked, even when the user searched e.g. "machine" (the prefixed query
@@ -24,15 +39,33 @@ private val SONG_SEPARATOR = Regex("""\s[-–]\s""")
 // Matched as substrings of the normalized title or channel name.
 private val KARAOKE_MARKERS =
     listOf(
-        "karaoke", "karoke", "instrumental", "sing along", "sing-along", "singalong",
-        "backing track", "off vocal", "minus one", "no vocals", "without vocals",
+        "karaoke",
+        "karoke",
+        "instrumental",
+        "sing along",
+        "sing-along",
+        "singalong",
+        "backing track",
+        "off vocal",
+        "minus one",
+        "no vocals",
+        "without vocals",
     )
 
 // Karaoke channels whose video titles don't always say "karaoke". Matched exactly (normalized).
 private val KARAOKE_CHANNELS =
     setOf(
-        "sing king", "karafun", "zoom karaoke", "stingray karaoke", "karaoke version", "cc karaoke",
-        "party tyme karaoke", "sbi karaoke", "musisi karaoke", "atomic karaoke", "global karaoke",
+        "sing king",
+        "karafun",
+        "zoom karaoke",
+        "stingray karaoke",
+        "karaoke version",
+        "cc karaoke",
+        "party tyme karaoke",
+        "sbi karaoke",
+        "musisi karaoke",
+        "atomic karaoke",
+        "global karaoke",
         "karaokeytv",
     )
 
