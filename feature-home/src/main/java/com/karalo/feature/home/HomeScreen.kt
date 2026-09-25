@@ -53,6 +53,8 @@ import com.karalo.core.ui.components.TvCarousel
 import com.karalo.core.ui.components.TvCarouselImagePrefetch
 import com.karalo.core.ui.focus.InstantBringIntoViewSpec
 import com.karalo.core.ui.theme.KaraloPagePadding
+import com.karalo.core.ui.theme.KaraloShelfCardGutter
+import com.karalo.core.ui.theme.KaraloShelfCardWidth
 import com.karalo.core.ui.theme.LocalKaraloTokens
 import com.karalo.feature.search.domain.SearchResultItem
 import kotlinx.coroutines.delay
@@ -75,10 +77,9 @@ private val SHELF_SPACING = 23.dp
 // the title from the tiles; this tops it up to the design's 2.4cqw gap.
 private val SHELF_TITLE_SPACING = 3.dp
 
-// Sized so three tiles fill the row beside the expanded nav rail; collapsing the rail keeps this
-// size and just reveals more of the row, the last one cut off at the screen edge.
-private val SHELF_CARD_WIDTH = 215.dp
-private val SHELF_CARD_GUTTER = 17.dp
+// Shared with the Playlists page's carousel, so song tiles are the same size on both.
+private val SHELF_CARD_WIDTH = KaraloShelfCardWidth
+private val SHELF_CARD_GUTTER = KaraloShelfCardGutter
 private val SHELF_CONTENT_PADDING =
     PaddingValues(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SHELF_ROW_VERTICAL_PADDING)
 private val SHELF_TITLE_FONT_SIZE = 19.sp

@@ -27,6 +27,10 @@ object KaraloIcons {
         lineIcon("Home", "M3 11l9-7 9 7", "M5 10v10h14V10")
     }
 
+    val Playlists: ImageVector by lazy {
+        lineIcon("Playlists", "M3 6h11M3 11h11M3 16h7", "M17 17.5V5l4 1.5", circle(15.5f, 17.5f, 1.8f))
+    }
+
     val History: ImageVector by lazy {
         lineIcon("History", circle(12f, 12f, 9f), "M12 7v5l3 2")
     }

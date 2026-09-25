@@ -17,3 +17,13 @@ val KaraloPagePadding = 34.dp
  * header actions beside them.
  */
 val KaraloPageHeaderHeight = 40.dp
+
+/**
+ * Width of a 16:9 song tile in a horizontal shelf (Home's shelf, the Playlists page's carousel):
+ * three tiles fill the row beside the expanded nav rail; collapsing the rail keeps this size and
+ * just reveals more of the row, the last one cut off at the screen edge.
+ */
+val KaraloShelfCardWidth = 215.dp
+
+/** Gap between the song tiles of a horizontal shelf. */
+val KaraloShelfCardGutter = 17.dp

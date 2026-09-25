@@ -33,6 +33,9 @@ import com.karalo.core.karaoke.domain.KaraokeSessionHolder
 import com.karalo.core.karaoke.domain.NowPlaying
 import com.karalo.feature.player.presentation.PlayerScreen
 
+// Most of the branching is one per-tab case each for the rail's triggers and callbacks; splitting
+// it up just for the complexity threshold would scatter what is one table of five tabs.
+@Suppress("CyclomaticComplexMethod")
 @Composable
 fun KaraloNavHost(
     karaokeSessionHolder: KaraokeSessionHolder,
@@ -58,7 +61,7 @@ fun KaraloNavHost(
     // the API 30 emulator, where that workaround is skipped.
     val showNavRail = !isPlayerActive && !isPlayerComposed
 
-    // Which of Home/Search/History/Settings is actually shown -- flipped only after the rail's own
+    // Which of Home/Search/Playlists/History/Settings is actually shown -- flipped only after the rail's own
     // 150ms focus-settle debounce (see KaraloNavRailContent), never on every intermediate
     // focus move. Kept as plain local state (not a NavHost route) precisely so switching is a
     // cheap state write rather than a NavController.navigate() call -- see MainTabsHost's own
@@ -73,6 +76,7 @@ fun KaraloNavHost(
     // content rather than on any rail item.
     var homeContentFocusTrigger by remember { mutableIntStateOf(1) }
     var searchContentFocusTrigger by remember { mutableIntStateOf(0) }
+    var playlistsContentFocusTrigger by remember { mutableIntStateOf(0) }
     var historyContentFocusTrigger by remember { mutableIntStateOf(0) }
     var settingsContentFocusTrigger by remember { mutableIntStateOf(0) }
 
@@ -89,12 +93,14 @@ fun KaraloNavHost(
     var previousShowNavRail by remember { mutableStateOf(showNavRail) }
     var homePlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var searchPlayerReturnTrigger by remember { mutableIntStateOf(0) }
+    var playlistsPlayerReturnTrigger by remember { mutableIntStateOf(0) }
     var historyPlayerReturnTrigger by remember { mutableIntStateOf(0) }
     LaunchedEffect(showNavRail) {
         if (!previousShowNavRail && showNavRail) {
             when (activeDestination) {
                 NavDestination.Home.route -> homePlayerReturnTrigger++
                 NavDestination.Search.route -> searchPlayerReturnTrigger++
+                NavDestination.Playlists.route -> playlistsPlayerReturnTrigger++
                 NavDestination.History.route -> historyPlayerReturnTrigger++
             }
         }
@@ -147,6 +153,7 @@ fun KaraloNavHost(
     // e.g. Settings, if it happens to sit closer to whichever shelf/row is currently focused).
     val homeRailFocusRequester = remember { FocusRequester() }
     val searchRailFocusRequester = remember { FocusRequester() }
+    val playlistsRailFocusRequester = remember { FocusRequester() }
     val historyRailFocusRequester = remember { FocusRequester() }
     val settingsRailFocusRequester = remember { FocusRequester() }
 
@@ -212,6 +219,9 @@ fun KaraloNavHost(
                             onSearchResultClick = { startIndex, videoId ->
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
+                            onPlaylistsResultClick = { startIndex, videoId ->
+                                navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
+                            },
                             onHistoryResultClick = { startIndex, videoId ->
                                 navController.navigate(NavDestination.Player.createRoute(startIndex, videoId))
                             },
@@ -223,6 +233,9 @@ fun KaraloNavHost(
                             searchContentFocusTrigger = searchContentFocusTrigger,
                             searchPlayerReturnTrigger = searchPlayerReturnTrigger,
                             searchRailFocusRequester = searchRailFocusRequester,
+                            playlistsContentFocusTrigger = playlistsContentFocusTrigger,
+                            playlistsPlayerReturnTrigger = playlistsPlayerReturnTrigger,
+                            playlistsRailFocusRequester = playlistsRailFocusRequester,
                             historyContentFocusTrigger = historyContentFocusTrigger,
                             historyPlayerReturnTrigger = historyPlayerReturnTrigger,
                             historyRailFocusRequester = historyRailFocusRequester,
@@ -258,10 +271,12 @@ fun KaraloNavHost(
                     drawerState = drawerState,
                     homeFocusRequester = homeRailFocusRequester,
                     searchFocusRequester = searchRailFocusRequester,
+                    playlistsFocusRequester = playlistsRailFocusRequester,
                     historyFocusRequester = historyRailFocusRequester,
                     settingsFocusRequester = settingsRailFocusRequester,
                     onHomeClick = { activateTopLevel(NavDestination.Home.route) },
                     onSearchClick = { activateTopLevel(NavDestination.Search.route) },
+                    onPlaylistsClick = { activateTopLevel(NavDestination.Playlists.route) },
                     onHistoryClick = { activateTopLevel(NavDestination.History.route) },
                     onSettingsClick = { activateTopLevel(NavDestination.Settings.route) },
                     onHomeSelect = {
@@ -308,6 +323,11 @@ fun KaraloNavHost(
                         drawerState.setValue(DrawerValue.Closed)
                         activateTopLevel(NavDestination.Search.route)
                         searchContentFocusTrigger++
+                    },
+                    onPlaylistsSelect = {
+                        drawerState.setValue(DrawerValue.Closed)
+                        activateTopLevel(NavDestination.Playlists.route)
+                        playlistsContentFocusTrigger++
                     },
                     onHistorySelect = {
                         drawerState.setValue(DrawerValue.Closed)

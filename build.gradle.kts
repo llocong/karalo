@@ -26,6 +26,7 @@ dependencies {
     kover(project(":feature-player"))
     kover(project(":feature-home"))
     kover(project(":feature-history"))
+    kover(project(":feature-playlists"))
     kover(project(":app"))
 }
 

@@ -67,4 +67,10 @@ class VideoTitleFormatterTest {
     fun `leaves a title with no known suffix unchanged`() {
         assertEquals("Artist - Song", formatVideoTitle("Artist - Song"))
     }
+
+    @Test
+    fun `keeps the raw title when stripping would leave nothing`() {
+        val raw = "KARAOKE | Ai Chung Tình Được Mãi | Tone Nữ"
+        assertEquals(raw, formatVideoTitle(raw))
+    }
 }

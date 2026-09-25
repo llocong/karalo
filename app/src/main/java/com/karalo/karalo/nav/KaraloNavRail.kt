@@ -69,6 +69,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 const val NAV_TAG_HOME = "nav_home"
 const val NAV_TAG_SEARCH = "nav_search"
+const val NAV_TAG_PLAYLISTS = "nav_playlists"
 const val NAV_TAG_HISTORY = "nav_history"
 const val NAV_TAG_SETTINGS = "nav_settings"
 
@@ -179,19 +180,23 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     drawerState: DrawerState,
     homeFocusRequester: FocusRequester,
     searchFocusRequester: FocusRequester,
+    playlistsFocusRequester: FocusRequester,
     historyFocusRequester: FocusRequester,
     settingsFocusRequester: FocusRequester,
     onHomeClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onPlaylistsClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onHomeSelect: () -> Unit,
     onSearchSelect: () -> Unit,
+    onPlaylistsSelect: () -> Unit,
     onHistorySelect: () -> Unit,
     onSettingsSelect: () -> Unit,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
+    val playlistsInteractionSource = remember { MutableInteractionSource() }
     val historyInteractionSource = remember { MutableInteractionSource() }
     val settingsInteractionSource = remember { MutableInteractionSource() }
     // Per-item focus is only read in effects (and by each item itself), never directly here: this
@@ -199,11 +204,18 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     // "any item focused" -- which changes when entering/leaving the rail -- is read in composition.
     val searchFocused = searchInteractionSource.collectIsFocusedAsState()
     val homeFocused = homeInteractionSource.collectIsFocusedAsState()
+    val playlistsFocused = playlistsInteractionSource.collectIsFocusedAsState()
     val historyFocused = historyInteractionSource.collectIsFocusedAsState()
     val settingsFocused = settingsInteractionSource.collectIsFocusedAsState()
 
     val anyFocused by remember {
-        derivedStateOf { searchFocused.value || homeFocused.value || historyFocused.value || settingsFocused.value }
+        derivedStateOf {
+            searchFocused.value ||
+                homeFocused.value ||
+                playlistsFocused.value ||
+                historyFocused.value ||
+                settingsFocused.value
+        }
     }
     LaunchedEffect(anyFocused) {
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
@@ -240,6 +252,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         when (route) {
             NavDestination.Home.route -> homeFocusRequester
             NavDestination.Search.route -> searchFocusRequester
+            NavDestination.Playlists.route -> playlistsFocusRequester
             NavDestination.History.route -> historyFocusRequester
             NavDestination.Settings.route -> settingsFocusRequester
             else -> null
@@ -267,6 +280,10 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         markExplicitSelect(NavDestination.Search.route)
         onSearchSelect()
     }
+    val trackedOnPlaylistsSelect: () -> Unit = {
+        markExplicitSelect(NavDestination.Playlists.route)
+        onPlaylistsSelect()
+    }
     val trackedOnHistorySelect: () -> Unit = {
         markExplicitSelect(NavDestination.History.route)
         onHistorySelect()
@@ -289,6 +306,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     // expensive navigation.
     val currentOnSearchClick by rememberUpdatedState(onSearchClick)
     val currentOnHomeClick by rememberUpdatedState(onHomeClick)
+    val currentOnPlaylistsClick by rememberUpdatedState(onPlaylistsClick)
     val currentOnHistoryClick by rememberUpdatedState(onHistoryClick)
     val currentOnSettingsClick by rememberUpdatedState(onSettingsClick)
     FocusPreviewEffect(
@@ -301,6 +319,14 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     }
     FocusPreviewEffect(homeFocused, NavDestination.Home.route, ::correctStrayFocus, ::isRecentExplicitSelectElsewhere) {
         currentOnHomeClick()
+    }
+    FocusPreviewEffect(
+        playlistsFocused,
+        NavDestination.Playlists.route,
+        ::correctStrayFocus,
+        ::isRecentExplicitSelectElsewhere,
+    ) {
+        currentOnPlaylistsClick()
     }
     FocusPreviewEffect(
         historyFocused,
@@ -402,6 +428,22 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                 Modifier
                     .testTag(NAV_TAG_HOME)
                     .focusRequester(homeFocusRequester)
+                    .padding(top = ITEM_SPACING),
+        )
+
+        KaraloNavItem(
+            selected = isShownSelected(NavDestination.Playlists.route),
+            onClick = trackedOnPlaylistsSelect,
+            icon = KaraloIcons.Playlists,
+            label = "Playlists",
+            interactionSource = playlistsInteractionSource,
+            width = width,
+            revealFraction = revealFraction,
+            iconInset = metrics.itemHorizontalInset,
+            modifier =
+                Modifier
+                    .testTag(NAV_TAG_PLAYLISTS)
+                    .focusRequester(playlistsFocusRequester)
                     .padding(top = ITEM_SPACING),
         )
 

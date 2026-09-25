@@ -29,6 +29,7 @@ include(
     ":feature-search",
     ":feature-player",
     ":feature-home",
+    ":feature-playlists",
     ":feature-history",
     ":baselineprofile",
 )
