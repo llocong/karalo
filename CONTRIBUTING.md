@@ -81,6 +81,10 @@ from `https://karalo.app/download`.
    "chore(main): release X.Y.Z" PR bumping `.release-please-manifest.json` and `CHANGELOG.md` from
    Conventional Commits. `app/build.gradle.kts` reads `versionName` from that manifest and derives
    `versionCode` from it (major×1,000,000 + minor×1,000 + patch), so nothing is bumped by hand.
+   Commits that only touch `backend/`, `deploy/` or `docs/` (the website, the phone web app, the
+   server and its deploy scripts) are left out (`exclude-paths` in `release-please-config.json`):
+   those ship with `deploy/deploy.sh`, so they neither trigger an app release nor appear in its
+   changelog.
 2. Merge that PR. release-please tags `vX.Y.Z` and creates the GitHub Release; the same workflow
    then builds the release APK and AAB, refuses to continue if the APK isn't signed with the
    release key, and attaches `karalo-X.Y.Z.apk`, its `.sha256`, the `.aab` and `latest.json`
