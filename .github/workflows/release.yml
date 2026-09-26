@@ -22,7 +22,11 @@ jobs:
         with:
           # Bumps the version in .release-please-manifest.json (which app/build.gradle.kts reads
           # versionName and versionCode from) and updates CHANGELOG.md, from Conventional Commits.
-          release-type: simple
+          # Settings live in release-please-config.json -- including bump-minor-pre-major, which
+          # keeps a breaking change before 1.0 at a minor bump. (Passing release-type here instead
+          # would skip that file entirely.)
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
   build-and-sign:
     name: Build signed release APK
