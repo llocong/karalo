@@ -1,6 +1,7 @@
 package com.karalo.backend.plugins
 
 import com.karalo.backend.AppDependencies
+import com.karalo.backend.routes.adminRoutes
 import com.karalo.backend.routes.historyRoutes
 import com.karalo.backend.routes.participantSessionRoutes
 import com.karalo.backend.routes.publicSessionRoutes
@@ -40,6 +41,7 @@ fun Application.installRouting(deps: AppDependencies) {
         searchRoutes(deps)
         webSocketRoutes(deps)
         statsRoutes(deps)
+        adminRoutes(deps)
 
         // The mobile web app — plain static HTML/CSS/JS, no build step, served as one deployable
         // unit alongside the API. /join/{code} is a dynamic path segment staticResources can't

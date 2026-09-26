@@ -1,6 +1,8 @@
 package com.karalo.backend
 
+import com.karalo.backend.admin.AdminAuth
 import com.karalo.backend.config.AppConfig
+import com.karalo.backend.db.AdminRepository
 import com.karalo.backend.db.ParticipantRepository
 import com.karalo.backend.db.PlayHistoryRepository
 import com.karalo.backend.db.QueueRepository
@@ -10,6 +12,7 @@ import com.karalo.backend.db.onSessionStarted
 import com.karalo.backend.db.onSongPlayed
 import com.karalo.backend.domain.SESSION_ENDED
 import com.karalo.backend.realtime.SessionBroadcaster
+import com.karalo.backend.stats.GitHubReleases
 import com.karalo.backend.stats.Metric
 import com.karalo.backend.stats.StatsRecorder
 import com.karalo.backend.youtube.BackendYouTubeSearch
@@ -21,6 +24,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.slf4j.LoggerFactory
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /** Plain manual DI — this app is small enough that a DI framework would be pure ceremony. */
@@ -34,6 +38,8 @@ class AppDependencies(
     val broadcaster = SessionBroadcaster(com.karalo.backend.plugins.appJson)
     val youtubeSearch = BackendYouTubeSearch(OkHttpClient())
     val stats = StatsRecorder()
+    val adminAuth = AdminAuth(config.adminPasswordHash)
+    val adminRepository = AdminRepository(sessionRepository)
 
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -47,6 +53,15 @@ class AppDependencies(
             while (isActive) {
                 delay(1.minutes)
                 flushStats()
+            }
+        }
+        config.githubRepo?.let { repo ->
+            val github = GitHubReleases(OkHttpClient(), repo)
+            backgroundScope.launch {
+                while (isActive) {
+                    github.apkDownloadTotal()?.let { stats.setGauge(Metric.GITHUB_DOWNLOADS_TOTAL, it) }
+                    delay(1.hours)
+                }
             }
         }
     }

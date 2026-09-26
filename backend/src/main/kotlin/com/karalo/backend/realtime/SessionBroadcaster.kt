@@ -29,8 +29,11 @@ data class WsEnvelope(
  */
 class SessionRoom {
     private val tvMutex = Mutex()
-    private var tvSocket: DefaultWebSocketSession? = null
+    @Volatile private var tvSocket: DefaultWebSocketSession? = null
     val phoneSockets: MutableList<DefaultWebSocketSession> = CopyOnWriteArrayList()
+
+    /** Whether the TV's live connection is open right now (read without the lock: a snapshot). */
+    val hasTv: Boolean get() = tvSocket != null
 
     suspend fun setTvSocket(session: DefaultWebSocketSession?) = tvMutex.withLock { tvSocket = session }
 
@@ -80,6 +83,9 @@ class SessionBroadcaster(
 
     fun room(sessionId: String): SessionRoom = rooms.computeIfAbsent(sessionId) { SessionRoom() }
 
+    /** A snapshot of open connections per session, for the admin dashboard. */
+    fun connections(): Map<String, RoomConnections> = rooms.mapValues { (_, room) -> RoomConnections(room.hasTv, room.phoneSockets.size) }
+
     suspend fun broadcast(
         sessionId: String,
         type: String,
@@ -111,3 +117,8 @@ class SessionBroadcaster(
         return room.sendToTv(text)
     }
 }
+
+data class RoomConnections(
+    val tvConnected: Boolean,
+    val phones: Int,
+)

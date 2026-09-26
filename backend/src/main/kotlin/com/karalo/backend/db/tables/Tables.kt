@@ -25,6 +25,14 @@ object DailyStats : Table("daily_stats") {
     override val primaryKey = PrimaryKey(day, metric, dimension)
 }
 
+/** The same counts per hour (no dimension), for the admin dashboard's Today chart. Kept 3 days. */
+object HourlyStats : Table("hourly_stats") {
+    val hour = text("hour") // yyyy-MM-ddTHH, in stats/STATS_ZONE
+    val metric = text("metric")
+    val value = long("value")
+    override val primaryKey = PrimaryKey(hour, metric)
+}
+
 /** `tvInstallationId` is UNIQUE — this is what enforces "exactly one session per TV" in the DB. */
 object Sessions : Table("sessions") {
     val id = text("id")
@@ -53,6 +61,10 @@ object Sessions : Table("sessions") {
     // every phone in the session.
     val theme = text("theme").default(SeasonalTheme.DEFAULT.name)
     val updatedAt = timestamp("updated_at")
+
+    // When the current party started: the session's creation, or its restart after it ended.
+    // Null for sessions that started before this column existed.
+    val startedAt = timestamp("started_at").nullable()
 
     // Set when the TV went quiet for TV_INACTIVITY_TIMEOUT (see endSessionIfTvInactive): the
     // session's guests and queue are gone, and its next ensure clears this again.

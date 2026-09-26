@@ -106,6 +106,7 @@ internal fun touchTv(
         Sessions.update({ Sessions.id eq sessionId }) {
             it[endedAt] = null
             it[updatedAt] = now
+            it[startedAt] = now
         }
         onSessionStarted(sessionId)
     }

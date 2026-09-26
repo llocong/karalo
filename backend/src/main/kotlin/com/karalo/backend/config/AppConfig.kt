@@ -25,6 +25,13 @@ data class AppConfig(
      * Off by default, since without a proxy clients could spoof the header.
      */
     val trustProxy: Boolean = System.getenv("KARALO_TRUST_PROXY")?.toBoolean() ?: false,
+    /**
+     * Turns on the admin dashboard at /admin: the admin password as `karalo-backend
+     * hash-admin-password` prints it (see deploy/set-admin-password.sh). Unset keeps /admin off.
+     */
+    val adminPasswordHash: String? = System.getenv("KARALO_ADMIN_PASSWORD_HASH")?.takeIf { it.isNotBlank() },
+    /** "owner/name" of the GitHub repo whose release downloads the dashboard shows; unset skips them. */
+    val githubRepo: String? = System.getenv("KARALO_GITHUB_REPO")?.takeIf { it.isNotBlank() },
 ) {
     companion object {
         fun fromEnv() = AppConfig()
