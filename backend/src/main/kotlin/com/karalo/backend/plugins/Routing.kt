@@ -6,6 +6,7 @@ import com.karalo.backend.routes.participantSessionRoutes
 import com.karalo.backend.routes.publicSessionRoutes
 import com.karalo.backend.routes.queueRoutes
 import com.karalo.backend.routes.searchRoutes
+import com.karalo.backend.routes.statsRoutes
 import com.karalo.backend.routes.tvRoutes
 import com.karalo.backend.routes.webSocketRoutes
 import io.ktor.http.CacheControl
@@ -38,6 +39,7 @@ fun Application.installRouting(deps: AppDependencies) {
         queueRoutes(deps)
         searchRoutes(deps)
         webSocketRoutes(deps)
+        statsRoutes(deps)
 
         // The mobile web app — plain static HTML/CSS/JS, no build step, served as one deployable
         // unit alongside the API. /join/{code} is a dynamic path segment staticResources can't

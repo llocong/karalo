@@ -12,10 +12,11 @@ KARALO_HOSTNAME {
 	header @images Cache-Control "public, max-age=604800"
 
 	# The TV app for friends to install, put there by deploy/publish-apk.sh. karalo.app/download
-	# goes straight to the current APK, so it's all there is to type into Downloader on a TV.
-	redir /download /download/karalo.apk
-	redir /download/ /download/karalo.apk
+	# goes straight to the current APK, so it's all there is to type into Downloader on a TV. The
+	# backend answers /download (and /download/) itself, to count the download before redirecting
+	# to /download/karalo.apk; the APK files themselves are served from disk here.
 	handle /download/* {
+		reverse_proxy /download/ 127.0.0.1:8080
 		root * /srv/karalo
 		@apk path *.apk
 		header @apk Content-Type application/vnd.android.package-archive

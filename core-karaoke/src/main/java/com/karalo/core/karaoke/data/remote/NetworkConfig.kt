@@ -15,4 +15,7 @@ object NetworkConfig {
 
     /** Sent when this TV first registers with the backend; empty when the backend doesn't need one. */
     val tvRegistrationKey: String = BuildConfig.TV_REGISTRATION_KEY
+
+    /** This build's version name, e.g. "0.3.0", reported to the backend on every session/ensure. */
+    val appVersion: String = BuildConfig.APP_VERSION
 }

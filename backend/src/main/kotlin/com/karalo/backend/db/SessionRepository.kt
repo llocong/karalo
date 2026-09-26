@@ -48,6 +48,7 @@ class SessionRepository(
         tvId: String,
         presentedSecret: String?,
         presentedRegistrationKey: String? = null,
+        appVersion: String? = null,
     ): SessionEnsureResponseDto =
         transaction {
             val existing = TvInstallations.selectAll().where { TvInstallations.id eq tvId }.singleOrNull()
@@ -65,6 +66,7 @@ class SessionRepository(
                     it[tvSecretHash] = TokenGenerator.hash(rawSecret)
                     it[createdAt] = now
                     it[lastSeenAt] = now
+                    it[TvInstallations.appVersion] = appVersion
                 }
                 val sessionId = UUID.randomUUID().toString()
                 val code = generateUniqueCode()
@@ -76,6 +78,7 @@ class SessionRepository(
                     it[playbackState] = "IDLE"
                     it[updatedAt] = now
                 }
+                onSessionStarted(sessionId)
                 val session = Sessions.selectAll().where { Sessions.id eq sessionId }.single()
                 return@transaction SessionEnsureResponseDto(tvSecret = rawSecret, session = toSummary(session))
             }
@@ -89,6 +92,9 @@ class SessionRepository(
             // The TV repeats this call every few minutes while it's in the foreground: it's the
             // session's heartbeat, and the first one after a long sleep starts it fresh.
             touchTv(sessionId, tvId, now)
+            if (appVersion != null && appVersion != existing[TvInstallations.appVersion]) {
+                TvInstallations.update({ TvInstallations.id eq tvId }) { it[TvInstallations.appVersion] = appVersion }
+            }
             val session = Sessions.selectAll().where { Sessions.id eq sessionId }.single()
             SessionEnsureResponseDto(tvSecret = null, session = toSummary(session))
         }

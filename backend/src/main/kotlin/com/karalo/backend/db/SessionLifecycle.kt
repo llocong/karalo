@@ -37,6 +37,9 @@ internal val TV_DISCONNECT_GRACE: Duration = Duration.ofMinutes(2)
 @Volatile
 internal var onSessionEnded: (sessionId: String) -> Unit = {}
 
+/** Called when a TV's session starts: its first ever, or a restart after it ended. Set by AppDependencies. */
+internal var onSessionStarted: (sessionId: String) -> Unit = {}
+
 /**
  * Lazily ends [sessionId] if its TV has been quiet for [TV_INACTIVITY_TIMEOUT], or its live
  * connection has been gone for [TV_DISCONNECT_GRACE] with no TV call since: the pending queue
@@ -104,6 +107,7 @@ internal fun touchTv(
             it[endedAt] = null
             it[updatedAt] = now
         }
+        onSessionStarted(sessionId)
     }
     TvInstallations.update({ TvInstallations.id eq tvId }) { it[lastSeenAt] = now }
     return restarted

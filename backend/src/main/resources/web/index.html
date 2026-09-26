@@ -602,6 +602,12 @@
     if (current === "fr") apply("fr");
     toggle.addEventListener("click", () => { current = current === "fr" ? "en" : "fr"; apply(current); });
 
+    // Counts this page view for Karalo's own daily totals: no cookies, nothing stored on the
+    // device (see the privacy policy, "Usage statistics").
+    try {
+      navigator.sendBeacon("/api/stats/view", JSON.stringify({ path: location.pathname, ref: document.referrer, lang: document.documentElement.lang }));
+    } catch (e) { /* not counted */ }
+
     const hero = document.getElementById("hero");
     const heroPhoto = document.getElementById("heroPhoto");
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {

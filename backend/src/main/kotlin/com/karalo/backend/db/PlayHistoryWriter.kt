@@ -30,6 +30,9 @@ internal fun nightStartFor(
         playedAt
     }
 
+/** Called for every song recorded in play_history. Set by AppDependencies. */
+internal var onSongPlayed: () -> Unit = {}
+
 /**
  * Appends one finished song to play_history -- no guest reference, on purpose (see [PlayHistory]).
  * Callers check the session's history switch first (see Sessions.nowPlayingHistorySuppressed).
@@ -69,4 +72,5 @@ internal fun recordPlayed(
         it[PlayHistory.playedAt] = playedAt
         it[PlayHistory.nightStartedAt] = nightStartedAt
     }
+    onSongPlayed()
 }
