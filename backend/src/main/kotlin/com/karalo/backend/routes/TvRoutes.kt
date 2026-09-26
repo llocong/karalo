@@ -7,6 +7,7 @@ import com.karalo.backend.domain.model.PlayNowStartRequestDto
 import com.karalo.backend.domain.model.PlaybackStateRequestDto
 import com.karalo.backend.domain.model.ThemeDto
 import com.karalo.backend.plugins.appJson
+import com.karalo.backend.stats.Metric
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.request.receive
@@ -21,19 +22,27 @@ import kotlinx.serialization.json.put
 /** Header a TV sends on `session/ensure` to register; see `AppConfig.tvRegistrationKey`. */
 const val TV_REGISTRATION_KEY_HEADER = "X-Karalo-Registration-Key"
 
+/** Header the TV app sends on `session/ensure` with its version name, e.g. "0.3.0". */
+const val TV_APP_VERSION_HEADER = "X-Karalo-App-Version"
+
 internal fun requireSessionId(call: io.ktor.server.application.ApplicationCall) =
     call.parameters["sessionId"] ?: throw ApiException.Validation("Missing sessionId")
+
+private const val MAX_APP_VERSION_LENGTH = 32
 
 /** Routes only the TV (holding the session's `tvSecret`) is ever authorized to call. */
 fun Route.tvRoutes(deps: AppDependencies) {
     post("/api/tvs/{tvId}/session/ensure") {
         val tvId = call.parameters["tvId"] ?: throw ApiException.Validation("Missing tvId")
+        val appVersion = call.request.headers[TV_APP_VERSION_HEADER]?.trim()?.take(MAX_APP_VERSION_LENGTH)?.takeIf { it.isNotEmpty() }
         val response =
             deps.sessionRepository.ensureSession(
                 tvId,
                 call.bearerToken(),
                 presentedRegistrationKey = call.request.headers[TV_REGISTRATION_KEY_HEADER],
+                appVersion = appVersion,
             )
+        if (response.tvSecret != null) deps.stats.count(Metric.TV_REGISTERED, appVersion.orEmpty())
         val status = if (response.tvSecret != null) HttpStatusCode.Created else HttpStatusCode.OK
         call.respond(status, response)
     }

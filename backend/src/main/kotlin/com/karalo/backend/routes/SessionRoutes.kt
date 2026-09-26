@@ -8,6 +8,7 @@ import com.karalo.backend.plugins.JoinRateLimit
 import com.karalo.backend.plugins.RenameRateLimit
 import com.karalo.backend.plugins.SearchRateLimit
 import com.karalo.backend.plugins.SessionLookupRateLimit
+import com.karalo.backend.stats.Metric
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.plugins.ratelimit.rateLimit
@@ -17,12 +18,12 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import java.util.UUID
 
 /** Public (no auth) session bootstrap routes — what the mobile join page hits first. */
 fun Route.publicSessionRoutes(deps: AppDependencies) {
@@ -39,6 +40,7 @@ fun Route.publicSessionRoutes(deps: AppDependencies) {
             val body = call.receive<ParticipantJoinRequestDto>()
             val sessionId = deps.sessionRepository.resolveSessionIdForCode(code)
             val response = deps.participantRepository.join(sessionId, body.displayName)
+            deps.stats.count(Metric.GUEST_JOINED)
             deps.broadcaster.broadcast(
                 sessionId,
                 "PARTICIPANT_JOINED",

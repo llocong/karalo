@@ -33,6 +33,7 @@ private const val HTTP_NOT_FOUND = 404
 private const val HTTP_CONFLICT = 409
 
 private const val TV_REGISTRATION_KEY_HEADER = "X-Karalo-Registration-Key"
+private const val APP_VERSION_HEADER = "X-Karalo-App-Version"
 
 // The shared @KaraokeHttpClient has no read timeout (it also carries the always-open WebSocket),
 // so each REST call gets its own limit: without one, a request stalled by a backend restart hung
@@ -47,13 +48,21 @@ class KaraokeApiImpl
         private val ioDispatcher: CoroutineDispatcher,
         private val restBaseUrl: String,
         private val tvRegistrationKey: String,
+        private val appVersion: String = "",
     ) : KaraokeApi {
         @Inject
         constructor(
             @KaraokeHttpClient client: OkHttpClient,
             json: Json,
             @IoDispatcher ioDispatcher: CoroutineDispatcher,
-        ) : this(client, json, ioDispatcher, NetworkConfig.restBaseUrl, NetworkConfig.tvRegistrationKey)
+        ) : this(
+            client,
+            json,
+            ioDispatcher,
+            NetworkConfig.restBaseUrl,
+            NetworkConfig.tvRegistrationKey,
+            NetworkConfig.appVersion,
+        )
 
         override suspend fun ensureSession(
             tvInstallationId: String,
@@ -64,12 +73,22 @@ class KaraokeApiImpl
                 method = "POST",
                 bearer = tvSecret,
                 // Lets a new TV register with an internet-exposed backend (see the backend's
-                // AppConfig.tvRegistrationKey); ignored once the TV is registered.
-                headers = registrationHeaders(),
+                // AppConfig.tvRegistrationKey); ignored once the TV is registered. The version lets
+                // the backend count which app versions TVs run.
+                headers = registrationHeaders() + versionHeaders(),
             )
 
         private fun registrationHeaders(): Map<String, String> =
             if (tvRegistrationKey.isEmpty()) emptyMap() else mapOf(TV_REGISTRATION_KEY_HEADER to tvRegistrationKey)
+
+        private fun versionHeaders(): Map<String, String> =
+            if (appVersion.isEmpty()) {
+                emptyMap()
+            } else {
+                mapOf(
+                    APP_VERSION_HEADER to appVersion,
+                )
+            }
 
         override suspend fun fetchQueue(
             sessionId: String,

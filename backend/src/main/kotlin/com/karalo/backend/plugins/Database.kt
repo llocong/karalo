@@ -2,6 +2,7 @@ package com.karalo.backend.plugins
 
 import com.karalo.backend.config.AppConfig
 import com.karalo.backend.db.nightStartFor
+import com.karalo.backend.db.tables.DailyStats
 import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.PlayHistory
 import com.karalo.backend.db.tables.QueueItems
@@ -41,7 +42,7 @@ fun connectDatabase(config: AppConfig): Database {
         }
     val database = Database.connect(HikariDataSource(hikariConfig))
     transaction(database) {
-        SchemaUtils.createMissingTablesAndColumns(TvInstallations, Sessions, Participants, QueueItems, PlayHistory)
+        SchemaUtils.createMissingTablesAndColumns(TvInstallations, Sessions, Participants, QueueItems, PlayHistory, DailyStats)
         migrateToPlayHistory()
         backfillNightStartedAt()
     }

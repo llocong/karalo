@@ -15,6 +15,7 @@ val QueueAddRateLimit = RateLimitName("queueAdd")
 val SessionLookupRateLimit = RateLimitName("sessionLookup")
 val CommandRateLimit = RateLimitName("command")
 val RenameRateLimit = RateLimitName("rename")
+val StatsRateLimit = RateLimitName("stats")
 
 /**
  * Keyed by the presented bearer token where one exists (a participant/TV making authenticated
@@ -56,6 +57,11 @@ fun Application.installRateLimiting() {
         register(RenameRateLimit) {
             rateLimiter(limit = 5, refillPeriod = 1.minutes)
             requestKey { call -> tokenOrIpKey(call) }
+        }
+        // Page-view beacons: a real visitor sends one per page load.
+        register(StatsRateLimit) {
+            rateLimiter(limit = 30, refillPeriod = 1.minutes)
+            requestKey { call -> call.request.origin.remoteHost }
         }
         global {
             rateLimiter(limit = 60, refillPeriod = 1.minutes)

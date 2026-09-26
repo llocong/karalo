@@ -9,6 +9,7 @@ import com.karalo.backend.plugins.installSerialization
 import com.karalo.backend.plugins.installSockets
 import com.karalo.backend.plugins.installStatusPages
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -24,9 +25,10 @@ fun main() {
 /**
  * Connects the database as part of module wiring (not a separate step in [main]) so tests using
  * Ktor's `testApplication { application { module(testConfig) } }` get a real, connected database
- * too, without duplicating this setup.
+ * too, without duplicating this setup. Returns the wiring so tests can reach it (e.g. to flush
+ * usage statistics).
  */
-fun Application.module(config: AppConfig = AppConfig.fromEnv()) {
+fun Application.module(config: AppConfig = AppConfig.fromEnv()): AppDependencies {
     connectDatabase(config)
     val deps = AppDependencies(config)
     // Behind a reverse proxy, makes `request.origin.remoteHost` (what the IP-keyed rate limits use)
@@ -38,4 +40,6 @@ fun Application.module(config: AppConfig = AppConfig.fromEnv()) {
     installSockets()
     installRateLimiting()
     installRouting(deps)
+    monitor.subscribe(ApplicationStopping) { deps.flushStats() }
+    return deps
 }

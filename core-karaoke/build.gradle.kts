@@ -50,6 +50,15 @@ android {
         buildConfigField("String", "DEFAULT_BACKEND_BASE_URL", "\"$backendBaseUrl\"")
         buildConfigField("String", "DEFAULT_BACKEND_WS_URL", "\"$backendWsUrl\"")
         buildConfigField("String", "TV_REGISTRATION_KEY", "\"$tvRegistrationKey\"")
+        // The app's version (same source as app/build.gradle.kts), sent to the backend so it can
+        // count which versions TVs are running.
+        val appVersionName =
+            Regex(""""\."\s*:\s*"([^"]+)"""")
+                .find(rootProject.file(".release-please-manifest.json").readText())
+                ?.groupValues
+                ?.get(1)
+                .orEmpty()
+        buildConfigField("String", "APP_VERSION", "\"$appVersionName\"")
     }
 
     buildFeatures {

@@ -10,7 +10,19 @@ object TvInstallations : Table("tv_installations") {
     val tvSecretHash = text("tv_secret_hash")
     val createdAt = timestamp("created_at")
     val lastSeenAt = timestamp("last_seen_at")
+
+    /** The TV app's version, from its X-Karalo-App-Version header; null for builds that don't send it. */
+    val appVersion = text("app_version").nullable()
     override val primaryKey = PrimaryKey(id)
+}
+
+/** Usage statistics as daily totals, written by stats/StatsRecorder. See [com.karalo.backend.stats.Metric]. */
+object DailyStats : Table("daily_stats") {
+    val day = text("day") // yyyy-MM-dd, in stats/STATS_ZONE
+    val metric = text("metric")
+    val dimension = text("dimension")
+    val value = long("value")
+    override val primaryKey = PrimaryKey(day, metric, dimension)
 }
 
 /** `tvInstallationId` is UNIQUE — this is what enforces "exactly one session per TV" in the DB. */

@@ -111,6 +111,10 @@ All in `deploy/karalo.service` and `/etc/karalo/karalo.env`:
 - Restart: `... --command 'sudo systemctl restart karalo'`
 - Backups: `/var/lib/karalo/backups/karalo-YYYYMMDD.db`. To restore, stop the service, copy one over
   `/var/lib/karalo/karalo-backend.db` (and delete the `-wal`/`-shm` files next to it), start it.
+- Usage statistics: daily totals in the `daily_stats` table (page views, visitors, downloads, new
+  TVs, sessions, guests, songs; see `backend/.../stats/StatsRecorder.kt`), written once a minute.
+  For the last week:
+  `... --command "sudo sqlite3 /var/lib/karalo/karalo-backend.db \"SELECT day, metric, dimension, value FROM daily_stats WHERE day >= date('now', '-7 days') ORDER BY day, metric\""`
 
 ## Known risk: YouTube blocking phone search
 

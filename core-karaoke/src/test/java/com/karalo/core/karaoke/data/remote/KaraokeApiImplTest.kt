@@ -26,14 +26,17 @@ class KaraokeApiImplTest {
         server.shutdown()
     }
 
-    private fun api(tvRegistrationKey: String) =
-        KaraokeApiImpl(
-            OkHttpClient(),
-            Json { ignoreUnknownKeys = true },
-            Dispatchers.Unconfined,
-            restBaseUrl = server.url("").toString().removeSuffix("/"),
-            tvRegistrationKey = tvRegistrationKey,
-        )
+    private fun api(
+        tvRegistrationKey: String = "",
+        appVersion: String = "",
+    ) = KaraokeApiImpl(
+        OkHttpClient(),
+        Json { ignoreUnknownKeys = true },
+        Dispatchers.Unconfined,
+        restBaseUrl = server.url("").toString().removeSuffix("/"),
+        tvRegistrationKey = tvRegistrationKey,
+        appVersion = appVersion,
+    )
 
     @Test
     fun `ensureSession sends the registration key when the build has one`() =
@@ -51,6 +54,14 @@ class KaraokeApiImplTest {
             api(tvRegistrationKey = "").ensureSession("tv-1", tvSecret = null)
 
             assertNull(server.takeRequest().getHeader("X-Karalo-Registration-Key"))
+        }
+
+    @Test
+    fun `ensureSession reports the app version`() =
+        runTest {
+            api(appVersion = "0.3.0").ensureSession("tv-1", tvSecret = null)
+
+            assertEquals("0.3.0", server.takeRequest().getHeader("X-Karalo-App-Version"))
         }
 
     private companion object {
