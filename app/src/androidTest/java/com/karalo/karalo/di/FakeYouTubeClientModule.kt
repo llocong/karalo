@@ -30,12 +30,21 @@ object FakeYouTubeClientModule {
     @Singleton
     fun provideYouTubeClient(): YouTubeClient =
         FakeYouTubeClient().apply {
+            // Every search -- Home's shelf included -- gets a lead song then the filler songs (their
+            // positions are what TvCarouselFocusRestorationRoundTripTest scrolls to)...
             searchResult =
                 AppResult.Success(
-                    listOf(YtVideoSummary("vid1", "Sample Song", "Test Karaoke Channel", null, 180L)) +
+                    listOf(YtVideoSummary("lead-vid", "Lead Song", "Test Karaoke Channel", null, 180L)) +
                         (1..FILLER_ITEM_COUNT).map {
                             YtVideoSummary("filler-vid$it", "Filler Song $it", "Test Karaoke Channel", null, 180L)
                         },
+                )
+            // ...except KaraloNavigationTest's own search, whose "Sample Song" must appear only in
+            // Search's results: Home stays composed behind Search, so a shared result showed twice.
+            searchResultsByQuery =
+                mapOf(
+                    "Test Song" to
+                        AppResult.Success(listOf(YtVideoSummary("vid1", "Sample Song", "Test Karaoke Channel", null, 180L))),
                 )
             suggestionsResult = AppResult.Success(listOf(YtSuggestion("karaoke test song")))
             streamResult =
