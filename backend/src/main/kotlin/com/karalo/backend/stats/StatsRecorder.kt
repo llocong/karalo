@@ -26,7 +26,18 @@ object Metric {
     const val SESSION_STARTED = "session_started" // a TV's session started or restarted
     const val GUEST_JOINED = "guest_joined"
     const val SONG_PLAYED = "song_played"
+
+    /** Running total of APK downloads from GitHub releases, set once an hour (see GitHubReleases). */
+    const val GITHUB_DOWNLOADS_TOTAL = "github.downloads_total"
 }
+
+/** How long hourly counts are kept: enough for today and yesterday in any time zone. */
+private val HOURLY_RETENTION = java.time.Duration.ofDays(3)
+
+private val HOUR_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH")
+
+/** The hour key hourly_stats uses for [instant], in [STATS_ZONE]. */
+fun hourKey(instant: Instant): String = instant.atZone(STATS_ZONE).format(HOUR_FORMAT)
 
 /**
  * Usage statistics as daily totals only: nothing here identifies a person or a device. Counts
@@ -49,6 +60,8 @@ class StatsRecorder(
     )
 
     private val pending = ConcurrentHashMap<Key, LongAdder>()
+    private val pendingHourly = ConcurrentHashMap<Pair<String, String>, LongAdder>()
+    private val pendingGauges = ConcurrentHashMap<Pair<LocalDate, String>, Long>()
 
     private val random = SecureRandom()
     private var visitorDay: LocalDate? = null
@@ -59,7 +72,17 @@ class StatsRecorder(
         metric: String,
         dimension: String = "",
     ) {
-        pending.computeIfAbsent(Key(today(), metric, dimension.take(MAX_DIMENSION_LENGTH))) { LongAdder() }.increment()
+        val now = clock()
+        pending.computeIfAbsent(Key(dayOf(now), metric, dimension.take(MAX_DIMENSION_LENGTH))) { LongAdder() }.increment()
+        pendingHourly.computeIfAbsent(hourKey(now) to metric) { LongAdder() }.increment()
+    }
+
+    /** Records today's value of a running total (the last one set in a day wins). */
+    fun setGauge(
+        metric: String,
+        value: Long,
+    ) {
+        pendingGauges[today() to metric] = value
     }
 
     /** Counts [Metric.VISITOR] once per IP and user agent per day. */
@@ -85,14 +108,30 @@ class StatsRecorder(
 
     /** Adds the counts gathered since the last flush to daily_stats. */
     fun flush() {
-        if (pending.isEmpty()) return
-        val batch = mutableMapOf<Key, Long>()
-        for (key in pending.keys.toList()) {
-            val value = pending.remove(key)?.sum() ?: continue
-            if (value > 0) batch[key] = value
-        }
-        if (batch.isEmpty()) return
+        val batch = drain(pending)
+        val hourly = drain(pendingHourly)
+        val gauges = pendingGauges.keys.toList().mapNotNull { key -> pendingGauges.remove(key)?.let { key to it } }
+        val cutoff = hourKey(clock().minus(HOURLY_RETENTION))
         transaction {
+            for ((key, value) in hourly) {
+                exec(
+                    """
+                    INSERT INTO hourly_stats (hour, metric, value) VALUES (?, ?, ?)
+                    ON CONFLICT (hour, metric) DO UPDATE SET value = value + excluded.value
+                    """.trimIndent(),
+                    listOf(TextColumnType() to key.first, TextColumnType() to key.second, LongColumnType() to value),
+                )
+            }
+            exec("DELETE FROM hourly_stats WHERE hour < ?", listOf(TextColumnType() to cutoff))
+            for ((key, value) in gauges) {
+                exec(
+                    """
+                    INSERT INTO daily_stats (day, metric, dimension, value) VALUES (?, ?, '', ?)
+                    ON CONFLICT (day, metric, dimension) DO UPDATE SET value = excluded.value
+                    """.trimIndent(),
+                    listOf(TextColumnType() to key.first.toString(), TextColumnType() to key.second, LongColumnType() to value),
+                )
+            }
             for ((key, value) in batch) {
                 exec(
                     """
@@ -115,7 +154,12 @@ class StatsRecorder(
 
     internal fun pendingDays(): Set<LocalDate> = pending.keys.mapTo(mutableSetOf()) { it.day }
 
-    private fun today(): LocalDate = clock().atZone(STATS_ZONE).toLocalDate()
+    private fun <K> drain(map: ConcurrentHashMap<K, LongAdder>): Map<K, Long> =
+        map.keys.toList().mapNotNull { key -> map.remove(key)?.sum()?.takeIf { it > 0 }?.let { key to it } }.toMap()
+
+    private fun today(): LocalDate = dayOf(clock())
+
+    private fun dayOf(instant: Instant): LocalDate = instant.atZone(STATS_ZONE).toLocalDate()
 
     private companion object {
         const val SALT_BYTES = 32

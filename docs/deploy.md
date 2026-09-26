@@ -116,6 +116,23 @@ All in `deploy/karalo.service` and `/etc/karalo/karalo.env`:
   For the last week:
   `... --command "sudo sqlite3 /var/lib/karalo/karalo-backend.db \"SELECT day, metric, dimension, value FROM daily_stats WHERE day >= date('now', '-7 days') ORDER BY day, metric\""`
 
+## Admin dashboard
+
+karalo.app/admin shows live parties, guests and the usage statistics. It stays off (404) until a
+password is set:
+
+```sh
+deploy/set-admin-password.sh
+```
+
+You type the password on the server (12 characters or more). Only a salted PBKDF2 hash is kept, as
+`KARALO_ADMIN_PASSWORD_HASH` in `/etc/karalo/karalo.env`. Run the script again to change it.
+Signing in lasts 12 hours, and every deploy signs you out (sessions live in memory). Five wrong
+passwords from one address lock it out for 15 minutes.
+
+GitHub release downloads are read once an hour from the public API for `KARALO_GITHUB_REPO` (set in
+`karalo.service`), and counted from the day the dashboard first ran.
+
 ## Known risk: YouTube blocking phone search
 
 Phone search scrapes YouTube from the server's IP address, and YouTube rate-limits or blocks cloud

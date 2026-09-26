@@ -1,5 +1,6 @@
 package com.karalo.backend
 
+import com.karalo.backend.admin.AdminPassword
 import com.karalo.backend.config.AppConfig
 import com.karalo.backend.plugins.connectDatabase
 import com.karalo.backend.plugins.installCallLogging
@@ -15,7 +16,17 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 
-fun main() {
+private const val MIN_ADMIN_PASSWORD_LENGTH = 12
+
+fun main(args: Array<String>) {
+    // `karalo-backend hash-admin-password` reads a password on stdin and prints the value for
+    // KARALO_ADMIN_PASSWORD_HASH (see deploy/set-admin-password.sh).
+    if (args.firstOrNull() == "hash-admin-password") {
+        val password = readlnOrNull()?.trimEnd('\r', '\n').orEmpty()
+        require(password.length >= MIN_ADMIN_PASSWORD_LENGTH) { "Use at least $MIN_ADMIN_PASSWORD_LENGTH characters." }
+        println(AdminPassword.hash(password))
+        return
+    }
     val config = AppConfig.fromEnv()
     embeddedServer(Netty, host = config.host, port = config.port) {
         module(config)

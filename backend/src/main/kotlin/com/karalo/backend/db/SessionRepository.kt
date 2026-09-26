@@ -77,6 +77,7 @@ class SessionRepository(
                     it[queuePositionCursor] = 0
                     it[playbackState] = "IDLE"
                     it[updatedAt] = now
+                    it[startedAt] = now
                 }
                 onSessionStarted(sessionId)
                 val session = Sessions.selectAll().where { Sessions.id eq sessionId }.single()
