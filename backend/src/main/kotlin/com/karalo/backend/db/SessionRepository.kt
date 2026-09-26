@@ -17,6 +17,7 @@ import com.karalo.backend.youtube.formatVideoTitle
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
@@ -155,6 +156,23 @@ class SessionRepository(
                 throw ApiException.Unauthorized("This karaoke session is over", code = SESSION_ENDED)
             }
             sessionId
+        }
+
+    /** The id of the session with this code, or null if there's none. */
+    fun idOf(rawCode: String): String? =
+        transaction { Sessions.selectAll().where { Sessions.code eq SessionCodeGenerator.normalize(rawCode) }.singleOrNull()?.get(Sessions.id) }
+
+    /** Ends the session now (the admin dashboard's "End party"); see [endSession]. */
+    fun endNow(sessionId: String) = transaction { if (!isSessionEnded(sessionId)) endSession(sessionId) }
+
+    /** The code of the session with this id or code, or null if there's none. */
+    fun codeOf(ref: String): String? =
+        transaction {
+            Sessions
+                .selectAll()
+                .where { (Sessions.id eq ref) or (Sessions.code eq SessionCodeGenerator.normalize(ref)) }
+                .singleOrNull()
+                ?.get(Sessions.code)
         }
 
     fun getPlaybackState(sessionId: String): String =

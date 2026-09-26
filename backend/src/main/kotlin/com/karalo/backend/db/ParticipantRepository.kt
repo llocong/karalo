@@ -4,6 +4,7 @@ import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.QueueItems
 import com.karalo.backend.domain.ApiException
 import com.karalo.backend.domain.GUEST_EXPIRED
+import com.karalo.backend.domain.GUEST_REMOVED
 import com.karalo.backend.domain.SESSION_ENDED
 import com.karalo.backend.domain.TokenGenerator
 import com.karalo.backend.domain.model.MeDto
@@ -127,7 +128,13 @@ class ParticipantRepository {
                 }
             if (reason != null) {
                 commit() // keep any end/expiry just recorded above; the throw rolls back otherwise
-                throw ApiException.Unauthorized(if (reason == SESSION_ENDED) "This karaoke session is over" else "Your connection timed out", code = reason)
+                val message =
+                    when (reason) {
+                        SESSION_ENDED -> "This karaoke session is over"
+                        GUEST_REMOVED -> "You were removed from this session"
+                        else -> "Your connection timed out"
+                    }
+                throw ApiException.Unauthorized(message, code = reason)
             }
             if (match == null) throw ApiException.Unauthorized("Invalid participant token")
             Participants.update({ Participants.id eq participantId!! }) {
@@ -179,6 +186,25 @@ class ParticipantRepository {
     }
 
     fun participantCount(sessionId: String): Int = transaction { activeParticipantCount(sessionId) }
+
+    /**
+     * Removes a guest from the admin dashboard: their token stops working (GUEST_REMOVED) and their
+     * songs still waiting in the queue go with them. Returns false if they weren't in the session.
+     */
+    fun removeByAdmin(
+        sessionId: String,
+        participantId: String,
+    ): Boolean =
+        transaction {
+            val row =
+                Participants
+                    .selectAll()
+                    .where { (Participants.id eq participantId) and (Participants.sessionId eq sessionId) and Participants.removedAt.isNull() }
+                    .singleOrNull() ?: return@transaction false
+            QueueItems.deleteWhere { (addedByParticipantId eq row[Participants.id]) and (status eq "PENDING") }
+            tombstone(participantId, GUEST_REMOVED, Instant.now())
+            true
+        }
 }
 
 /** How long a removed guest's tombstone is kept, so their old token can still say why it stopped working. */

@@ -7,6 +7,7 @@ import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.request.header
+import io.ktor.server.request.path
 import kotlin.time.Duration.Companion.minutes
 
 val JoinRateLimit = RateLimitName("join")
@@ -66,6 +67,9 @@ fun Application.installRateLimiting() {
         global {
             rateLimiter(limit = 60, refillPeriod = 1.minutes)
             requestKey { call -> call.request.origin.remoteHost }
+            // The admin dashboard has its own protection (sign-in lockout, data behind the
+            // session cookie) and polls several endpoints at once, so it doesn't use this budget.
+            requestWeight { call, _ -> if (call.request.path().startsWith("/admin")) 0 else 1 }
         }
     }
 }

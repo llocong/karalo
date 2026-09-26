@@ -6,7 +6,12 @@ import com.karalo.backend.admin.AdminNowDto
 import com.karalo.backend.admin.AdminNowPlayingDto
 import com.karalo.backend.admin.AdminSessionDetailDto
 import com.karalo.backend.admin.AdminSessionDto
+import com.karalo.backend.admin.AdminSummaryDto
+import com.karalo.backend.admin.AlertsInfoDto
 import com.karalo.backend.admin.BreakdownRowDto
+import com.karalo.backend.admin.BurstDto
+import com.karalo.backend.admin.SecurityDto
+import com.karalo.backend.admin.SecurityEventDto
 import com.karalo.backend.admin.OverviewDto
 import com.karalo.backend.admin.UsageKey
 import com.karalo.backend.admin.UsagePointDto
@@ -14,14 +19,19 @@ import com.karalo.backend.db.tables.DailyStats
 import com.karalo.backend.db.tables.HourlyStats
 import com.karalo.backend.db.tables.Participants
 import com.karalo.backend.db.tables.QueueItems
+import com.karalo.backend.db.tables.SecurityEvents
 import com.karalo.backend.db.tables.Sessions
 import com.karalo.backend.db.tables.TvInstallations
 import com.karalo.backend.domain.SessionCodeGenerator
 import com.karalo.backend.realtime.RoomConnections
+import com.karalo.backend.security.RATE_LIMIT_LABELS
+import com.karalo.backend.security.SecurityEventType
+import com.karalo.backend.security.SecurityMonitor
 import com.karalo.backend.stats.Metric
 import com.karalo.backend.stats.STATS_ZONE
 import com.karalo.backend.stats.hourKey
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -221,6 +231,7 @@ class AdminRepository(
                 guests =
                     guests.map { guest ->
                         AdminGuestDto(
+                            id = guest[Participants.id],
                             name = guest[Participants.displayName],
                             joinedAt = guest[Participants.createdAt].toString(),
                             lastActiveAt = guest[Participants.lastActiveAt]?.toString(),
@@ -234,6 +245,10 @@ class AdminRepository(
                         )
                     },
                 joins = guests.map { it[Participants.createdAt].toString() },
+                bursts =
+                    eventsFor(fresh)
+                        .filter { it[SecurityEvents.type] == SecurityEventType.JOIN_BURST.key }
+                        .map { BurstDto(it[SecurityEvents.firstAt].toString(), it[SecurityEvents.lastAt].toString(), it[SecurityEvents.count]) },
             )
         }
 
@@ -277,6 +292,77 @@ class AdminRepository(
                 },
             tvLastSeen = tv[TvInstallations.lastSeenAt].toString(),
             phones = if (live) connection?.phones ?: 0 else 0,
+            flagged = eventsFor(session).isNotEmpty(),
+        )
+    }
+
+    /**
+     * Security events that named this session during its current (or last) party, or in the last
+     * 24 hours if its start isn't known. Must be called inside a transaction.
+     */
+    private fun eventsFor(session: ResultRow): List<ResultRow> {
+        val since = session[Sessions.startedAt] ?: Instant.now().minus(Duration.ofHours(24))
+        val code = session[Sessions.code]
+        val id = session[Sessions.id]
+        return SecurityEvents
+            .selectAll()
+            .where { SecurityEvents.lastAt greaterEq since }
+            .filter { it[SecurityEvents.sessionCode] == code || it[SecurityEvents.sessionRef] == id || it[SecurityEvents.sessionRef] == code }
+    }
+
+    /** Security events seen since the start of [period] (today, 7d or 30d), newest first. */
+    fun security(
+        period: String,
+        alertsDestination: String?,
+        throttleMinutes: Long,
+        now: Instant = Instant.now(),
+    ): SecurityDto =
+        transaction {
+            val today = now.atZone(STATS_ZONE).toLocalDate()
+            val length = PERIOD_DAYS[period] ?: PERIOD_DAYS.getValue(DEFAULT_PERIOD)
+            val since = today.minusDays(length - 1L).atStartOfDay(STATS_ZONE).toInstant()
+            val events =
+                SecurityEvents
+                    .selectAll()
+                    .where { SecurityEvents.lastAt greaterEq since }
+                    .orderBy(SecurityEvents.lastAt, SortOrder.DESC)
+                    .map(::toEventDto)
+            val last =
+                SecurityEvents
+                    .selectAll()
+                    .where { SecurityEvents.alert eq "sent" }
+                    .orderBy(SecurityEvents.alertedAt, SortOrder.DESC)
+                    .limit(1)
+                    .singleOrNull()
+                    ?.let(::toEventDto)
+            SecurityDto(events, AlertsInfoDto(alertsDestination != null, alertsDestination, throttleMinutes, last))
+        }
+
+    fun summary(now: Instant = Instant.now()): AdminSummaryDto =
+        transaction {
+            AdminSummaryDto(SecurityEvents.selectAll().where { SecurityEvents.lastAt greaterEq now.minus(Duration.ofHours(24)) }.count().toInt())
+        }
+
+    private fun toEventDto(row: ResultRow): SecurityEventDto {
+        val type = SecurityEventType.of(row[SecurityEvents.type])
+        val code = row[SecurityEvents.sessionCode]
+        val detail = row[SecurityEvents.detail]
+        val firstAt = row[SecurityEvents.firstAt]
+        val lastAt = row[SecurityEvents.lastAt]
+        return SecurityEventDto(
+            id = row[SecurityEvents.id],
+            type = row[SecurityEvents.type],
+            label = type?.label ?: row[SecurityEvents.type],
+            sessionCode = code,
+            source = row[SecurityEvents.sourceHash]?.let { "ip·" + it.take(4) },
+            firstAt = firstAt.toString(),
+            lastAt = lastAt.toString(),
+            count = row[SecurityEvents.count],
+            details = type?.let { SecurityMonitor.describe(it, row[SecurityEvents.count], Duration.between(firstAt, lastAt), code, detail) }.orEmpty(),
+            limiter = if (type == SecurityEventType.RATE_LIMITED) RATE_LIMIT_LABELS[detail] ?: detail else null,
+            alert = row[SecurityEvents.alert],
+            alertedAt = row[SecurityEvents.alertedAt]?.toString(),
+            hits = SecurityMonitor.parseHits(row[SecurityEvents.hits]),
         )
     }
 

@@ -91,15 +91,18 @@ data class AdminSessionDto(
     val tvStatus: String,
     val tvLastSeen: String,
     val phones: Int,
+    /** A security event named this party since it started. */
+    val flagged: Boolean,
 )
 
 @Serializable
 data class AdminGuestDto(
+    val id: String,
     val name: String,
     val joinedAt: String,
     val lastActiveAt: String?,
     val songsQueued: Int,
-    /** Null while the guest is in the party; otherwise GUEST_EXPIRED or SESSION_ENDED. */
+    /** Null while the guest is in the party; otherwise GUEST_EXPIRED, GUEST_REMOVED or SESSION_ENDED. */
     val removedReason: String?,
 )
 
@@ -109,4 +112,55 @@ data class AdminSessionDetailDto(
     val guests: List<AdminGuestDto>,
     /** When each guest of this party joined, oldest first. */
     val joins: List<String>,
+    /** Join bursts in this party (see security/SecurityMonitor). */
+    val bursts: List<BurstDto>,
+)
+
+@Serializable
+data class BurstDto(
+    val firstAt: String,
+    val lastAt: String,
+    val count: Long,
+)
+
+@Serializable
+data class SecurityEventDto(
+    val id: String,
+    /** A SecurityEventType key: burst, rate, key, secret, token, guess or spike. */
+    val type: String,
+    val label: String,
+    val sessionCode: String?,
+    /** "ip·7f3a": the start of the source's hash, or null when there's no single source. */
+    val source: String?,
+    val firstAt: String,
+    val lastAt: String,
+    val count: Long,
+    val details: String,
+    /** The rate limit's name, for rate-limit events. */
+    val limiter: String?,
+    /** none | sent | throttled */
+    val alert: String,
+    val alertedAt: String?,
+    /** When each hit happened, epoch milliseconds (the last 300). */
+    val hits: List<Long>,
+)
+
+@Serializable
+data class AlertsInfoDto(
+    val configured: Boolean,
+    val destination: String?,
+    val throttleMinutes: Long,
+    val last: SecurityEventDto?,
+)
+
+@Serializable
+data class SecurityDto(
+    val events: List<SecurityEventDto>,
+    val alerts: AlertsInfoDto,
+)
+
+@Serializable
+data class AdminSummaryDto(
+    /** Security events in the last 24 hours, for the Security badge and Overview's banner. */
+    val recentEvents: Int,
 )

@@ -6,6 +6,7 @@ import com.karalo.backend.plugins.connectDatabase
 import com.karalo.backend.plugins.installCallLogging
 import com.karalo.backend.plugins.installRateLimiting
 import com.karalo.backend.plugins.installRouting
+import com.karalo.backend.plugins.installSecurityHooks
 import com.karalo.backend.plugins.installSerialization
 import com.karalo.backend.plugins.installSockets
 import com.karalo.backend.plugins.installStatusPages
@@ -46,7 +47,8 @@ fun Application.module(config: AppConfig = AppConfig.fromEnv()): AppDependencies
     // the real client IP from X-Forwarded-For instead of the proxy's own address.
     if (config.trustProxy) install(XForwardedHeaders)
     installSerialization()
-    installStatusPages()
+    installStatusPages(deps.security)
+    installSecurityHooks(deps.security)
     installCallLogging()
     installSockets()
     installRateLimiting()

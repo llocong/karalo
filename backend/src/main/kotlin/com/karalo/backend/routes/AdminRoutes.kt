@@ -3,6 +3,10 @@ package com.karalo.backend.routes
 import com.karalo.backend.AppDependencies
 import com.karalo.backend.admin.AdminAuth
 import com.karalo.backend.admin.LoginResult
+import com.karalo.backend.domain.GUEST_REMOVED
+import com.karalo.backend.plugins.appJson
+import com.karalo.backend.security.AlertSender
+import com.karalo.backend.security.SecurityThresholds
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -21,10 +25,12 @@ import io.ktor.server.routing.route
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 private const val ADMIN_COOKIE = "karalo_admin"
+private const val ADMIN_HEADER = "X-Karalo-Admin"
 
 /**
  * The owner's dashboard at /admin (see admin/AdminAuth for sign-in). Everything here is 404
@@ -57,7 +63,7 @@ fun Route.adminRoutes(deps: AppDependencies) {
                 )
             }
             post("/login") {
-                if (!adminPage(call, auth)) return@post
+                if (!adminPage(call, auth) || !sameOrigin(call)) return@post
                 val password =
                     runCatching { (Json.parseToJsonElement(call.receiveText()) as JsonObject)["password"]?.jsonPrimitive?.content }
                         .getOrNull()
@@ -85,7 +91,7 @@ fun Route.adminRoutes(deps: AppDependencies) {
                 }
             }
             post("/logout") {
-                if (!adminPage(call, auth)) return@post
+                if (!adminPage(call, auth) || !sameOrigin(call)) return@post
                 auth.logout(call.request.cookies[ADMIN_COOKIE])
                 call.response.header(HttpHeaders.SetCookie, "$ADMIN_COOKIE=; Max-Age=0; Path=/admin; HttpOnly; SameSite=Strict")
                 call.respond(HttpStatusCode.NoContent)
@@ -101,6 +107,47 @@ fun Route.adminRoutes(deps: AppDependencies) {
             get("/sessions") {
                 if (!signedIn(call, auth)) return@get
                 call.respond(deps.adminRepository.sessions(deps.broadcaster.connections()))
+            }
+            get("/summary") {
+                if (!signedIn(call, auth)) return@get
+                deps.flushStats()
+                call.respond(deps.adminRepository.summary())
+            }
+            get("/security") {
+                if (!signedIn(call, auth)) return@get
+                deps.flushStats()
+                val destination = deps.config.alertNtfyUrl?.let(AlertSender::masked)
+                val throttle = SecurityThresholds().alertThrottle.toMinutes()
+                call.respond(deps.adminRepository.security(call.request.queryParameters["period"] ?: "7d", destination, throttle))
+            }
+            post("/sessions/{code}/end") {
+                if (!signedIn(call, auth) || !sameOrigin(call)) return@post
+                val sessionId = deps.sessionRepository.idOf(call.parameters["code"].orEmpty())
+                if (sessionId == null) return@post call.respond(HttpStatusCode.NotFound, buildJsonObject { put("error", "not_found") })
+                // Ending closes the guests' phones (see onSessionEnded); the TV gets an empty queue.
+                deps.sessionRepository.endNow(sessionId)
+                deps.broadcaster.broadcast(sessionId, "QUEUE_UPDATED", appJson.encodeToJsonElement(deps.queueRepository.listPending(sessionId)))
+                deps.broadcaster.broadcast(sessionId, "NOW_PLAYING_CHANGED", nowPlayingPayload(null))
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post("/sessions/{code}/guests/{participantId}/remove") {
+                if (!signedIn(call, auth) || !sameOrigin(call)) return@post
+                val sessionId = deps.sessionRepository.idOf(call.parameters["code"].orEmpty())
+                val participantId = call.parameters["participantId"].orEmpty()
+                if (sessionId == null || !deps.participantRepository.removeByAdmin(sessionId, participantId)) {
+                    return@post call.respond(HttpStatusCode.NotFound, buildJsonObject { put("error", "not_found") })
+                }
+                deps.broadcaster.closeParticipant(sessionId, participantId, GUEST_REMOVED)
+                deps.broadcaster.broadcast(sessionId, "QUEUE_UPDATED", appJson.encodeToJsonElement(deps.queueRepository.listPending(sessionId)))
+                deps.broadcaster.broadcast(
+                    sessionId,
+                    "PARTICIPANT_LEFT",
+                    buildJsonObject {
+                        put("participantId", participantId)
+                        put("participantCount", deps.participantRepository.participantCount(sessionId))
+                    },
+                )
+                call.respond(HttpStatusCode.NoContent)
             }
             get("/sessions/{code}") {
                 if (!signedIn(call, auth)) return@get
@@ -134,6 +181,20 @@ private suspend fun signedIn(
     if (!adminPage(call, auth)) return false
     if (auth.isSignedIn(call.request.cookies[ADMIN_COOKIE])) return true
     call.respond(HttpStatusCode.Unauthorized, buildJsonObject { put("error", "signed_out") })
+    return false
+}
+
+/**
+ * Requests that change something must come from the dashboard itself: they carry the
+ * X-Karalo-Admin header, which another site can't add without the browser asking first (and
+ * being refused), and an Origin, when sent, that's this server's own. With the SameSite=Strict
+ * cookie, that keeps other pages from acting through the owner's browser.
+ */
+private suspend fun sameOrigin(call: ApplicationCall): Boolean {
+    val origin = call.request.headers[HttpHeaders.Origin]
+    val own = "${call.request.origin.scheme}://${call.request.headers[HttpHeaders.Host]}"
+    if (call.request.headers[ADMIN_HEADER] == "1" && (origin == null || origin == own)) return true
+    call.respond(HttpStatusCode.Forbidden, buildJsonObject { put("error", "forbidden") })
     return false
 }
 

@@ -63,7 +63,18 @@ internal fun endSessionIfTvInactive(
     val goneTooLong =
         disconnectedAt != null && disconnectedAt.isBefore(now.minus(TV_DISCONNECT_GRACE)) && !tvLastSeen.isAfter(disconnectedAt)
     if (!quietTooLong && !goneTooLong) return false
+    endSession(sessionId, now)
+    return true
+}
 
+/**
+ * Ends [sessionId] now, whatever its TV is doing: the admin dashboard's "End party". The TV's next
+ * call starts a fresh, empty party. Must be called inside a transaction.
+ */
+internal fun endSession(
+    sessionId: String,
+    now: Instant = Instant.now(),
+) {
     QueueItems.deleteWhere { QueueItems.sessionId eq sessionId }
     Participants.update({ (Participants.sessionId eq sessionId) and Participants.removedAt.isNull() }) {
         it[removedAt] = now
@@ -82,7 +93,6 @@ internal fun endSessionIfTvInactive(
         it[updatedAt] = now
     }
     onSessionEnded(sessionId)
-    return true
 }
 
 /** Whether [sessionId] has ended and its TV hasn't come back yet. Must be called inside a transaction. */

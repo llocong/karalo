@@ -101,8 +101,21 @@ class AdminDashboardTest {
             val me = json(client.get("/admin/api/me") { header(HttpHeaders.Cookie, cookie) })
             assertEquals("true", me["signedIn"]!!.jsonPrimitive.content)
 
-            client.post("/admin/api/logout") { header(HttpHeaders.Cookie, cookie) }
+            client.post("/admin/api/logout") {
+                header(HttpHeaders.Cookie, cookie)
+                header("X-Karalo-Admin", "1")
+            }
             assertEquals(HttpStatusCode.Unauthorized, client.get("/admin/api/overview") { header(HttpHeaders.Cookie, cookie) }.status)
+        }
+
+    @Test
+    fun `the dashboard's own requests don't use up the site-wide rate limit`() =
+        testApplication {
+            startApp()
+            val cookie = signIn(client)
+            repeat(70) { assertEquals(HttpStatusCode.OK, client.get("/admin/api/sessions") { header(HttpHeaders.Cookie, cookie) }.status) }
+            // Other requests from the same address are still limited as before.
+            assertEquals(HttpStatusCode.OK, client.get("/").status)
         }
 
     @Test
@@ -205,6 +218,7 @@ class AdminDashboardTest {
         client.post("/admin/api/login") {
             contentType(ContentType.Application.Json)
             header("X-Forwarded-For", fromIp)
+            header("X-Karalo-Admin", "1")
             setBody("""{"password":"$password"}""")
         }
 

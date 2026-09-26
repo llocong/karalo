@@ -180,7 +180,7 @@
     .search { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; flex: 1 1 220px; max-width: 320px; }
     .search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text); font: 14px var(--mono); letter-spacing: 0.04em; }
     .table { overflow: hidden; }
-    .row { display: grid; grid-template-columns: 112px 124px 92px 72px 60px minmax(0, 1fr) 150px 64px; gap: 12px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .row { display: grid; grid-template-columns: 112px 124px 92px 72px 60px minmax(0, 1fr) 150px 64px 20px; gap: 12px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 14px; }
     .row:last-child { border-bottom: none; }
     .row.head { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
     button.row { width: 100%; border: none; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: pointer; font-size: 14px; }
@@ -240,6 +240,65 @@
     .guest .stack span:first-child { font-size: 14px; font-weight: 800; }
     .removed-pill { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--border); border-radius: 999px; padding: 5px 10px; white-space: nowrap; flex: none; }
 
+    /* ---------- Security, badges, flags and actions ---------- */
+    .badge-count { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-left: auto; }
+    .tab .icon-wrap { position: relative; display: flex; }
+    .tab .badge-count { position: absolute; top: -5px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; margin: 0; }
+    .attention { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: rgba(255, 93, 143, 0.1); border: 1px solid rgba(255, 93, 143, 0.4); border-radius: 20px; color: var(--text); font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; text-decoration: none; }
+    .attention span:nth-child(2) { flex: 1; }
+    .attention span:last-child { color: var(--accent); font-weight: 800; white-space: nowrap; }
+    .flag { color: var(--accent); display: flex; }
+    .security-pill { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: rgba(255, 93, 143, 0.12); color: var(--accent); font-size: 12px; font-weight: 800; }
+    .grid.sec { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .tile .value.alert { color: var(--accent); }
+    .menu-wrap { position: relative; }
+    .menu-btn { height: 42px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .menu-btn.on { border-color: var(--primary); }
+    .menu { position: absolute; top: 48px; left: 0; z-index: 30; width: 260px; background: var(--surface-2); border: 1px solid var(--border-3); border-radius: 20px; padding: 8px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; }
+    .menu button { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border: none; border-radius: 12px; background: transparent; color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+    .menu button:hover { background: var(--border); }
+    .check-box { width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid var(--tertiary); display: flex; align-items: center; justify-content: center; flex: none; color: transparent; }
+    .check-box.on { background: var(--primary); border-color: var(--primary); color: var(--text); }
+    .menu .clear { margin-top: 4px; height: 36px; border-top: 1px solid var(--border-3); border-radius: 0; justify-content: center; color: var(--primary-soft); font-size: 13px; font-weight: 800; }
+    .type-pill { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px 0 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-2); font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .type-pill svg { stroke: var(--accent); }
+    .row.sec { grid-template-columns: 118px 196px 104px 72px 118px minmax(0, 1fr) 96px; }
+    .alert-state { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+    .alert-state.sent { color: var(--text); } .alert-state.throttled { color: var(--muted); } .alert-state.none { color: var(--tertiary); }
+    .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; text-align: left; color: var(--text); cursor: pointer; width: 100%; }
+    .event-card .top { display: flex; align-items: center; gap: 10px; }
+    .event-card .top .sub { margin-left: auto; font-size: 13px; white-space: nowrap; }
+    .event-card .meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+    .event-card .meta .alert-state { margin-left: auto; }
+    .alerts-card { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .alerts-card .head { display: flex; align-items: center; gap: 10px; }
+    .alerts-card .head span:nth-child(2) { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 18px; }
+    .alerts-card .head span:last-child { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .alerts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .alerts-grid > div { display: flex; flex-direction: column; gap: 6px; }
+    .event-head { display: flex; flex-direction: column; gap: 12px; }
+    .event-head h2 { font-size: 24px; line-height: 1.2; }
+    .related { display: flex; flex-direction: column; overflow: hidden; }
+    .related button { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: none; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+    .related button:last-child { border-bottom: none; }
+    .related button:hover { background: var(--surface-2); }
+    .btn-outline { height: 48px; border: 1px solid var(--border-3); border-radius: 999px; background: transparent; color: var(--text); font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+    .btn-danger { height: 50px; border: none; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 15px; font-weight: 800; cursor: pointer; }
+    .btn-remove { height: 32px; padding: 0 12px; border: 1px solid var(--border-3); border-radius: 999px; background: transparent; color: var(--body); font-size: 13px; font-weight: 700; cursor: pointer; flex: none; }
+    .btn-remove:hover { color: var(--accent); border-color: var(--accent); }
+    .burst-note { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--accent); padding-top: 4px; }
+    .burst-note i { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+    .dialog-wrap { position: fixed; inset: 0; z-index: 40; background: rgba(11, 7, 16, 0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .dialog { width: 100%; max-width: 420px; background: var(--surface-2); border: 1px solid var(--border-3); border-radius: 24px; padding: 26px 24px 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
+    .dialog h2 { font-size: 22px; line-height: 1.2; }
+    .dialog p { font-size: 15px; line-height: 1.5; color: var(--body); }
+    .dialog .buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+    .dialog .buttons button { flex: 1 1 120px; height: 48px; border-radius: 999px; font-size: 15px; cursor: pointer; }
+    .dialog .cancel { border: 1px solid var(--border-3); background: transparent; color: var(--text); font-weight: 700; }
+    .dialog .confirm { border: none; background: var(--accent); color: var(--bg); font-weight: 800; }
+    .dialog .confirm:disabled { opacity: 0.6; cursor: wait; }
+    .dialog .error { color: var(--accent); font-size: 14px; }
+
     /* ---------- Phone layout ---------- */
     @media (max-width: 759px) {
       .rail { display: none; }
@@ -260,6 +319,7 @@
       .close { display: none; }
       .back { display: flex; }
       .app.detail main { display: none; }
+      .dialog-wrap { align-items: flex-end; }
     }
   </style>
 </head>
