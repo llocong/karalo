@@ -1,188 +1,185 @@
 # Karalo
 
-A native Android TV / Google TV app for karaoke: search YouTube and sing along, ad-free, with a
-minimal remote-friendly player. Every search is silently prefixed with `karaoke ` — type
-"Rihanna" and it searches "karaoke Rihanna".
+**Karaoke on your TV, with everyone's phone as the remote.**
 
-**v1 scope is intentionally small:** a left-nav with Home and Search, YouTube search with
-autocomplete, a results grid, and a stripped-down player (Play/Pause, Previous, Next, progress
-bar only). No microphone/scoring, no accounts, no monetization.
+Karalo is an Android TV / Google TV app for karaoke nights. Search and play karaoke videos from
+YouTube, ad-free, in a player built for the TV remote. Guests join from their phones by scanning a
+QR code — no app to install and no account — and add songs to a shared queue that plays on the TV.
+
+## Features
+
+**On the TV**
+
+- **Home** — Top Picks, and a banner with the QR code guests scan to join.
+- **Search** — with suggestions as you type, and voice search.
+- **Playlists** — curated collections: Duets, Pop, Rock, R&B, Latin, Hip-Hop, French Variety,
+  Disney, the 60's to 90's, and more.
+- **History** — every song sung on the TV, by date or most played, with pause and clear.
+- **Player** — play/pause, previous, next and a progress bar; the queue's next song starts on its
+  own, and a waiting screen with the QR code shows between songs.
+- **Seasonal themes** — Default and Halloween, picked in Settings and shared with every phone in
+  the session.
+
+**On the phones** (from any mobile browser, at the address the QR code opens)
+
+- Enter a name and join the TV's session.
+- Search, or browse the same playlists as the TV.
+- Add songs to the shared queue, reorder it by dragging, and remove songs.
+- Pause, resume or skip what's playing.
+
+**Sessions**
+
+- Songs picked on the TV play right away without disturbing the guests' queue, which resumes where
+  it left off.
+- Guests who've been inactive for two hours are signed out; the session itself ends when the TV
+  app is closed or the TV has been off for a while, and the next launch starts a fresh one.
 
 ## Install on your TV
 
-On a Google TV / Android TV (e.g. Chromecast with Google TV):
+On a Google TV or Android TV (for example, a Chromecast with Google TV):
 
 1. From the Play Store, install **Downloader** (by AFTVnews).
 2. Allow it to install apps: *Settings > Apps > Security & restrictions > Unknown sources >
-   Downloader* (the exact path varies a little between TVs).
-3. Open Downloader, type `karalo.app/download`, and install when it asks.
+   Downloader* (the exact path varies slightly between TVs).
+3. Open Downloader, enter `karalo.app/download`, and install when prompted.
 
-To update, do the same again: it installs over the existing app and keeps its settings. Right after
-installing or updating, the app can feel slower to start until the TV optimizes it in the
-background, usually overnight.
+Releases are also published on the [Releases](https://github.com/llocong/karalo/releases) page.
 
 ## Architecture
 
-Clean Architecture + MVVM across the Android app's Gradle modules, plus an independent backend
-service (`backend/`, see "Karaoke remote control" below):
+Clean Architecture and MVVM across the Android app's Gradle modules, plus an independent backend
+service (`backend/`):
 
 ```
-:app  ──▶ :feature-search, :feature-player, :feature-home, :core-ui, :core-common, :core-karaoke
-:feature-search ──▶ :youtube-client, :core-ui, :core-common
-:feature-player ──▶ :youtube-client, :core-ui, :core-common, :core-karaoke
-:feature-home   ──▶ :core-ui, :core-common
-:core-karaoke   ──▶ :core-network, :core-common
-:youtube-client ──▶ :core-network, :core-common
-:core-network   ──▶ :core-common
-:core-ui        ──▶ :core-common
-:core-common    ──▶ (no module deps)
-:core-testing   ──▶ shared MockK/JUnit5 fixtures + FakeYouTubeClient/FakeKaraokeRepository (test-only)
+:app              ──▶ :feature-home, :feature-search, :feature-playlists, :feature-history,
+                      :feature-player, :core-karaoke, :core-ui, :core-common
+:feature-home     ──▶ :feature-search, :core-ui, :core-common
+:feature-playlists──▶ :feature-search, :core-ui, :core-common
+:feature-history  ──▶ :core-karaoke, :core-ui, :core-common
+:feature-search   ──▶ :youtube-client, :core-ui, :core-common
+:feature-player   ──▶ :youtube-client, :core-karaoke, :core-ui, :core-common
+:youtube-client   ──▶ :core-network, :core-common
+:core-karaoke     ──▶ :core-common
+:core-network     ──▶ :core-common
+:core-ui          ──▶ :core-common
+:core-common      ──▶ (no module dependencies)
 ```
 
-| Module | What it is |
+| Module | Responsibility |
 |---|---|
-| `:app` | App shell — `MainActivity`, Compose Navigation host, left nav rail, DI wiring, TV manifest, media-key dispatch. |
-| `:core-common` | Dispatcher qualifiers, `AppResult`/`AppError`, `Logger` facade, `SearchSessionHolder`, `MediaKeyRouter` — cross-cutting types every other module can depend on. |
-| `:core-ui` | Compose-for-TV theme + reusable focusable components (`FocusableCard`, `KaraloButton`, loading/error states, `KaraokeQrCode`). |
-| `:core-network` | Shared OkHttp client (timeouts, logging interceptor). |
-| `:core-karaoke` | Karaoke session/queue domain + backend REST/WebSocket client — see "Karaoke remote control" below. |
-| `:youtube-client` | The only module allowed to depend on NewPipeExtractor — see "How search & playback work" below. |
-| `:feature-search` | Search domain/data/presentation — the "karaoke " prefix, suggestions, results grid. |
-| `:feature-player` | Player domain/data/presentation — queue navigation, ExoPlayer integration, controls overlay, karaoke queue/waiting-screen integration. |
-| `:feature-home` | Static v1 empty-state screen. |
-| `:core-testing` | Shared test fixtures (`MainDispatcherExtension`, `FakeYouTubeClient`, `FakeKaraokeRepository`). |
-| `backend/` | Independent Ktor service (session/queue/participants, mobile web app) — not part of the Android multi-module build; wired in via `includeBuild`. |
+| `:app` | App shell: `MainActivity`, navigation, the side menu, Settings, dependency injection, the TV manifest and media-key handling. |
+| `:feature-home` | Home: Top Picks and the join banner. |
+| `:feature-search` | Search: query field, suggestions, voice search and results. |
+| `:feature-playlists` | The Playlists page. |
+| `:feature-history` | The History page. |
+| `:feature-player` | The player: ExoPlayer, controls, queue playback and the waiting screen. |
+| `:core-karaoke` | The karaoke session and queue, and the client for the backend's REST and WebSocket APIs. |
+| `:youtube-client` | The only module that talks to YouTube (see "How search and playback work"). |
+| `:core-ui` | Compose for TV theme, seasonal themes and shared focusable components. |
+| `:core-network` | The shared HTTP client. |
+| `:core-common` | Cross-cutting types: `AppResult`/`AppError`, dispatchers, logging. |
+| `:core-testing` | Shared test fixtures and fakes. |
+| `:baselineprofile` | Generates the Baseline Profile that speeds up startup and scrolling. |
+| `backend/` | Ktor + SQLite service for sessions, guests, the queue and history, which also serves the phones' web app. A separate Gradle build, included via `includeBuild`. |
 
-See `docs/adr/` for the reasoning behind the major choices (Compose for TV over Leanback, Media3,
-unofficial extraction over the official YouTube API, module boundaries, the karaoke backend).
+The reasoning behind the major choices — Compose for TV, Media3, unofficial YouTube extraction,
+the karaoke backend — is recorded in [`docs/adr/`](docs/adr/).
 
-## Karaoke remote control
+## How search and playback work
 
-Phones join the TV's karaoke session by scanning a QR code shown at the top of Home, over the
-player, or on the "waiting for the next song" screen — no app install, no account. From a plain
-mobile browser they enter a name, search, and add songs to a shared queue that plays automatically
-when nothing else is. Clicking a Home/Search result on the TV directly always plays instantly
-("Play Now") without disturbing that queue; it resumes exactly where it was afterwards.
+`:youtube-client` wraps [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) to
+search YouTube and resolve ad-free playable streams, which Media3/ExoPlayer plays directly. The
+rest of the app only depends on its `YouTubeClient` interface, so the extraction strategy can
+change without touching feature code.
 
-This is powered by a small self-hosted backend (`backend/`, Ktor + SQLite) that the TV and phones
-both talk to — the backend is the single source of truth for the session, participants, and queue;
-phones never talk to the TV directly. See
-`docs/adr/0005-karaoke-remote-control-session-and-backend.md` for the full design and its
-documented MVP-vs-follow-up boundaries (single process, no schema migrations yet). To host it
-online so phones can join from any network, see `docs/deploy.md`.
+**This extraction is unofficial and not permitted by YouTube's Terms of Service.** See
+[`docs/adr/0002-unofficial-youtube-extraction.md`](docs/adr/0002-unofficial-youtube-extraction.md)
+for why it was chosen and what it costs.
 
-### Running the backend locally
+## Backend
+
+The TV and the phones both talk to the backend, which is the single source of truth for each TV's
+session, its guests and its queue; phones never talk to the TV directly. The design is described in
+[`docs/adr/0005-karaoke-remote-control-session-and-backend.md`](docs/adr/0005-karaoke-remote-control-session-and-backend.md),
+and hosting it online in [`docs/deploy.md`](docs/deploy.md). The production instance runs at
+[karalo.app](https://karalo.app).
+
+### Running it locally
 
 ```
 ./gradlew :backend:run
 ```
 
-This starts the Ktor server on `0.0.0.0:8080` by default (override with the `KARALO_PORT`/
-`KARALO_HOST` env vars; see `backend/src/main/kotlin/com/karalo/backend/config/AppConfig.kt`). Find your machine's
-LAN IP (e.g. `ipconfig getifaddr en0` on macOS) — the TV and any phones need to reach that address
-on the same Wi-Fi network. macOS will prompt to allow inbound connections the first time; accept
-it.
-
-Point the Android app at that backend before building, via env vars (mirroring the existing
-`RELEASE_KEYSTORE_*` convention — see `core-karaoke/build.gradle.kts`):
+The server listens on `0.0.0.0:8080` by default (see
+`backend/src/main/kotlin/com/karalo/backend/config/AppConfig.kt` for the `KARALO_*` settings). The
+TV and phones need to reach your machine's LAN address (`ipconfig getifaddr en0` on macOS). Point
+the app at it before building, in `local.properties` or as environment variables:
 
 ```
-export KARALO_BACKEND_BASE_URL=http://<your-lan-ip>:8080
-export KARALO_BACKEND_WS_URL=ws://<your-lan-ip>:8080
-./gradlew :app:assembleDebug
+KARALO_BACKEND_BASE_URL=http://<your-lan-ip>:8080
+KARALO_BACKEND_WS_URL=ws://<your-lan-ip>:8080
 ```
 
-Without these set, the app falls back to a placeholder LAN address that simply won't connect —
-manual TV playback (Home/Search → Play Now) works with no backend running at all; only the
-queue/QR/remote-add features need one reachable.
+Without a reachable backend, playback from the TV still works; only joining from phones and the
+shared queue need one.
 
-Backend-only tests: `./gradlew :backend:test`.
-
-## How search & playback work
-
-There's no official backend. `:youtube-client` wraps
-[NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) (the same technique
-[SmartTube](https://github.com/yuliskov/smarttube) uses) to search YouTube and resolve direct,
-ad-free playable stream URLs, fed straight into Media3/ExoPlayer. **This is unofficial and
-against YouTube's Terms of Service** — see `docs/adr/0002-unofficial-youtube-extraction.md` for
-the trade-off this was a deliberate choice, and "Known limitations" below for what that costs.
-
-Every other module talks only to the `YouTubeClient` interface, so the extraction strategy can be
-swapped later without touching feature code.
-
-## Setup
+## Development
 
 ### Prerequisites
 
 - JDK 17
-- Android Studio (latest stable) with an Android SDK (compileSdk/targetSdk 35, minSdk 24)
-- An Android TV emulator profile (Android Studio → Device Manager → create device → category
-  "TV") or a physical Google TV / Android TV / Chromecast with Google TV device
+- Android Studio (latest stable) with the Android SDK (compile/target SDK 35, min SDK 24)
+- An Android TV emulator (Device Manager → Create device → TV) or a Google TV / Android TV device
 
-### First run
+### Build
 
 ```
-git clone git@github.com:llocong/karalo.git
+git clone https://github.com/llocong/karalo.git
 cd karalo
-```
-
-Open the project in Android Studio — on first sync it will provision the Gradle wrapper
-automatically. (If you're on the command line instead and don't have `gradlew` yet, run
-`gradle wrapper --gradle-version 8.10.2` once with any locally installed Gradle to generate it —
-see gradle/wrapper/gradle-wrapper.properties for the pinned version.)
-
-No secrets are required to build and run in debug — the app ships with a placeholder
-`app/google-services.json` (see `docs/firebase-setup.md`) and an unsigned debug build config.
-Copy `local.properties.example` to `local.properties` if you need any of the optional local
-values it documents (release signing).
-
-```
 ./gradlew assembleDebug
 ```
 
-### Running on an Android TV emulator
+No secrets are needed to build and run a debug build: the repository includes a placeholder
+`app/google-services.json` (see [`docs/firebase-setup.md`](docs/firebase-setup.md)). Copy
+`local.properties.example` to `local.properties` for the optional local settings it documents.
 
-1. Android Studio → Device Manager → Create device → "TV" category → any Google TV/Android TV
-   profile (1080p recommended) → API 30+.
-2. Run the `app` configuration against that device.
-3. Navigate with the emulator's D-pad controls (arrow keys map to D-pad, Enter to select).
+Performance should be judged on a release build on real TV hardware: debug builds are never
+compiled ahead of time and feel noticeably slower. See [CONTRIBUTING.md](CONTRIBUTING.md)
+"Performance".
 
-If arrow keys and the Extended Controls D-pad don't do anything, check the AVD's
-`~/.android/avd/<name>.avd/config.ini` for `hw.keyboard=no` — some device profiles are created
-with the virtual keyboard hardware disabled, which silently drops all D-pad input (both host
-keys and the Extended Controls panel) while leaving `adb shell input keyevent` unaffected, since
-that path injects into the guest's InputManager directly instead of going through the emulated
-keyboard. Set `hw.keyboard=yes` and restart the emulator to fix it.
+### Running on an emulator
+
+1. Create a TV device in Android Studio's Device Manager (1080p, API 30 or later).
+2. Run the `app` configuration on it.
+3. Use the arrow keys as the D-pad and Enter to select.
+
+If the arrow keys do nothing, check the emulator's `~/.android/avd/<name>.avd/config.ini`: some
+TV profiles are created with `hw.keyboard=no`, which drops all D-pad input. Set `hw.keyboard=yes`
+and restart the emulator.
 
 ### Tests
 
 ```
-./gradlew ktlintCheck detekt      # formatting + static analysis
-./gradlew testDebugUnitTest       # unit tests (JUnit5 + MockK)
-./gradlew koverVerify             # coverage threshold
-./gradlew connectedDebugAndroidTest  # instrumented + Compose UI tests (needs a running emulator/device)
+./gradlew ktlintCheck detekt          # formatting and static analysis
+./gradlew testDebugUnitTest           # unit tests (JUnit 5 + MockK)
+./gradlew koverVerify                 # coverage threshold
+./gradlew connectedDebugAndroidTest   # instrumented and Compose UI tests (needs an emulator or device)
+./gradlew :backend:test               # backend tests
 ```
 
-## Contributing / branching workflow
+## Contributing and releases
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full branch/commit/PR/release workflow
-(`main` + short-lived `feature/*` branches, Conventional Commits, required CI + review before
-merge, branch protection settings to configure once).
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the branch, commit and pull request workflow, and how
+releases are built, signed and published.
 
-## Known limitations (v1)
+## Known limitations
 
-- **Unofficial YouTube extraction.** See "How search & playback work" above — this can break when
-  YouTube changes its internal APIs, and carries ToS/account-risk that's out of scope for this
-  app to mitigate. Play Store distribution is not attempted for this reason; releases ship as
-  GitHub Releases (see `.github/workflows/release.yml`).
-- **No persistence beyond the karaoke feature.** Search results/queue for manual playback live
-  only in memory for the current app session — no watch history, no resume-across-restarts. See
-  `docs/adr/0003-no-persistence-in-v1.md`. The karaoke feature's own persistent queue lives on the
-  backend, not the TV; see `docs/adr/0005-karaoke-remote-control-session-and-backend.md`.
-- **Karaoke backend is LAN-only and self-hosted.** No public hosting/domain is configured; TV
-  pairing is trust-on-first-use (acceptable only because the backend isn't internet-exposed in
-  this pass); the mobile queue page uses up/down buttons rather than drag-and-drop reorder. See
-  the ADR for the full list of documented MVP-vs-follow-up boundaries.
-- **No system media integration.** Hardware/remote media keys are handled directly by
-  `MainActivity` (see `com.karalo.core.common.mediakeys`), not via a `MediaSession`, so there's no
-  lock-screen/notification playback UI or guaranteed Google Assistant voice control.
+- **Unofficial YouTube extraction.** It can break when YouTube changes its internal APIs, and it
+  rules out distribution through the Play Store.
+- **Searches from phones go through the backend.** They're made from the server's address, so heavy
+  use can get it rate-limited by YouTube.
+- **Single backend instance.** The backend is one process with a SQLite database; it isn't set up
+  to run on several servers.
+- **No system media integration.** Remote media keys are handled by the app itself rather than a
+  `MediaSession`, so there's no system playback UI and Google Assistant voice control isn't
+  guaranteed.
