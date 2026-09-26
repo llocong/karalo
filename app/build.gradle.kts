@@ -150,7 +150,6 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
-    implementation(libs.firebase.analytics)
 
     testImplementation(project(":core-testing"))
     testImplementation(libs.junit5.jupiter.api)
