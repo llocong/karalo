@@ -19,6 +19,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import com.karalo.core.ui.testing.setKeyboardModeContent
 import com.karalo.core.ui.theme.KaraloTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -51,7 +52,7 @@ class TvCarouselFirstItemJumpTest {
     fun explicitTriggerSnapsFocusAndPositionBackToTheFirstItem() {
         val firstItemFocusRequester = FocusRequester()
 
-        composeRule.setContent {
+        composeRule.setKeyboardModeContent {
             var trigger by remember { mutableIntStateOf(0) }
             bumpTrigger = { trigger++ }
             KaraloTheme {

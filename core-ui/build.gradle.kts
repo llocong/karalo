@@ -43,5 +43,6 @@ dependencies {
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(project(":core-ui-testing"))
     debugImplementation(libs.compose.ui.test.manifest)
 }

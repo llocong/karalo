@@ -17,6 +17,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import com.karalo.core.ui.testing.setKeyboardModeContent
 import com.karalo.core.ui.theme.KaraloTheme
 import org.junit.Rule
 import org.junit.Test
@@ -40,7 +41,7 @@ class TvCarouselFocusRestorationTest {
     fun reenteringTheRowRestoresThePreviouslyFocusedItem() {
         val externalFocusRequester = FocusRequester()
 
-        composeRule.setContent {
+        composeRule.setKeyboardModeContent {
             KaraloTheme {
                 Column {
                     Text(

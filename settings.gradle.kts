@@ -24,6 +24,7 @@ include(
     ":core-network",
     ":core-karaoke",
     ":core-ui",
+    ":core-ui-testing",
     ":core-testing",
     ":youtube-client",
     ":feature-search",
