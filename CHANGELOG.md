@@ -4,6 +4,20 @@ All notable changes to this project are documented here. Entries below `[Unrelea
 generated automatically by `release-please` from Conventional Commits on release — see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.3.0](https://github.com/llocong/karalo/compare/v0.2.0...v0.3.0) (2026-09-26)
+
+
+### Features
+
+* first-party usage statistics ([2d34d75](https://github.com/llocong/karalo/commit/2d34d754cfe01a7881dd8b541adff4a1279e2893))
+* first-party usage statistics ([135d1ba](https://github.com/llocong/karalo/commit/135d1ba38dd0246fa62f9ee1adda3a0c969b1cd3))
+
+
+### Bug Fixes
+
+* **tv:** turn off Firebase Analytics ([32aa615](https://github.com/llocong/karalo/commit/32aa61514fbc916b431b327dcc0869e692831008))
+* **tv:** turn off Firebase Analytics ([14c3cdb](https://github.com/llocong/karalo/commit/14c3cdb4528f1092eb3b501b8649ac95dc207d06))
+
 ## [0.2.0](https://github.com/llocong/karalo/compare/v0.1.0...v0.2.0) (2026-09-26)
 
 
