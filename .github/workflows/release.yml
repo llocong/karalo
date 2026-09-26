@@ -6,7 +6,8 @@ on:
     tags: ["v*.*.*"]
 
 permissions:
-  contents: write
+  contents: write # tags, releases and their files
+  pull-requests: write # release-please's release PR
 
 jobs:
   version-and-changelog:
