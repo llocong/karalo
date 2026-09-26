@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A Play build (-Pkaralo.selfUpdate=false): no install permission, no FileProvider. -->
+<manifest />

@@ -42,6 +42,8 @@ fun KaraloNavHost(
     searchSessionHolder: SearchSessionHolder,
     sessionJoinUrl: String?,
     modifier: Modifier = Modifier,
+    // A newer version is available, downloading or ready: the dot on the Settings icon.
+    showUpdateBadge: Boolean = false,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -291,6 +293,7 @@ fun KaraloNavHost(
                     playlistsFocusRequester = playlistsRailFocusRequester,
                     historyFocusRequester = historyRailFocusRequester,
                     settingsFocusRequester = settingsRailFocusRequester,
+                    settingsBadge = showUpdateBadge,
                     onHomeClick = { activateTopLevel(NavDestination.Home.route) },
                     onSearchClick = { activateTopLevel(NavDestination.Search.route) },
                     onPlaylistsClick = { activateTopLevel(NavDestination.Playlists.route) },

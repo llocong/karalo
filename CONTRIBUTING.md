@@ -85,11 +85,14 @@ from `https://karalo.app/download`.
    server and its deploy scripts) are left out (`exclude-paths` in `release-please-config.json`):
    those ship with `deploy/deploy.sh`, so they neither trigger an app release nor appear in its
    changelog.
-2. Merge that PR. release-please tags `vX.Y.Z` and creates the GitHub Release; the same workflow
-   then builds the release APK and AAB, refuses to continue if the APK isn't signed with the
-   release key, and attaches `karalo-X.Y.Z.apk`, its `.sha256`, the `.aab` and `latest.json`
-   (version, APK URL, checksum and release notes: what an in-app update check will read).
-3. Publish it to karalo.app when you're ready:
+2. Before merging it, write what TV owners will see on the app's What's new page, in
+   `release-notes/X.Y.Z.md` on the release PR's branch (see "Release notes" below).
+3. Merge that PR. release-please tags `vX.Y.Z` and creates the GitHub Release; the same workflow
+   then builds the release APK (with the in-app updater) and the AAB (without it, for Play),
+   refuses to continue if the APK isn't signed with the release key, and attaches
+   `karalo-X.Y.Z.apk`, its `.sha256`, the `.aab` and `latest.json` (version, release date, size,
+   APK URL, checksum and release notes: what the TV app's update check reads).
+4. Publish it to karalo.app when you're ready:
 
    ```
    deploy/publish-apk.sh vX.Y.Z
@@ -97,7 +100,37 @@ from `https://karalo.app/download`.
 
    It downloads the release's files, checks the checksum, and puts them in `/srv/karalo/download`
    on the VM; `karalo.app/download` redirects to the newest APK. Running it with an older tag
-   rolls back.
+   rolls back. TVs notice within a day (or the next time Karalo opens): a dot appears on Settings,
+   with the update card at the top of the page.
+
+### Release notes
+
+`release-notes/X.Y.Z.md` is short, plain-language notes for people at a party, not developers:
+
+```markdown
+## New
+
+- Karalo updates itself: when a new version is out, Settings shows it.
+
+## Improved
+
+- Settings scrolls with the remote.
+
+## Fixed
+
+- The QR code now refreshes when a session ends.
+```
+
+Any section can be left out. Without the file, `.github/scripts/release_notes.py` falls back to the
+release's CHANGELOG entries (Features as New, Performance Improvements as Improved, Bug Fixes as
+Fixed), which read like commit messages. Check what a release will show with
+`python3 .github/scripts/release_notes.py X.Y.Z`.
+
+### Play builds
+
+The in-app updater is on by default. Play policy forbids a self-updater, so a Play build passes
+`-Pkaralo.selfUpdate=false`, which removes the install permission and the update check (the
+release workflow does this for the AAB).
 
 ### One-time setup
 
