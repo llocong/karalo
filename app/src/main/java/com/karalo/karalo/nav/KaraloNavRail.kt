@@ -30,9 +30,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -60,6 +64,7 @@ import androidx.tv.material3.Text
 import com.karalo.core.ui.components.KaraloLogoLockup
 import com.karalo.core.ui.components.KaraloLogoMark
 import com.karalo.core.ui.icons.KaraloIcons
+import com.karalo.core.ui.theme.KaraloLilacTint
 import com.karalo.core.ui.theme.KaraloNavLabelTextStyle
 import com.karalo.core.ui.theme.KaraloRailItemActive
 import com.karalo.core.ui.theme.KaraloTextSecondary
@@ -107,6 +112,12 @@ private val RAIL_TOP_PADDING = 35.dp
 private val ITEM_HEIGHT = 46.dp
 private val ITEM_SPACING = 12.dp
 private val ITEM_ICON_SIZE = 22.dp
+
+// The Settings icon's "update available" dot (1cqw = 9.6dp): 1.1cqw, 0.35cqw past the icon's
+// corner, with a 0.3cqw gap around it.
+private val BADGE_SIZE = 10.5.dp
+private val BADGE_OFFSET = 3.4.dp
+private val BADGE_RING = 2.9.dp
 private val ITEM_LABEL_SPACING = 13.dp
 private val ITEM_SHAPE = RoundedCornerShape(10.dp)
 
@@ -192,6 +203,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     onPlaylistsSelect: () -> Unit,
     onHistorySelect: () -> Unit,
     onSettingsSelect: () -> Unit,
+    settingsBadge: Boolean = false,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
@@ -467,6 +479,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
             onClick = trackedOnSettingsSelect,
             icon = KaraloIcons.Settings,
             label = "Settings",
+            badge = settingsBadge,
             interactionSource = settingsInteractionSource,
             width = width,
             revealFraction = revealFraction,
@@ -492,6 +505,7 @@ private fun NavigationDrawerScope.KaraloNavItem(
     iconInset: Dp,
     modifier: Modifier = Modifier,
     blockDirectionUp: Boolean = false,
+    badge: Boolean = false,
 ) {
     val isFocused by interactionSource.collectIsFocusedAsState()
     Surface(
@@ -556,13 +570,12 @@ private fun NavigationDrawerScope.KaraloNavItem(
                     .padding(start = iconInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // The active item's icon takes the theme accent; its label just turns white (see
+            // The active item's icon turns Lilac Tint; its label just turns white (see
             // karaloNavItemColors).
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isFocused || selected) LocalKaraloTokens.current.accent else LocalContentColor.current,
-                modifier = Modifier.size(ITEM_ICON_SIZE),
+            BadgedIcon(
+                icon = icon,
+                tint = if (isFocused || selected) KaraloLilacTint else LocalContentColor.current,
+                badge = badge,
             )
             // Always composed (just transparent while collapsed) so expanding never has to
             // compose it mid-animation.
@@ -640,6 +653,47 @@ private fun KaraloNavHeader(
                     .graphicsLayer { alpha = revealFraction() },
         )
     }
+}
+
+/**
+ * A rail icon, with the "update available" dot on its top-right corner when [badge] is set (see
+ * the "TV — Settings" design): 1.1cqw across, 0.35cqw past the icon's corner, always in the theme
+ * accent. Its 0.3cqw ring is cut out of the icon rather than painted in the sidebar's color, since
+ * that's a gradient (and the active pill sits on it): the gap shows whatever is behind the icon.
+ */
+@Composable
+private fun BadgedIcon(
+    icon: ImageVector,
+    tint: Color,
+    badge: Boolean,
+) {
+    val accent = LocalKaraloTokens.current.accent
+    Icon(
+        imageVector = icon,
+        contentDescription = if (badge) "Update available" else null,
+        tint = tint,
+        modifier =
+            Modifier
+                .size(ITEM_ICON_SIZE)
+                .drawWithContent {
+                    drawContent()
+                    if (badge) {
+                        val radius = BADGE_SIZE.toPx() / 2
+                        val center = Offset(size.width + BADGE_OFFSET.toPx() - radius, radius - BADGE_OFFSET.toPx())
+                        drawCircle(accent, radius, center)
+                    }
+                }
+                // The cut-out needs its own layer, so clearing only removes the icon's strokes.
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    if (badge) {
+                        val radius = BADGE_SIZE.toPx() / 2
+                        val center = Offset(size.width + BADGE_OFFSET.toPx() - radius, radius - BADGE_OFFSET.toPx())
+                        drawCircle(Color.Black, radius + BADGE_RING.toPx(), center, blendMode = BlendMode.Clear)
+                    }
+                },
+    )
 }
 
 @Composable

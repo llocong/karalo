@@ -20,11 +20,14 @@ import com.karalo.core.karaoke.domain.KaraokeRepository
 import com.karalo.core.karaoke.domain.KaraokeSessionHolder
 import com.karalo.core.ui.theme.KaraloTheme
 import com.karalo.core.ui.theme.LocalKaraloTokens
+import com.karalo.feature.update.domain.UpdateRepository
+import com.karalo.feature.update.domain.UpdateState
 import com.karalo.karalo.nav.KaraloNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.hours
 
 private val MEDIA_KEY_CODES =
     setOf(
@@ -34,6 +37,8 @@ private val MEDIA_KEY_CODES =
         KeyEvent.KEYCODE_MEDIA_NEXT,
         KeyEvent.KEYCODE_MEDIA_PREVIOUS,
     )
+
+private val UPDATE_CHECK_INTERVAL = 24.hours
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -51,6 +56,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var logger: Logger
+
+    @Inject
+    lateinit var updateRepository: UpdateRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,7 +84,20 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Looks for a newer version of the app each time it comes to the foreground, then once a
+        // day while it stays there (see UpdateRepository). Offline, this quietly keeps whatever it
+        // knew before.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    updateRepository.check()
+                    delay(UPDATE_CHECK_INTERVAL)
+                }
+            }
+        }
+
         setContent {
+            val updateState by updateRepository.state.collectAsState()
             val sessionJoinUrl by karaokeRepository.sessionJoinUrl.collectAsState()
             val seasonalTheme by karaokeRepository.seasonalTheme.collectAsState()
             KaraloTheme(seasonalTheme = seasonalTheme) {
@@ -84,6 +105,7 @@ class MainActivity : ComponentActivity() {
                     karaokeSessionHolder = karaokeSessionHolder,
                     searchSessionHolder = searchSessionHolder,
                     sessionJoinUrl = sessionJoinUrl,
+                    showUpdateBadge = updateState != UpdateState.UpToDate,
                     modifier =
                         Modifier
                             .fillMaxSize()

@@ -39,6 +39,11 @@ data class KaraloThemeTokens(
     // violet by default, taken over by the accent in seasonal themes. [onControl] is their content.
     val control: Color,
     val onControl: Color,
+    // A faint accent wash, e.g. behind the update card's download icon.
+    val accentSoft: Color,
+    // One step above [surface]: secondary buttons and tracks (the update card's What's new
+    // button and progress bar).
+    val raised: Color,
 ) {
     val isHalloween: Boolean get() = seasonalTheme == SeasonalTheme.HALLOWEEN
 }
@@ -64,6 +69,8 @@ internal fun karaloTokensFor(theme: SeasonalTheme): KaraloThemeTokens =
                 qrPanel = KaraloSurface.copy(alpha = 0.8f),
                 control = KaraloVioletPrimary,
                 onControl = Color.White,
+                accentSoft = KaraloCoralAccent.copy(alpha = 0.12f),
+                raised = KaraloOutline,
             )
         SeasonalTheme.HALLOWEEN ->
             KaraloThemeTokens(
@@ -78,6 +85,8 @@ internal fun karaloTokensFor(theme: SeasonalTheme): KaraloThemeTokens =
                 qrPanel = HalloweenBackground.copy(alpha = 0.6f),
                 control = HalloweenPumpkin,
                 onControl = HalloweenOnPumpkin,
+                accentSoft = HalloweenPumpkin.copy(alpha = 0.14f),
+                raised = HalloweenRaised,
             )
     }
 

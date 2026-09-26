@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import com.karalo.core.common.model.SeasonalTheme
+import com.karalo.core.ui.testing.setKeyboardModeContent
 import com.karalo.core.ui.theme.KaraloTheme
 import com.karalo.karalo.nav.SETTINGS_TAG_THEME_PREFIX
 import com.karalo.karalo.nav.SettingsScreenContent
@@ -27,7 +28,7 @@ class SettingsScreenFocusTest {
     private var theme by mutableStateOf(SeasonalTheme.DEFAULT)
 
     private fun setContent() {
-        composeRule.setContent {
+        composeRule.setKeyboardModeContent {
             KaraloTheme(seasonalTheme = theme) {
                 SettingsScreenContent(
                     seasonalTheme = theme,

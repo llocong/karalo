@@ -35,6 +35,26 @@ object KaraloIcons {
         lineIcon("History", circle(12f, 12f, 9f), "M12 7v5l3 2")
     }
 
+    /** The update card's download arrow. */
+    val Download: ImageVector by lazy {
+        lineIcon("Download", "M12 4v11", "M7 11l5 5 5-5", "M5 20h14", strokeWidth = 2.4f)
+    }
+
+    /** The update card's "ready to restart" arrow. */
+    val Restart: ImageVector by lazy {
+        lineIcon("Restart", "M20 11a8 8 0 1 0-2.3 5.7", "M20 5v6h-6", strokeWidth = 2.4f)
+    }
+
+    /** "‹ Settings" on the What's new page. */
+    val ChevronLeft: ImageVector by lazy {
+        lineIcon("ChevronLeft", "M15 5l-7 7 7 7", strokeWidth = 2.4f)
+    }
+
+    /** The What's new page's "More below" chip. */
+    val ChevronDown: ImageVector by lazy {
+        lineIcon("ChevronDown", "M6 9l6 6 6-6", strokeWidth = 2.6f)
+    }
+
     val Settings: ImageVector by lazy {
         lineIcon(
             "Settings",
@@ -54,6 +74,7 @@ private fun circle(
 private fun lineIcon(
     name: String,
     vararg paths: String,
+    strokeWidth: Float = STROKE_WIDTH,
 ): ImageVector =
     ImageVector
         .Builder(
@@ -67,7 +88,7 @@ private fun lineIcon(
                 addPath(
                     pathData = addPathNodes(path),
                     stroke = SolidColor(Color.Black),
-                    strokeLineWidth = STROKE_WIDTH,
+                    strokeLineWidth = strokeWidth,
                     strokeLineCap = StrokeCap.Round,
                     strokeLineJoin = StrokeJoin.Round,
                 )

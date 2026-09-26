@@ -126,6 +126,7 @@ dependencies {
     implementation(project(":feature-home"))
     implementation(project(":feature-playlists"))
     implementation(project(":feature-history"))
+    implementation(project(":feature-update"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -159,6 +160,7 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     androidTestImplementation(project(":core-testing"))
+    androidTestImplementation(project(":core-ui-testing"))
     androidTestImplementation(project(":youtube-client"))
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

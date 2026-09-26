@@ -86,10 +86,15 @@ jobs:
           KARALO_BACKEND_BASE_URL: ${{ vars.KARALO_BACKEND_BASE_URL }}
           KARALO_BACKEND_WS_URL: ${{ vars.KARALO_BACKEND_WS_URL }}
           KARALO_TV_REGISTRATION_KEY: ${{ secrets.KARALO_TV_REGISTRATION_KEY }}
-        run: ./gradlew :app:assembleRelease :app:bundleRelease
+        # The APK updates itself from karalo.app (see :feature-update); the AAB is for Play,
+        # whose policy forbids a self-updater, so it's built without one.
+        run: |
+          ./gradlew :app:assembleRelease
+          ./gradlew :app:bundleRelease -Pkaralo.selfUpdate=false
 
       # The files a release carries: the APK (named for its version), its checksum, and
-      # latest.json -- what karalo.app/download serves, and what an in-app update check will read.
+      # latest.json -- what karalo.app/download serves, and what the TV app's update check reads
+      # (version, release date, size and the What's new notes; see .github/scripts/release_notes.py).
       - name: Package release files
         run: |
           set -eu
@@ -116,6 +121,7 @@ jobs:
             index($0, "## [" v "]") == 1 { on = 1; next }
             on && /^## / { exit }
             on { print }' CHANGELOG.md)"
+          release_notes="$(python3 .github/scripts/release_notes.py "$version_name")"
           jq -n \
             --argjson versionCode "$version_code" \
             --arg versionName "$version_name" \
@@ -123,7 +129,12 @@ jobs:
             --arg sha256 "$sha256" \
             --arg notes "$notes" \
             --arg releasedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{versionCode: $versionCode, versionName: $versionName, apkUrl: $apkUrl, sha256: $sha256, notes: $notes, releasedAt: $releasedAt}' \
+            --arg releaseDate "$(date -u +%Y-%m-%d)" \
+            --argjson sizeBytes "$(stat -c %s "release/$apk")" \
+            --argjson releaseNotes "$release_notes" \
+            '{versionCode: $versionCode, versionName: $versionName, version: $versionName, apkUrl: $apkUrl,
+              sha256: $sha256, sizeBytes: $sizeBytes, notes: $notes, releaseNotes: $releaseNotes,
+              releasedAt: $releasedAt, releaseDate: $releaseDate}' \
             > release/latest.json
           cat release/latest.json
 
@@ -134,8 +145,8 @@ jobs:
           files: release/*
 
       # Play Console publishing is opt-in: wire PLAY_SERVICE_ACCOUNT_JSON as a repo secret and
-      # uncomment this step when the app has a Play Console listing (see README "Secrets"). A Play
-      # build must not include a self-updater (Play policy), so disable that for this upload.
+      # uncomment this step when the app has a Play Console listing (see README "Secrets"). The AAB
+      # above is already built without the self-updater, as Play policy requires.
       # - name: Publish to Play Console (internal testing track)
       #   if: env.PLAY_SERVICE_ACCOUNT_JSON != ''
       #   env:
