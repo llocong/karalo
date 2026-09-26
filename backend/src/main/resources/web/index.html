@@ -119,11 +119,14 @@
     /* Wide enough for "Karaoke night," on one line at the largest heading size. */
     .hero-copy { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; max-width: 540px; }
     .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
+      display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
       background: rgba(11, 7, 16, 0.6); border: 1px solid #3A2D47;
       border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 600; color: var(--text);
     }
-    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    /* The dot is drawn by the pill itself rather than a <span class="dot">: a class that generic can
+       be restyled by a browser extension's stylesheet, which once took it out of the layout and
+       left it on top of the text. */
+    .eyebrow::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
     .hero h1 { font-size: clamp(40px, 6vw, 76px); line-height: 1.02; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); }
     .hero .lead { font-size: 18px; line-height: 1.6; color: #E4DDEC; max-width: 500px; }
     .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -292,7 +295,7 @@
       <div class="hero-shade"></div>
       <div class="wrap">
         <div class="hero-copy">
-          <div class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow">For Android TV</span></div>
+          <div class="eyebrow"><span data-i18n="eyebrow">For Android TV</span></div>
           <h1 data-i18n-html="heroTitle">Karaoke night,<br><span class="accent">on your TV.</span></h1>
           <p class="lead" data-i18n="heroLead">Guests scan a QR code and pick songs from their own phone. Everyone sings on the big screen.</p>
           <div class="ctas">
