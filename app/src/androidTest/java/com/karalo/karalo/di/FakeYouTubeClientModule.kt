@@ -44,7 +44,9 @@ object FakeYouTubeClientModule {
             searchResultsByQuery =
                 mapOf(
                     "Test Song" to
-                        AppResult.Success(listOf(YtVideoSummary("vid1", "Sample Song", "Test Karaoke Channel", null, 180L))),
+                        AppResult.Success(
+                            listOf(YtVideoSummary("vid1", "Sample Song", "Test Karaoke Channel", null, 180L)),
+                        ),
                 )
             suggestionsResult = AppResult.Success(listOf(YtSuggestion("karaoke test song")))
             streamResult =
