@@ -36,3 +36,6 @@ const val SESSION_ENDED = "SESSION_ENDED"
 
 /** The guest went too long without a meaningful action (see GUEST_INACTIVITY_TIMEOUT). */
 const val GUEST_EXPIRED = "GUEST_EXPIRED"
+
+/** Karalo's owner removed the guest from the admin dashboard. */
+const val GUEST_REMOVED = "GUEST_REMOVED"

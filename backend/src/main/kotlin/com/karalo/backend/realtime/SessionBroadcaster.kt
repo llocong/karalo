@@ -32,6 +32,9 @@ class SessionRoom {
     @Volatile private var tvSocket: DefaultWebSocketSession? = null
     val phoneSockets: MutableList<DefaultWebSocketSession> = CopyOnWriteArrayList()
 
+    /** Which guest each phone socket belongs to, so one guest can be disconnected on their own. */
+    val phoneOwners: MutableMap<DefaultWebSocketSession, String> = ConcurrentHashMap()
+
     /** Whether the TV's live connection is open right now (read without the lock: a snapshot). */
     val hasTv: Boolean get() = tvSocket != null
 
@@ -59,6 +62,18 @@ class SessionRoom {
     }
 
     /** Disconnects every phone, e.g. when the session ends; [reason] is the error code they'll see. */
+    /** Disconnects [participantId]'s phones; [reason] is the error code they'll see. */
+    suspend fun closeParticipant(
+        participantId: String,
+        reason: String,
+    ) {
+        phoneOwners.filterValues { it == participantId }.keys.forEach { socket ->
+            runCatching { socket.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, reason)) }
+            phoneSockets.remove(socket)
+            phoneOwners.remove(socket)
+        }
+    }
+
     suspend fun closePhones(reason: String) {
         phoneSockets.forEach { runCatching { it.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, reason)) } }
         phoneSockets.clear()
@@ -96,6 +111,14 @@ class SessionBroadcaster(
         val room = rooms[sessionId] ?: return
         room.broadcastToPhones(text)
         room.sendToTv(text)
+    }
+
+    suspend fun closeParticipant(
+        sessionId: String,
+        participantId: String,
+        reason: String,
+    ) {
+        rooms[sessionId]?.closeParticipant(participantId, reason)
     }
 
     suspend fun closePhones(

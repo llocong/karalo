@@ -1,4 +1,4 @@
-// Karalo admin dashboard: sign-in, Overview and Sessions, built from the "Karalo Admin
+// Karalo admin dashboard: sign-in, Overview, Sessions and Security, built from the "Karalo Admin
 // Dashboard" design. Plain DOM rendering, no framework: each screen is a function that returns
 // HTML for the current state, and every value from the server goes through esc().
 "use strict";
@@ -8,6 +8,19 @@ const REFRESH_MS = 30000;
 const ICONS = {
   overview: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
   sessions: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3",
+  security: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  flag: "M4 22V4M4 4h12l-2 4 2 4H4",
+  bell: "M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0",
+};
+// Security event types, as the backend's SecurityEventType keys.
+const TYPES = {
+  burst: { label: "Join burst", icon: "M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 20v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" },
+  rate: { label: "Rate limited", icon: "M12 14l4-4M3.3 19a10 10 0 1 1 17.4 0" },
+  key: { label: "Wrong TV registration key", short: "Wrong TV key", icon: "M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3" },
+  secret: { label: "Wrong TV secret", icon: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4" },
+  token: { label: "Invalid guest token", icon: "M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" },
+  guess: { label: "Code guessing", icon: "M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" },
+  spike: { label: "Search spike", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6" },
 };
 const METRICS = [
   ["visits", "Visits", "visits"], ["visitors", "Visitors", "visitors"], ["downloads", "Downloads", "downloads"],
@@ -16,10 +29,12 @@ const METRICS = [
 const AVATARS = ["#4C1D95", "#7C3AED", "#5B2A8F", "#3B2A55"];
 
 const state = {
-  screen: "loading", // loading | signin | overview | sessions
+  screen: "loading", // loading | signin | overview | sessions | security
   period: "7d", metric: "visits", hover: null,
   filter: "live", query: "", openCode: null,
-  overview: null, sessions: null, detail: null,
+  overview: null, sessions: null, detail: null, security: null, summary: null,
+  types: [], eventQuery: "", typeMenu: false, openEvent: null,
+  dialog: null, // { kind: "end" } or { kind: "remove", id, name }, plus busy/failed while it runs
   error: false, updatedAt: null,
   signin: { message: "", lockedFor: 0, showPassword: false },
 };
@@ -69,7 +84,9 @@ const logo = (tile, size) => `<div class="logo">${LOGO.replace(/width="30" heigh
 // ---------- server ----------
 class SignedOut extends Error {}
 async function api(path, options) {
-  const response = await fetch("/admin/api" + path, Object.assign({ credentials: "same-origin", headers: { "Content-Type": "application/json" } }, options));
+  // X-Karalo-Admin marks requests as the dashboard's own; the server refuses changes without it.
+  const headers = { "Content-Type": "application/json", "X-Karalo-Admin": "1" };
+  const response = await fetch("/admin/api" + path, Object.assign({ credentials: "same-origin", headers }, options));
   if (response.status === 401 && path !== "/login") throw new SignedOut();
   const body = response.status === 204 ? null : await response.json().catch(() => null);
   return { status: response.status, body };
@@ -77,7 +94,11 @@ async function api(path, options) {
 
 async function load() {
   try {
-    if (state.screen === "overview") {
+    const summary = api("/summary").then((r) => { state.summary = r.body; });
+    if (state.screen === "security") {
+      state.security = (await api("/security?period=" + state.period)).body;
+      if (state.openEvent && !state.security.events.some((e) => e.id === state.openEvent)) state.openEvent = null;
+    } else if (state.screen === "overview") {
       state.overview = (await api("/overview?period=" + state.period)).body;
     } else if (state.screen === "sessions") {
       state.sessions = (await api("/sessions")).body;
@@ -87,6 +108,7 @@ async function load() {
         if (!state.detail) state.openCode = null;
       }
     }
+    await summary;
     state.error = false;
     state.updatedAt = Date.now();
   } catch (e) {
@@ -96,14 +118,17 @@ async function load() {
   render();
 }
 
-// ---------- navigation (#overview, #sessions, #sessions/K7QM4XPZ) ----------
+// ---------- navigation (#overview, #sessions, #sessions/K7QM4XPZ, #security, #security/<event id>) ----------
 function route() {
   if (state.screen === "signin" || state.screen === "loading") return;
-  const [screen, code] = location.hash.replace(/^#/, "").split("/");
-  const next = screen === "sessions" ? "sessions" : "overview";
+  const [screen, id] = location.hash.replace(/^#/, "").split("/");
+  const next = screen === "sessions" || screen === "security" ? screen : "overview";
   const changed = next !== state.screen;
   state.screen = next;
-  state.openCode = next === "sessions" && code ? decodeURIComponent(code) : null;
+  state.openCode = next === "sessions" && id ? decodeURIComponent(id) : null;
+  state.openEvent = next === "security" && id ? decodeURIComponent(id) : null;
+  state.typeMenu = false;
+  state.dialog = null;
   if (!state.openCode) state.detail = null;
   if (changed) { state.hover = null; state.error = false; }
   render();
@@ -154,9 +179,15 @@ async function signIn(password) {
 
 // ---------- app shell ----------
 function shell(inner) {
-  const nav = [["overview", "Overview"], ["sessions", "Sessions"]];
-  const item = (cls) => ([key, label]) => `<a class="${cls}${state.screen === key ? " on" : ""}" href="#${key}">${icon(ICONS[key], cls === "tab" ? 22 : 20)}<span>${label}</span></a>`;
-  const detailOpen = state.screen === "sessions" && state.openCode;
+  const nav = [["overview", "Overview"], ["sessions", "Sessions"], ["security", "Security"]];
+  const recent = state.summary?.recentEvents || 0;
+  const badge = (key) => (key === "security" && recent > 0 ? `<span class="badge-count" aria-label="${recent} recent events">${recent}</span>` : "");
+  const item = (cls) => ([key, label]) => cls === "tab"
+    ? `<a class="tab${state.screen === key ? " on" : ""}" href="#${key}"><span class="icon-wrap">${icon(ICONS[key], 22)}${badge(key)}</span><span>${label}</span></a>`
+    : `<a class="nav-item${state.screen === key ? " on" : ""}" href="#${key}">${icon(ICONS[key], 20)}<span style="flex:1">${label}</span>${badge(key)}</a>`;
+  const partyOpen = state.screen === "sessions" && state.openCode;
+  const eventOpen = state.screen === "security" && state.openEvent && state.security;
+  const detailOpen = partyOpen || eventOpen;
   const signOutIcon = "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9";
   return `<div class="app${detailOpen ? " detail" : ""}">
     <aside class="rail">${logo(30, 22)}<nav>${nav.map(item("nav-item")).join("")}</nav>
@@ -164,10 +195,12 @@ function shell(inner) {
     <div class="column">
       <div class="topbar">${logo(28, 21)}<button class="icon-btn" data-action="signout" aria-label="Sign out">${icon(signOutIcon)}</button></div>
       <main><div class="content">${inner}</div></main>
-      ${detailOpen ? `<div class="panel" role="dialog" aria-label="Party ${esc(state.openCode)}">${detailView()}</div>` : ""}
+      ${partyOpen ? `<div class="panel" role="dialog" aria-label="Party ${esc(state.openCode)}">${detailView()}</div>` : ""}
+      ${eventOpen ? `<div class="panel" role="dialog" aria-label="Security event">${eventView()}</div>` : ""}
       <nav class="tabs">${nav.map(item("tab")).join("")}</nav>
     </div>
     ${detailOpen ? `<div class="scrim" data-action="close"></div>` : ""}
+    ${dialogView()}
   </div>`;
 }
 
@@ -197,7 +230,11 @@ function overviewView() {
   const range = o.period === "today" ? "Today so far, Quebec time"
     : dayLabel(o.startDay, { month: "short", day: "numeric" }) + " – " + dayLabel(o.endDay, { month: "short", day: "numeric" });
   const started = o.statsStartedOn ? "Statistics started on " + dayLabel(o.statsStartedOn, { month: "short", day: "numeric", year: "numeric" }) : "No statistics recorded yet";
-  return pageHead("Overview", true) + `
+  const recent = state.summary?.recentEvents || 0;
+  const attention = recent > 0
+    ? `<a class="attention" href="#security" data-period-to="today">${icon(ICONS.flag, 20, 'stroke="#FF5D8F" style="flex:none"')}<span>${recent} suspicious event${recent === 1 ? "" : "s"} in the last 24 h</span><span>Review →</span></a>`
+    : "";
+  return pageHead("Overview", true) + attention + `
     <section class="section"><div class="section-head"><h2>Right now</h2></div>
       <div class="grid now">${now.map(([label, v]) => `<div class="card tile"><div class="tile-top"><span class="tile-label">${label}</span><span class="dot"></span></div><span class="big">${fmt(v)}</span></div>`).join("")}</div>
     </section>
@@ -334,7 +371,7 @@ function sessionList() {
     return `<div class="card state"><div class="badge square">${icon(ICONS.sessions, 26, 'stroke="#A78BFA"')}</div><h3>${title}</h3><p>${sub}</p></div>`;
   }
   const tvSub = (s) => (s.tvStatus === "connected" ? "" : "Last seen " + ago(s.tvLastSeen));
-  const table = `<div class="card table"><div class="row head"><span>Code</span><span>TV</span><span>Started</span><span>Guests</span><span>Queue</span><span>Now playing</span><span>TV status</span><span>Phones</span></div>
+  const table = `<div class="card table"><div class="row head"><span>Code</span><span>TV</span><span>Started</span><span>Guests</span><span>Queue</span><span>Now playing</span><span>TV status</span><span>Phones</span><span></span></div>
     ${rows.map((s) => `<button class="row${state.openCode === s.code ? " sel" : ""}" data-open="${esc(s.code)}">
       <span class="code">${esc(s.code)}</span>
       <span class="stack"><span class="mono" style="color:var(--body)">${esc(tvShort(s.tvId))}</span><span class="sub">${s.appVersion ? "v" + esc(s.appVersion) : "Unknown version"}</span></span>
@@ -343,9 +380,10 @@ function sessionList() {
       <span style="color:var(--body)">${s.queue}</span>
       <span class="ellipsis${s.nowPlaying ? "" : " idle"}">${nowPlaying(s)}</span>
       <span class="stack"><span class="tv-status ${s.tvStatus}"><i></i>${statusLabel[s.tvStatus]}</span><span class="sub" style="padding-left:14px">${esc(tvSub(s))}</span></span>
-      <span style="color:var(--body)">${s.phones}</span></button>`).join("")}</div>`;
+      <span style="color:var(--body)">${s.phones}</span>
+      <span>${s.flagged ? `<span class="flag" aria-label="Security event">${icon(ICONS.flag, 16)}</span>` : ""}</span></button>`).join("")}</div>`;
   const cards = `<div class="cards">${rows.map((s) => `<button class="session-card" data-open="${esc(s.code)}">
-      <div class="top"><span class="code">${esc(s.code)}</span><span class="status-pill${s.live ? " live" : ""}"><i></i>${s.live ? "Live" : "Ended"}</span></div>
+      <div class="top"><span class="code">${esc(s.code)}</span>${s.flagged ? `<span class="flag" aria-label="Security event">${icon(ICONS.flag, 16)}</span>` : ""}<span class="status-pill${s.live ? " live" : ""}"><i></i>${s.live ? "Live" : "Ended"}</span></div>
       <div class="facts"><div class="fact"><span>Guests</span><span>${s.activeGuests} / ${s.totalGuests}</span></div><div class="fact"><span>Queue</span><span>${s.queue}</span></div><div class="fact"><span>Started</span><span>${esc(when(s.startedAt))}</span></div></div>
       <div class="bottom">${icon("M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", 16, 'stroke="#A79BB5" style="flex:none"')}<span class="ellipsis${s.nowPlaying ? "" : " idle"}">${nowPlaying(s)}</span><span class="tv-status ${s.tvStatus}"><i></i>TV ${statusLabel[s.tvStatus].toLowerCase()}</span></div>
     </button>`).join("")}</div>`;
@@ -361,22 +399,24 @@ function detailView() {
   const np = s.nowPlaying
     ? `<div class="stack"><span style="font-size:16px;font-weight:800">${esc(s.nowPlaying.title)}</span><span style="font-size:14px;color:var(--body)">${esc(s.nowPlaying.artist)}</span></div>${s.nowPlaying.durationSeconds ? `<span class="sub">${duration(s.nowPlaying.durationSeconds)}</span>` : ""}`
     : `<span class="idle" style="font-size:15px">Idle</span>`;
-  const removedText = { GUEST_EXPIRED: "Removed (inactive)", SESSION_ENDED: "Party ended" };
+  const removedText = { GUEST_EXPIRED: "Removed (inactive)", GUEST_REMOVED: "Removed", SESSION_ENDED: "Party ended" };
   const guests = d.guests.length === 0 ? `<div class="guest"><span class="sub">No guests joined this party yet.</span></div>` : d.guests.map((g, i) => {
     const removed = !!g.removedReason;
     const active = g.lastActiveAt ? (removed ? time(g.lastActiveAt) : ago(g.lastActiveAt)) : "—";
     return `<div class="guest${removed ? " removed" : ""}"><div class="avatar" style="background:${AVATARS[i % AVATARS.length]}">${esc(g.name.charAt(0).toUpperCase())}</div>
       <div class="stack" style="flex:1"><span class="ellipsis">${esc(g.name)}</span><span class="sub">Joined ${esc(time(g.joinedAt))} · Active ${esc(active)} · ${g.songsQueued} song${g.songsQueued === 1 ? "" : "s"} queued</span></div>
-      ${removed ? `<span class="removed-pill">${removedText[g.removedReason] || "Removed"}</span>` : ""}</div>`;
+      ${removed ? `<span class="removed-pill">${removedText[g.removedReason] || "Removed"}</span>` : ""}
+      ${!removed && s.live ? `<button class="btn-remove" data-remove="${esc(g.id)}" data-name="${esc(g.name)}">Remove</button>` : ""}</div>`;
   }).join("");
   const activeCount = d.guests.filter((g) => !g.removedReason).length;
   return `<div class="panel-inner">${bar}
-    <div class="detail-head"><div class="title"><span class="code">${esc(s.code)}</span><span class="status-pill${s.live ? " live" : ""}"><i></i>${s.live ? "Live" : "Ended"}</span></div>
+    <div class="detail-head"><div class="title"><span class="code">${esc(s.code)}</span><span class="status-pill${s.live ? " live" : ""}"><i></i>${s.live ? "Live" : "Ended"}</span>${s.flagged ? `<span class="security-pill">${icon(ICONS.flag, 12, 'stroke-width="2.6"')}Security event</span>` : ""}</div>
       <div class="facts-2"><div class="stack"><span class="sub">Started</span><span>${esc(whenFull(s.startedAt))}</span></div><div class="stack"><span class="sub">TV</span><span class="mono">${esc(tvShort(s.tvId))}</span></div>
         <div class="stack"><span class="sub">App version</span><span>${esc(s.appVersion || "Unknown")}</span></div><div class="stack"><span class="sub">Theme</span><span>${esc(theme)}</span></div></div></div>
     <div class="inner np"><span class="eyebrow">Now playing</span>${np}</div>
     <div class="section" style="gap:10px"><div class="block-head"><span>Joins over time</span><span>${d.joins.length} join${d.joins.length === 1 ? "" : "s"}${s.startedAt ? " since " + esc(time(s.startedAt)) : ""}</span></div>${joinsChart(d)}</div>
     <div class="section" style="gap:10px"><div class="block-head"><span>Guests</span><span>${activeCount} / ${d.guests.length} active</span></div><div class="inner guests">${guests}</div></div>
+    ${s.live ? `<button class="btn-danger" data-action="end">End party</button>` : ""}
   </div>`;
 }
 
@@ -386,12 +426,153 @@ function joinsChart(d) {
   const end = s.live ? Date.now() : new Date(s.endedAt || Date.now()).getTime();
   const span = Math.max(end - start, 60000), bins = 40;
   const counts = new Array(bins).fill(0);
-  d.joins.forEach((iso) => { counts[Math.min(bins - 1, Math.max(0, Math.floor(((new Date(iso).getTime() - start) / span) * bins)))]++; });
+  const bin = (ms) => Math.min(bins - 1, Math.max(0, Math.floor(((ms - start) / span) * bins)));
+  d.joins.forEach((iso) => { counts[bin(new Date(iso).getTime())]++; });
+  // Bins inside a join burst are drawn in coral.
+  const hot = new Set();
+  d.bursts.forEach((b) => { for (let i = bin(new Date(b.firstAt).getTime()); i <= bin(new Date(b.lastAt).getTime()); i++) hot.add(i); });
   const max = Math.max(...counts, 1), w = 440 / bins;
-  const bars = counts.map((v, i) => { const h = v ? Math.max(4, (v / max) * 84) : 0; return `<rect x="${i * w + 1}" y="${90 - h}" width="${w - 2}" height="${h}" rx="2" fill="#7C3AED"></rect>`; }).join("");
+  const bars = counts.map((v, i) => { const h = v ? Math.max(4, (v / max) * 84) : 0; return `<rect x="${i * w + 1}" y="${90 - h}" width="${w - 2}" height="${h}" rx="2" fill="${hot.has(i) ? "#FF5D8F" : "#7C3AED"}"></rect>`; }).join("");
+  const notes = d.bursts.map((b) => {
+    const secs = Math.max(1, Math.round((new Date(b.lastAt) - new Date(b.firstAt)) / 1000));
+    return `<div class="burst-note"><i></i>Join burst · ${b.count} joins within ${secs < 120 ? secs + " s" : Math.round(secs / 60) + " min"} at ${esc(time(b.firstAt))}</div>`;
+  }).join("");
   const at = (f) => time(new Date(start + span * f).toISOString());
   return `<div class="inner joins"><svg width="100%" height="90" viewBox="0 0 440 90" preserveAspectRatio="none" style="display:block" role="img" aria-label="Guest joins over time"><line x1="0" y1="89.5" x2="440" y2="89.5" stroke="#2E2140" vector-effect="non-scaling-stroke"></line>${bars}</svg>
-    <div class="axis"><span>${esc(at(0))}</span><span>${esc(at(1 / 3))}</span><span>${esc(at(2 / 3))}</span><span>${s.live ? "Now" : esc(at(1))}</span></div></div>`;
+    <div class="axis"><span>${esc(at(0))}</span><span>${esc(at(1 / 3))}</span><span>${esc(at(2 / 3))}</span><span>${s.live ? "Now" : esc(at(1))}</span></div>${notes}</div>`;
+}
+
+// ---------- security ----------
+const narrow = () => window.matchMedia("(max-width: 759px)").matches;
+const typeLabel = (e, short) => (short && TYPES[e.type]?.short) || TYPES[e.type]?.label || e.label;
+const typePill = (e, short) => `<span class="type-pill">${icon(TYPES[e.type]?.icon || ICONS.flag, 14, 'stroke-width="2.2"')}${esc(typeLabel(e, short))}</span>`;
+const alertText = { sent: "Sent", throttled: "Throttled", none: "—" };
+const alertState = (e, size = 15) => `<span class="alert-state ${e.alert}">${icon(ICONS.bell, size)}${alertText[e.alert] || "—"}</span>`;
+/** "Today 8:31 PM", "Fri 8:58 PM", "Oct 9, 10:12 PM". */
+function eventWhen(iso) {
+  const date = new Date(iso);
+  if (dayKey(date) === dayKey(new Date())) return "Today " + time(iso);
+  if ((Date.now() - date.getTime()) / 86400000 < 6) return inZone({ weekday: "short" }).format(date) + " " + time(iso);
+  return inZone({ month: "short", day: "numeric" }).format(date) + ", " + time(iso);
+}
+function spanText(from, to) {
+  const s = Math.max(1, Math.round((new Date(to) - new Date(from)) / 1000));
+  return s < 120 ? s + " s" : s < 7200 ? Math.round(s / 60) + " min" : Math.round(s / 3600) + " h";
+}
+const countText = (e) => (e.count === 1 ? "×1" : `×${fmt(e.count)} in ${spanText(e.firstAt, e.lastAt)}`);
+
+function securityEvents() {
+  const q = state.eventQuery.trim().toUpperCase();
+  return state.security.events.filter((e) => (state.types.length === 0 || state.types.includes(e.type)) && (!q || (e.sessionCode || "").includes(q)));
+}
+
+function securityView() {
+  const sec = state.security;
+  if (state.error && !sec) return pageHead("Security", true) + errorView();
+  if (!sec) return pageHead("Security", true) + skeleton();
+  const all = sec.events;
+  const count = (type) => all.filter((e) => e.type === type).length;
+  const tiles = [
+    ["Events", all.length, false],
+    ["Join bursts", count("burst"), count("burst") > 0],
+    ["Rate-limit hits", all.filter((e) => e.type === "rate").reduce((a, e) => a + e.count, 0), false],
+    ["Rejected TVs", count("key") + count("secret"), false],
+    ["Alerts sent", all.filter((e) => e.alert === "sent").length, false],
+  ];
+  const typeButton = state.types.length === 0 ? "All event types" : state.types.length === 1 ? TYPES[state.types[0]].label : state.types.length + " event types";
+  const menu = state.typeMenu ? `<div class="menu" role="menu">${Object.entries(TYPES).map(([k, t]) => `<button role="menuitemcheckbox" aria-checked="${state.types.includes(k)}" data-type="${k}"><span class="check-box${state.types.includes(k) ? " on" : ""}">${icon("M5 12l5 5L20 7", 12, 'stroke-width="3.5"')}</span>${t.label}</button>`).join("")}<button class="clear" data-action="all-types">Show all types</button></div>` : "";
+  return pageHead("Security", true) + `
+    <div class="grid sec">${tiles.map(([label, v, hot]) => `<div class="card tile"><span class="tile-label">${label}</span><span class="value${hot ? " alert" : ""}">${fmt(v)}</span></div>`).join("")}</div>
+    <div class="toolbar" style="justify-content:flex-start;gap:10px"><div class="menu-wrap"><button class="menu-btn${state.types.length ? " on" : ""}" data-action="type-menu" aria-haspopup="true" aria-expanded="${state.typeMenu}">${icon("M3 5h18l-7 8v6l-4 2v-8z", 16, 'stroke="#A79BB5"')}${esc(typeButton)}${icon("M6 9l6 6 6-6", 14, 'stroke="#A79BB5" stroke-width="2.4"')}</button>${menu}</div>
+      <label class="search">${icon("M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-3.5-3.5", 16, 'stroke="#A79BB5"')}<input id="eq" value="${esc(state.eventQuery)}" placeholder="Session code" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Filter by session code" /></label></div>
+    <div id="eventList">${eventList()}</div>
+    ${alertsCard(sec.alerts)}`;
+}
+
+function eventList() {
+  const events = securityEvents();
+  if (events.length === 0) {
+    const within = { today: "today", "7d": "in the last 7 days", "30d": "in the last 30 days" }[state.period];
+    return `<div class="card state"><div class="badge" style="background:rgba(124,58,237,0.18)">${icon("M5 12l5 5L20 7", 26, 'stroke="#A78BFA" stroke-width="2.4"')}</div><h3>No suspicious activity ${within}</h3><p>Join bursts, rate limits and rejected TVs will appear here.</p></div>`;
+  }
+  const session = (e) => `<span class="code" style="color:${e.sessionCode ? "var(--text)" : "var(--tertiary)"}">${esc(e.sessionCode || "—")}</span>`;
+  const source = (e) => `<span class="mono" style="color:var(--body)">${esc(e.source || "—")}</span>`;
+  const table = `<div class="card table"><div class="row sec head"><span>Time</span><span>Type</span><span>Session</span><span>Source</span><span>Count</span><span>Details</span><span>Alert</span></div>
+    ${events.map((e) => `<button class="row sec${state.openEvent === e.id ? " sel" : ""}" data-event="${esc(e.id)}"><span style="color:var(--body)">${esc(eventWhen(e.lastAt))}</span><span style="display:flex">${typePill(e, true)}</span>${session(e)}${source(e)}<span style="font-weight:700">${esc(countText(e))}</span><span style="color:var(--body);line-height:1.4">${esc(e.details)}</span>${alertState(e)}</button>`).join("")}</div>`;
+  const cards = `<div class="cards">${events.map((e) => `<button class="event-card" data-event="${esc(e.id)}"><div class="top">${typePill(e, true)}<span class="sub">${esc(eventWhen(e.lastAt))}</span></div>
+      <span style="font-size:15px;line-height:1.45">${esc(e.details)}</span>
+      <div class="meta">${session(e)}${source(e)}<span style="font-weight:700;color:var(--body)">${esc(countText(e))}</span>${alertState(e, 14)}</div></button>`).join("")}</div>`;
+  return table + cards;
+}
+
+function alertsCard(a) {
+  const last = a.last ? `<span style="font-size:15px;font-weight:700">${esc(typeLabel(a.last))}</span><span class="sub" style="font-size:13px">${esc(eventWhen(a.last.alertedAt || a.last.lastAt))}${a.last.sessionCode ? " · " + esc(a.last.sessionCode) : ""}</span>` : `<span style="font-size:15px;color:var(--muted)">None yet</span>`;
+  const destination = a.configured
+    ? `<span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700"><span class="dot" style="box-shadow:none"></span>ntfy topic configured</span><span class="mono sub" style="font-size:13px">${esc(a.destination)}</span>`
+    : `<span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700"><span class="dot" style="background:var(--tertiary);box-shadow:none"></span>Not set up</span><span class="sub" style="font-size:13px">Set KARALO_ALERT_NTFY_URL to get push alerts.</span>`;
+  const heading = (t) => `<span class="eyebrow">${t}</span>`;
+  return `<div class="card alerts-card"><div class="head">${icon(ICONS.bell, 20, 'stroke="#A78BFA"')}<span>Alerts</span><span>Read-only</span></div>
+    <div class="alerts-grid"><div>${heading("Destination")}${destination}</div>
+      <div>${heading("Throttling")}<span style="font-size:15px;font-weight:600;color:var(--body);line-height:1.45">At most one alert per type every ${a.throttleMinutes} minutes</span></div>
+      <div>${heading("Last alert sent")}${last}</div></div></div>`;
+}
+
+function eventView() {
+  const e = state.security.events.find((x) => x.id === state.openEvent);
+  const bar = `<div class="panel-bar"><button class="back" data-action="close">${icon("M15 18l-6-6 6-6", 18)}Security</button><span class="kind">Security event</span><button class="close" data-action="close" aria-label="Close">${icon("M6 6l12 12M18 6L6 18", 18)}</button></div>`;
+  if (!e) return `<div class="panel-inner">${bar}</div>`;
+  // The hits, grouped into up to 10 bars from the first to the last.
+  const first = new Date(e.firstAt).getTime(), last = new Date(e.lastAt).getTime();
+  const nBins = Math.max(1, Math.min(10, e.hits.length));
+  const counts = new Array(nBins).fill(0);
+  e.hits.forEach((t) => { counts[last === first ? 0 : Math.min(nBins - 1, Math.floor(((t - first) / (last - first)) * nBins))]++; });
+  const max = Math.max(...counts, 1), w = 440 / nBins;
+  const bars = counts.map((v, i) => { const h = v ? Math.max(4, (v / max) * 84) : 0; return `<rect x="${i * w + w * 0.15}" y="${90 - h}" width="${w * 0.7}" height="${h}" rx="2" fill="#FF5D8F"></rect>`; }).join("");
+  const precise = last - first < 120000;
+  const hitTime = (iso) => inZone(precise ? { hour: "numeric", minute: "2-digit", second: "2-digit" } : { hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+  const related = e.source ? state.security.events.filter((x) => x.source === e.source && x.id !== e.id) : [];
+  const fact = (label, value, mono) => `<div class="stack"><span class="sub">${label}</span><span${mono ? ' class="mono"' : ""} style="font-weight:700">${value}</span></div>`;
+  return `<div class="panel-inner">${bar}
+    <div class="event-head"><span style="align-self:flex-start">${typePill(e)}</span><h2>${esc(e.details)}</h2>
+      <div class="facts-2">${fact("Time", esc(eventWhen(e.lastAt)))}${fact("Source", esc(e.source || "—"), true)}${fact("Count", esc(countText(e)))}${fact("Alert", `<span class="alert-state ${e.alert}" style="display:inline">${alertText[e.alert] || "—"}</span>`)}${e.limiter ? fact("Limiter", esc(e.limiter)) : ""}</div></div>
+    <div class="section" style="gap:10px"><div class="block-head"><span>Hits</span><span></span></div>
+      <div class="inner joins"><svg width="100%" height="90" viewBox="0 0 440 90" preserveAspectRatio="none" style="display:block" role="img" aria-label="Hits over time"><line x1="0" y1="89.5" x2="440" y2="89.5" stroke="#2E2140" vector-effect="non-scaling-stroke"></line>${bars}</svg>
+        <div class="axis"><span>${esc(hitTime(e.firstAt))}</span><span>${esc(hitTime(e.lastAt))}</span></div></div></div>
+    <div class="section" style="gap:10px"><div class="block-head"><span>Related events from ${esc(e.source || "this source")}</span><span></span></div>
+      ${related.length ? `<div class="inner related">${related.map((r) => `<button data-event="${esc(r.id)}">${icon(TYPES[r.type]?.icon || ICONS.flag, 14, 'stroke="#FF5D8F" stroke-width="2.2" style="flex:none"')}<span class="stack" style="flex:1"><span style="font-size:14px;font-weight:700">${esc(typeLabel(r))}</span><span class="sub">${esc(r.details)}</span></span><span class="sub" style="white-space:nowrap">${esc(eventWhen(r.lastAt))}</span></button>`).join("")}</div>` : `<span class="sub" style="font-size:14px">No other events from this source.</span>`}</div>
+    ${e.sessionCode ? `<a class="btn-outline" href="#sessions/${encodeURIComponent(e.sessionCode)}">Open session <span class="mono" style="color:var(--primary-soft)">${esc(e.sessionCode)}</span> →</a>` : ""}
+  </div>`;
+}
+
+// ---------- End party / Remove guest ----------
+function dialogView() {
+  const d = state.dialog, detail = state.detail;
+  if (!d || !detail) return "";
+  const s = detail.session;
+  const active = detail.guests.filter((g) => !g.removedReason).length;
+  const [title, body, confirm] = d.kind === "end"
+    ? ["End this party?", `All ${active} guest${active === 1 ? "" : "s"} will be disconnected and the queue cleared. The TV starts a new, empty party on its own.`, "End party"]
+    : [`Remove ${d.name}?`, `${d.name} will be disconnected from ${s.code} and their songs will leave the queue.`, "Remove"];
+  return `<div class="dialog-wrap" data-action="dialog-cancel"><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <h2 id="dialogTitle">${esc(title)}</h2><p>${esc(body)}</p>${d.failed ? `<p class="error" role="alert">That didn't work. Try again.</p>` : ""}
+    <div class="buttons"><button class="cancel" data-action="dialog-cancel">Cancel</button><button class="confirm" data-action="dialog-confirm" ${d.busy ? "disabled" : ""}>${esc(confirm)}</button></div></div></div>`;
+}
+
+async function confirmDialog() {
+  const d = state.dialog;
+  if (!d || d.busy) return;
+  d.busy = true; d.failed = false; render();
+  const code = encodeURIComponent(state.detail.session.code);
+  const path = d.kind === "end" ? `/sessions/${code}/end` : `/sessions/${code}/guests/${encodeURIComponent(d.id)}/remove`;
+  try {
+    const r = await api(path, { method: "POST" });
+    if (r.status !== 204) throw new Error(String(r.status));
+    state.dialog = null;
+    await load();
+  } catch (e) {
+    if (e instanceof SignedOut) return showSignin();
+    d.busy = false; d.failed = true; render();
+  }
 }
 
 // ---------- render and events ----------
@@ -400,28 +581,41 @@ function render() {
   if (state.screen === "signin") { app.innerHTML = signinView(); return; }
   const scroll = document.querySelector("main")?.scrollTop || 0;
   const focused = document.activeElement?.id;
-  app.innerHTML = shell(state.screen === "sessions" ? sessionsView() : overviewView());
+  app.innerHTML = shell(state.screen === "sessions" ? sessionsView() : state.screen === "security" ? securityView() : overviewView());
   const main = document.querySelector("main");
   if (main) main.scrollTop = scroll;
-  if (focused === "q") { const q = document.getElementById("q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  if (focused === "q" || focused === "eq") { const q = document.getElementById(focused); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
+  if (state.dialog) document.querySelector(".dialog .cancel")?.focus();
 }
 
 app.addEventListener("click", (e) => {
-  const t = e.target.closest("[data-action],[data-period],[data-metric],[data-filter],[data-open],[data-bar],#togglePw");
+  // A click outside the event-type menu closes it.
+  if (state.typeMenu && !e.target.closest(".menu-wrap")) { state.typeMenu = false; render(); }
+  const t = e.target.closest("[data-action],[data-period],[data-period-to],[data-metric],[data-filter],[data-open],[data-bar],[data-event],[data-type],[data-remove],#togglePw");
   if (!t) return;
+  const action = t.dataset.action;
   if (t.id === "togglePw") {
     const value = document.getElementById("pw").value;
     state.signin.showPassword = !state.signin.showPassword;
     render();
     const pw = document.getElementById("pw"); pw.value = value; pw.focus();
-  } else if (t.dataset.period) { state.period = t.dataset.period; state.hover = null; render(); load(); }
+  } else if (t.dataset.periodTo) { state.period = t.dataset.periodTo; state.security = null; } // the link itself navigates
+  else if (t.dataset.period) { state.period = t.dataset.period; state.hover = null; render(); load(); }
   else if (t.dataset.metric) { state.metric = t.dataset.metric; render(); }
   else if (t.dataset.bar) { state.hover = Number(t.dataset.bar); render(); }
   else if (t.dataset.filter) { state.filter = t.dataset.filter; document.getElementById("sessionList").innerHTML = sessionList(); document.querySelectorAll("[data-filter]").forEach((b) => b.classList.toggle("on", b.dataset.filter === state.filter)); }
   else if (t.dataset.open) { location.hash = "sessions/" + encodeURIComponent(t.dataset.open); }
-  else if (t.dataset.action === "close") { location.hash = "sessions"; }
-  else if (t.dataset.action === "retry") { state.error = false; if (state.screen === "loading") start(); else { render(); load(); } }
-  else if (t.dataset.action === "signout") { api("/logout", { method: "POST" }).catch(() => {}); state.overview = state.sessions = state.detail = null; history.replaceState(null, "", "#"); showSignin(); }
+  else if (t.dataset.event) { location.hash = "security/" + encodeURIComponent(t.dataset.event); }
+  else if (t.dataset.type) { const k = t.dataset.type; state.types = state.types.includes(k) ? state.types.filter((x) => x !== k) : state.types.concat(k); render(); }
+  else if (t.dataset.remove) { state.dialog = { kind: "remove", id: t.dataset.remove, name: t.dataset.name }; render(); }
+  else if (action === "type-menu") { state.typeMenu = !state.typeMenu; render(); }
+  else if (action === "all-types") { state.types = []; state.typeMenu = false; render(); }
+  else if (action === "end") { state.dialog = { kind: "end" }; render(); }
+  else if (action === "dialog-confirm") { confirmDialog(); }
+  else if (action === "dialog-cancel") { if (t.classList.contains("dialog-wrap") && e.target !== t) return; state.dialog = null; render(); }
+  else if (action === "close") { location.hash = state.screen; }
+  else if (action === "retry") { state.error = false; if (state.screen === "loading") start(); else { render(); load(); } }
+  else if (action === "signout") { api("/logout", { method: "POST" }).catch(() => {}); state.overview = state.sessions = state.detail = state.security = state.summary = null; history.replaceState(null, "", "#"); showSignin(); }
 });
 app.addEventListener("mouseover", (e) => {
   const bar = e.target.closest("[data-bar]");
@@ -430,16 +624,23 @@ app.addEventListener("mouseover", (e) => {
 app.addEventListener("mouseleave", (e) => { if (e.target.id === "plot") { state.hover = null; render(); } }, true);
 app.addEventListener("input", (e) => {
   if (e.target.id === "q") { state.query = e.target.value; document.getElementById("sessionList").innerHTML = sessionList(); }
+  else if (e.target.id === "eq") { state.eventQuery = e.target.value; document.getElementById("eventList").innerHTML = eventList(); }
   else if (e.target.id === "pw" && state.signin.message === "wrong") { state.signin.message = ""; e.target.closest(".pw").classList.remove("wrong"); document.querySelector(".pw-msg")?.remove(); }
 });
 app.addEventListener("submit", (e) => { if (e.target.id === "signinForm") { e.preventDefault(); signIn(document.getElementById("pw").value); } });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.openCode) location.hash = "sessions"; });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (state.dialog) { if (!state.dialog.busy) { state.dialog = null; render(); } }
+  else if (state.typeMenu) { state.typeMenu = false; render(); }
+  else if (state.openCode || state.openEvent) location.hash = state.screen;
+});
 
 // The "Updated N s ago" counter ticks without re-rendering; the data refreshes every 30 s while
 // the tab is visible.
 setInterval(() => { const el = document.getElementById("ago"); if (el && state.updatedAt) el.textContent = Math.round((Date.now() - state.updatedAt) / 1000); }, 1000);
-setInterval(() => { if (!document.hidden && (state.screen === "overview" || state.screen === "sessions")) load(); }, REFRESH_MS);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && (state.screen === "overview" || state.screen === "sessions")) load(); });
+const onDashboard = () => ["overview", "sessions", "security"].includes(state.screen);
+setInterval(() => { if (!document.hidden && onDashboard() && !state.dialog) load(); }, REFRESH_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && onDashboard()) load(); });
 
 async function start() {
   const me = await api("/me").catch(() => null);

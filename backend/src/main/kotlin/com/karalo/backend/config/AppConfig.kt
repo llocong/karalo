@@ -32,6 +32,11 @@ data class AppConfig(
     val adminPasswordHash: String? = System.getenv("KARALO_ADMIN_PASSWORD_HASH")?.takeIf { it.isNotBlank() },
     /** "owner/name" of the GitHub repo whose release downloads the dashboard shows; unset skips them. */
     val githubRepo: String? = System.getenv("KARALO_GITHUB_REPO")?.takeIf { it.isNotBlank() },
+    /**
+     * Where security alerts are pushed: an ntfy topic URL such as https://ntfy.sh/<random name>
+     * (see security/AlertSender). Unset records events on the dashboard without alerting.
+     */
+    val alertNtfyUrl: String? = System.getenv("KARALO_ALERT_NTFY_URL")?.takeIf { it.isNotBlank() },
 ) {
     companion object {
         fun fromEnv() = AppConfig()

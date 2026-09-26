@@ -19,7 +19,8 @@
   <style>
     /* Where a guest lands after losing access (see sendToSessionOver in shared.js), from the
        "Session ended" and "Inactive" screens of the Karalo Remote Control design. ?reason=ended:
-       the TV went quiet and the session is over. ?reason=away: only this guest timed out. */
+       the TV went quiet and the session is over. ?reason=away: only this guest timed out.
+       ?reason=removed: Karalo's owner removed this guest. */
     :root { --over-bg: radial-gradient(circle at 50% 38%, #3B1675 0%, #0B0710 68%); }
     html[data-theme="halloween"] { --over-bg: var(--join-bg); }
     body {
@@ -144,7 +145,14 @@
 
   <script>
     // "away" is the default: it's the right advice for any reason this page doesn't know.
-    if (new URLSearchParams(location.search).get("reason") === "ended") {
+    const reason = new URLSearchParams(location.search).get("reason");
+    if (reason === "removed") {
+      document.getElementById("statusLabel").textContent = "Removed";
+      document.getElementById("title").textContent = "You were removed from this session";
+      document.getElementById("body").textContent = "You can no longer add songs to this session.";
+      document.querySelector(".over-sheet").style.display = "none";
+    }
+    if (reason === "ended") {
       document.getElementById("status").classList.add("ended");
       document.getElementById("statusLabel").textContent = "Session ended";
       document.getElementById("title").textContent = "This karaoke session is over";

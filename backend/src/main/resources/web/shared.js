@@ -67,10 +67,11 @@ function sendBackToJoin(sessionId) {
 }
 
 // Why a guest lost access, as the backend's 401 error code says: the whole session ended (its TV
-// went quiet for a while) or just this guest timed out (a couple of hours without doing anything).
+// went quiet for a while), just this guest timed out (a couple of hours without doing anything),
+// or Karalo's owner removed them.
 // Either way the token is forgotten and the name kept, and they get a page explaining what
 // happened -- not the Join page, which would only fail again, nor the website's homepage.
-const SESSION_OVER_REASONS = { SESSION_ENDED: "ended", GUEST_EXPIRED: "away" };
+const SESSION_OVER_REASONS = { SESSION_ENDED: "ended", GUEST_EXPIRED: "away", GUEST_REMOVED: "removed" };
 
 function sendToSessionOver(sessionId, reason) {
   if (leavingPage) return;

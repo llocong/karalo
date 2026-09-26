@@ -3,6 +3,7 @@ package com.karalo.backend.plugins
 import com.karalo.backend.domain.ApiException
 import com.karalo.backend.domain.model.ErrorBodyDto
 import com.karalo.backend.domain.model.ErrorEnvelopeDto
+import com.karalo.backend.security.SecurityMonitor
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -19,9 +20,10 @@ private val logger = LoggerFactory.getLogger("StatusPages")
  * philosophy, adapted to Ktor's exception-based idiom. Anything NOT an [ApiException] (a genuine
  * bug) is logged with its path and mapped to a generic 500 rather than leaking internals.
  */
-fun Application.installStatusPages() {
+fun Application.installStatusPages(security: SecurityMonitor) {
     install(StatusPages) {
         exception<ApiException> { call, cause ->
+            reportRejection(security, call, cause)
             call.respond(cause.status, ErrorEnvelopeDto(ErrorBodyDto(cause.code, cause.message ?: cause.code)))
         }
         exception<IllegalArgumentException> { call, cause ->

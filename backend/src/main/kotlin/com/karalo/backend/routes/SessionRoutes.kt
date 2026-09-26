@@ -11,6 +11,7 @@ import com.karalo.backend.plugins.SessionLookupRateLimit
 import com.karalo.backend.stats.Metric
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
+import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.rateLimit
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -41,6 +42,7 @@ fun Route.publicSessionRoutes(deps: AppDependencies) {
             val sessionId = deps.sessionRepository.resolveSessionIdForCode(code)
             val response = deps.participantRepository.join(sessionId, body.displayName)
             deps.stats.count(Metric.GUEST_JOINED)
+            deps.security.onJoin(sessionId, call.request.origin.remoteHost)
             deps.broadcaster.broadcast(
                 sessionId,
                 "PARTICIPANT_JOINED",

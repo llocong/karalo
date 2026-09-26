@@ -152,3 +152,35 @@ object PlayHistory : Table("play_history") {
         index(isUnique = false, sessionId, playedAt)
     }
 }
+
+/**
+ * Suspicious activity spotted by security/SecurityMonitor: repeated hits of the same kind from the
+ * same source are one row with a count. Kept 30 days. `source` is a keyed hash of the IP address,
+ * never the address itself.
+ */
+object SecurityEvents : Table("security_events") {
+    val id = text("id")
+    val type = text("type") // a SecurityEventType key
+    val sessionRef = text("session_ref").nullable() // the session id or code the requests named
+    val sessionCode = text("session_code").nullable()
+    val sourceHash = text("source").nullable()
+    val detail = text("detail").nullable() // the rate limit's name, or the TV id
+    val firstAt = timestamp("first_at")
+    val lastAt = timestamp("last_at")
+    val count = long("count")
+    val alert = text("alert").default("none") // none | sent | throttled
+    val alertedAt = timestamp("alerted_at").nullable()
+    val hits = text("hits").default("[]") // JSON array of hit times, epoch milliseconds (at most 300)
+    override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(isUnique = false, lastAt)
+    }
+}
+
+/** Small server-side values that must survive restarts, such as the key that hashes IP addresses. */
+object AppSettings : Table("app_settings") {
+    val key = text("key")
+    val value = text("value")
+    override val primaryKey = PrimaryKey(key)
+}

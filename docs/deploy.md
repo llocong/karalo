@@ -130,6 +130,32 @@ You type the password on the server (12 characters or more). Only a salted PBKDF
 Signing in lasts 12 hours, and every deploy signs you out (sessions live in memory). Five wrong
 passwords from one address lock it out for 15 minutes.
 
+### Security events and alerts
+
+The backend flags suspicious activity (`backend/.../security/SecurityMonitor.kt`) and shows it on
+the dashboard's Security page:
+
+| Event | When |
+|---|---|
+| Join burst | 10 guests join one party within 30 s |
+| Rate limited | a rate limit turns requests away (alert from the 10th) |
+| Wrong TV registration key / secret | a TV is refused (alert from the 3rd) |
+| Invalid guest token | a phone uses an unknown token (alert from the 5th) |
+| Code guessing | 10 unknown session codes from one source within 10 min |
+| Search spike | searches 5× the usual rate (at least 60 in 5 min) |
+
+Sources are an HMAC of the IP address, never the address. Events are kept 30 days.
+
+To get push alerts on your phone, install the ntfy app, subscribe to a topic with a long random
+name, and add it to `/etc/karalo/karalo.env`, then restart:
+
+```sh
+... --command "echo 'KARALO_ALERT_NTFY_URL=https://ntfy.sh/karalo-<random>' | sudo tee -a /etc/karalo/karalo.env && sudo systemctl restart karalo"
+```
+
+Anyone who knows the topic name can read it, so keep it random. At most one alert per event type
+goes out every 15 minutes; tapping one opens the event on the dashboard.
+
 GitHub release downloads are read once an hour from the public API for `KARALO_GITHUB_REPO` (set in
 `karalo.service`), and counted from the day the dashboard first ran.
 

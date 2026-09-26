@@ -2,6 +2,7 @@ package com.karalo.backend.routes
 
 import com.karalo.backend.AppDependencies
 import com.karalo.backend.domain.ApiException
+import io.ktor.server.plugins.origin
 import io.ktor.server.routing.Route
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.webSocket
@@ -22,7 +23,9 @@ fun Route.webSocketRoutes(deps: AppDependencies) {
     webSocket("/ws/tv/{sessionId}") {
         val sessionId = call.parameters["sessionId"]
         val secret = call.request.headers["Authorization"]?.removePrefix("Bearer ")
-        if (sessionId == null || secret == null || !runCatching { deps.sessionRepository.requireTvAuth(sessionId, secret) }.isSuccess) {
+        val tvAuth = if (sessionId == null || secret == null) null else runCatching { deps.sessionRepository.requireTvAuth(sessionId, secret) }
+        if (tvAuth?.exceptionOrNull() is ApiException.Unauthorized) deps.security.onRejectedTv(wrongKey = false, call.request.origin.remoteHost, tvId = null)
+        if (sessionId == null || tvAuth == null || tvAuth.isFailure) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "unauthorized"))
             return@webSocket
         }
@@ -42,12 +45,13 @@ fun Route.webSocketRoutes(deps: AppDependencies) {
     webSocket("/ws/session/{sessionId}") {
         val sessionId = call.parameters["sessionId"]
         val token = call.request.queryParameters["token"]
-        val failure =
+        val auth =
             if (sessionId == null || token == null) {
                 null
             } else {
-                runCatching { deps.participantRepository.requireParticipantAuth(sessionId, token) }.exceptionOrNull()
+                runCatching { deps.participantRepository.requireParticipantAuth(sessionId, token) }
             }
+        val failure = auth?.exceptionOrNull()
         if (sessionId == null || token == null || failure != null) {
             // The reason carries the error code (e.g. GUEST_EXPIRED); the phone asks /me for the details.
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, (failure as? ApiException)?.code ?: "unauthorized"))
@@ -56,10 +60,12 @@ fun Route.webSocketRoutes(deps: AppDependencies) {
         val room = deps.broadcaster.room(sessionId)
         val session = this as DefaultWebSocketServerSession
         room.phoneSockets.add(session)
+        auth?.getOrNull()?.let { (participantId, _) -> room.phoneOwners[session] = participantId }
         try {
             incoming.consumeAsFlow().collect { /* phones only receive; no client->server WS messages in this MVP. */ }
         } finally {
             room.phoneSockets.remove(session)
+            room.phoneOwners.remove(session)
         }
     }
 }
