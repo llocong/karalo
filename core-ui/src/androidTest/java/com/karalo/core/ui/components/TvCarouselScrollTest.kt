@@ -13,6 +13,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import com.karalo.core.ui.testing.setKeyboardModeContent
 import com.karalo.core.ui.theme.KaraloTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -62,7 +63,7 @@ class TvCarouselScrollTest {
 
     @Test
     fun carouselKeepsFirstAndLastTwoItemsPinnedAndCentersInBetween() {
-        composeRule.setContent {
+        composeRule.setKeyboardModeContent {
             KaraloTheme {
                 TvCarousel(
                     items = (0 until ITEM_COUNT).map { "Item $it" },
