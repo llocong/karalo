@@ -67,9 +67,11 @@ fun Application.installRateLimiting() {
         global {
             rateLimiter(limit = 60, refillPeriod = 1.minutes)
             requestKey { call -> call.request.origin.remoteHost }
-            // The admin dashboard has its own protection (sign-in lockout, data behind the
-            // session cookie) and polls several endpoints at once, so it doesn't use this budget.
-            requestWeight { call, _ -> if (call.request.path().startsWith("/admin")) 0 else 1 }
+            // Only the API and live connections use this budget. Pages, scripts, fonts and images
+            // don't: one page load is several of them, and every guest on a party's Wi-Fi shares
+            // one public address, so counting them turned people away. The admin dashboard has its
+            // own protection (sign-in lockout, data behind the session cookie).
+            requestWeight { call, _ -> if (call.request.path().let { it.startsWith("/api/") || it.startsWith("/ws/") }) 1 else 0 }
         }
     }
 }

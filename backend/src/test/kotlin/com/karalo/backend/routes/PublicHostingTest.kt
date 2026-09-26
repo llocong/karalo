@@ -3,6 +3,7 @@ package com.karalo.backend.routes
 import com.karalo.backend.config.AppConfig
 import com.karalo.backend.module
 import io.ktor.client.HttpClient
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -76,6 +77,20 @@ class PublicHostingTest {
             assertEquals(HttpStatusCode.TooManyRequests, join(client, code, fromIp = "203.0.113.2").status)
         }
 
+    @Test
+    fun `pages and their files don't count toward the rate limit, but the API does`() =
+        testApplication {
+            application { module(testConfig(trustProxy = true)) }
+
+            // More than a minute's global budget of page loads from one address.
+            repeat(GLOBAL_LIMIT + 10) {
+                assertEquals(HttpStatusCode.OK, client.get("/") { header("X-Forwarded-For", "203.0.113.20") }.status)
+                assertEquals(HttpStatusCode.OK, client.get("/fonts/manrope-latin.woff2") { header("X-Forwarded-For", "203.0.113.20") }.status)
+            }
+            val api = (1..GLOBAL_LIMIT + 1).map { client.get("/api/sessions/NOPE1234/queue") { header("X-Forwarded-For", "203.0.113.20") }.status }
+            assertEquals(HttpStatusCode.TooManyRequests, api.last())
+        }
+
     private suspend fun sessionCode(client: HttpClient): String {
         val ensure = client.post("/api/tvs/tv-proxy/session/ensure")
         return Json.parseToJsonElement(ensure.bodyAsText()).jsonObject["session"]!!.jsonObject["code"]!!.jsonPrimitive.content
@@ -93,5 +108,6 @@ class PublicHostingTest {
 
     private companion object {
         const val JOIN_LIMIT = 5
+        const val GLOBAL_LIMIT = 60
     }
 }
