@@ -18,7 +18,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="https://karalo.app/images/og-image.png" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect x='6' y='6' width='84' height='84' rx='22' fill='%237C3AED'/%3E%3Crect x='40' y='26' width='16' height='20' rx='8' fill='%23F5F3F7'/%3E%3Crect x='41' y='46' width='14' height='4' rx='2' fill='%23FF5D8F'/%3E%3Cpolygon points='43,50 53,50 51,70 45,70' fill='%23F5F3F7'/%3E%3C/svg%3E" />
-  <link rel="preload" as="image" href="/images/hero-living-room-1536.webp" imagesrcset="/images/hero-living-room-640.webp 640w, /images/hero-living-room-1024.webp 1024w, /images/hero-living-room-1536.webp 1536w" imagesizes="(max-aspect-ratio: 3/2) 174vh, 100vw" fetchpriority="high" />
+  <link rel="preload" as="image" href="/images/hero-party-2-1536.webp" imagesrcset="/images/hero-party-2-640.webp 640w, /images/hero-party-2-1024.webp 1024w, /images/hero-party-2-1536.webp 1536w" imagesizes="(max-aspect-ratio: 3/2) 174vh, 100vw" fetchpriority="high" />
   <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
   <style>
@@ -157,12 +157,14 @@
     .mock-tv { width: 100%; max-width: 520px; }
     .mock-tv-body { background: var(--surface); border: 1px solid #3A2D47; border-radius: 16px; padding: 9px; box-shadow: 0 30px 80px rgba(124, 58, 237, 0.22); }
     .mock-tv-screen { aspect-ratio: 16 / 9; border-radius: 9px; overflow: hidden; background: linear-gradient(135deg, #2E1553, #0B0710); position: relative; }
+    /* The Home mockup is sized in container units so it scales with the TV frame. */
+    .mock-tv-screen.home { container-type: inline-size; background: var(--bg); }
     .mock-tv-stand { width: 28%; height: 8px; margin: 0 auto; background: var(--border); border-radius: 0 0 8px 8px; }
     .mock-phone { width: 220px; flex-shrink: 0; background: var(--bg); border: 1px solid #3A2D47; border-radius: 34px; padding: 8px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55); }
     .mock-phone-screen { border-radius: 27px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
     .mock-combo { position: relative; width: 100%; max-width: 520px; padding-bottom: 150px; }
-    /* The phone overlaps the TV's bottom-right corner. */
-    .mock-combo .mock-phone { position: absolute; right: -24px; top: 34%; z-index: 1; width: 210px; }
+    /* The phone overlaps the TV's bottom-right corner, overhanging by less than the page gutter. */
+    .mock-combo .mock-phone { position: absolute; right: -16px; top: 34%; z-index: 1; width: 210px; }
 
     .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
@@ -186,16 +188,32 @@
 
 
     .cta-box {
-      text-align: center; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 32px; padding: 64px 24px; position: relative; overflow: hidden;
+      text-align: center; border: 1px solid var(--border); border-radius: var(--radius); padding: 56px 32px;
+      background: radial-gradient(ellipse at 50% 0%, #2E1553 0%, var(--surface) 70%);
     }
-    .cta-box::before {
-      content: ""; position: absolute; inset: 0; z-index: 0;
-      background: radial-gradient(500px 240px at 50% 0%, rgba(255, 93, 143, .18), transparent 70%);
-    }
-    .cta-box > * { position: relative; }
     .cta-box h2 { font-size: clamp(30px, 4vw, 44px); }
-    .cta-box p { color: var(--body); font-size: 17px; margin: 14px auto 28px; max-width: 520px; }
+    .cta-box > p { color: var(--body); font-size: 17px; margin: 16px auto 0; max-width: 520px; text-wrap: pretty; }
+
+    /* Install: three numbered steps, one per card, that wrap to a single column on phones. */
+    .install-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 32px; text-align: left; }
+    .install-step {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 18px; padding: 24px;
+      display: flex; flex-direction: column; gap: 10px; min-width: 0;
+    }
+    .install-step .num {
+      width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+      font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 20px;
+      background: var(--accent); color: var(--bg);
+    }
+    .install-step h3 { font-size: 21px; line-height: 1.2; margin-top: 6px; }
+    .install-step p { color: var(--body); font-size: 16px; line-height: 1.6; }
+    .install-step strong { color: var(--text); }
+    .code-chip {
+      font: 600 16px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text);
+      background: var(--surface); border: 1.5px dashed var(--accent); border-radius: 12px; padding: 10px 14px;
+      align-self: flex-start; max-width: 100%; overflow-wrap: anywhere;
+    }
+    .install-ctas { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 32px; }
 
     footer.site { border-top: 1px solid var(--border); padding: 32px 0 44px; margin-top: 40px; }
     footer.site .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
@@ -253,7 +271,7 @@
           <a href="#how" data-i18n="navHow">How it works</a>
           <a href="#features" data-i18n="navFeatures">Features</a>
           <button class="lang" id="langToggle" type="button" aria-label="Français">FR</button>
-          <a class="btn btn-primary btn-small" href="#access" data-i18n="navCta">Get early access</a>
+          <a class="btn btn-primary btn-small" href="#install" data-i18n="navCta">Install on your TV</a>
         </nav>
       </div>
     </header>
@@ -265,8 +283,8 @@
       <!-- The photo covers the hero; on portrait screens that makes it about 1.74 x the screen
            height wide, hence the sizes rule. -->
       <img class="hero-photo" id="heroPhoto"
-        src="/images/hero-living-room-1536.webp"
-        srcset="/images/hero-living-room-640.webp 640w, /images/hero-living-room-1024.webp 1024w, /images/hero-living-room-1536.webp 1536w"
+        src="/images/hero-party-2-1536.webp"
+        srcset="/images/hero-party-2-640.webp 640w, /images/hero-party-2-1024.webp 1024w, /images/hero-party-2-1536.webp 1536w"
         sizes="(max-aspect-ratio: 3/2) 174vh, 100vw"
         width="1536" height="1024" fetchpriority="high" decoding="async" alt="" />
       <div class="hero-shade"></div>
@@ -276,7 +294,7 @@
           <h1 data-i18n-html="heroTitle">Karaoke night,<br><span class="accent">on your TV.</span></h1>
           <p class="lead" data-i18n="heroLead">Guests scan a QR code and pick songs from their own phone. Everyone sings on the big screen.</p>
           <div class="ctas">
-            <a class="btn btn-primary" href="#access" data-i18n="heroCta">Get early access</a>
+            <a class="btn btn-primary" href="#install" data-i18n="heroCta">Install on your TV</a>
             <a class="btn btn-ghost" href="#how" data-i18n="heroSecondary">See how it works</a>
           </div>
           <div class="facts">
@@ -304,29 +322,26 @@
               <p data-i18n="step1Text">A QR code appears on the screen. Search and play songs with the remote, or with your voice.</p>
             </div>
             <div class="step-visual">
-              <div class="mock-tv" aria-hidden="true"><div class="mock-tv-body"><div class="mock-tv-screen">
-                <div style="position:absolute; inset:0; display:flex;">
-                  <div style="width:24%; background:linear-gradient(135deg,#4C1D95,#17101F); padding:12px 10px; display:flex; flex-direction:column; gap:9px; font-size:8px; font-weight:600; color:#C9BFD6;">
-                    <div style="width:18px; height:18px; border-radius:50%; background:#FF5D8F;"></div>
-                    <div style="color:#F5F3F7;">Home</div><div>Search</div><div>Playlists</div><div>History</div>
-                  </div>
-                  <div style="flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:8px; min-width:0;">
-                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:5px;"><svg width="14" height="14" viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/><rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/><rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/><circle cx="70" cy="66" r="7" fill="#FF5D8F"/><polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/></svg><span style="font-family:'Fredoka'; font-weight:600; font-size:10px;">Karalo</span></div>
-                    <div style="display:flex; gap:12px; align-items:center; background:rgba(11,7,16,0.55); border:1px solid #3A2D47; border-radius:8px; padding:10px;">
-                      <div style="background:#F5F3F7; border-radius:4px; padding:4px; line-height:0;"><svg viewBox="0 0 21 21" width="46" height="46" aria-hidden="true"><rect x="0" y="0" width="7" height="7" fill="#0B0710"/><rect x="1" y="1" width="5" height="5" fill="#F5F3F7"/><rect x="2" y="2" width="3" height="3" fill="#0B0710"/><rect x="14" y="0" width="7" height="7" fill="#0B0710"/><rect x="15" y="1" width="5" height="5" fill="#F5F3F7"/><rect x="16" y="2" width="3" height="3" fill="#0B0710"/><rect x="0" y="14" width="7" height="7" fill="#0B0710"/><rect x="1" y="15" width="5" height="5" fill="#F5F3F7"/><rect x="2" y="16" width="3" height="3" fill="#0B0710"/><rect x="9" y="1" width="2" height="3" fill="#0B0710"/><rect x="9" y="6" width="3" height="2" fill="#0B0710"/><rect x="9" y="9" width="3" height="3" fill="#0B0710"/><rect x="14" y="9" width="2" height="4" fill="#0B0710"/><rect x="18" y="10" width="2" height="2" fill="#0B0710"/><rect x="17" y="15" width="3" height="3" fill="#0B0710"/><rect x="10" y="15" width="2" height="5" fill="#0B0710"/><rect x="13" y="17" width="2" height="3" fill="#0B0710"/><rect x="4" y="9" width="3" height="2" fill="#0B0710"/></svg></div>
-                      <div style="display:flex; flex-direction:column; gap:3px;">
-                        <div style="font-family:'Fredoka'; font-weight:600; font-size:12px;">Scan to join the party</div>
-                        <div style="font-size:8px; color:#C9BFD6;">Add songs from your phone</div>
-                      </div>
-                    </div>
-                    <div style="font-size:9px; font-weight:700;">Top Picks</div>
-                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
-                      <div style="aspect-ratio:16/10; border-radius:4px; background:linear-gradient(135deg,#7C3AED,#4C1D95);"></div>
-                      <div style="aspect-ratio:16/10; border-radius:4px; background:linear-gradient(135deg,#FF5D8F,#7C3AED);"></div>
-                      <div style="aspect-ratio:16/10; border-radius:4px; background:linear-gradient(135deg,#4C1D95,#17101F);"></div>
-                    </div>
-                  </div>
-                </div>
+              <div class="mock-tv" aria-hidden="true"><div class="mock-tv-body"><div class="mock-tv-screen home">
+<div style="position:absolute; inset:0; display:flex; font-family:'Manrope'; color:#F5F3F7;">
+<div style="width:22%; background:linear-gradient(135deg,#4C1D95,#17101F); display:flex; flex-direction:column; padding:3.6cqw 2cqw; box-sizing:border-box;">
+<div style="display:flex; align-items:center; gap:1cqw; padding:0 1.4cqw; margin-bottom:4cqw;"><svg style="width:3.6cqw; height:3.6cqw; flex-shrink:0;" viewBox="0 0 96 96" fill="none"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"></rect><rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"></rect><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"></rect><line x1="42" y1="32" x2="54" y2="32" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round"></line><line x1="42" y1="38" x2="54" y2="38" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round"></line><rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"></rect><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"></polygon><circle cx="70" cy="66" r="7" fill="#FF5D8F"></circle><polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"></polygon></svg><div style="font-family:'Fredoka'; font-weight:600; font-size:2.5cqw; display:flex; align-items:baseline;"><span style="display:inline-block; transform:translateY(-0.06em);">K</span><span style="display:inline-block; transform:translateY(0.06em);">a</span><span style="display:inline-block; transform:translateY(-0.08em);">r</span><span style="display:inline-block; transform:translateY(0.03em);">a</span><span style="display:inline-block; transform:translateY(-0.06em);">l</span><span style="display:inline-block; transform:translateY(0.06em);">o</span></div></div>
+<div style="display:flex; flex-direction:column; gap:1.2cqw; font-weight:600; font-size:1.7cqw;">
+<div style="display:flex; align-items:center; gap:1.4cqw; padding:1.1cqw 1.4cqw; border-radius:1cqw; color:#C9BFD6;"><svg style="width:2.3cqw; height:2.3cqw; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>Search</div>
+<div style="display:flex; align-items:center; gap:1.4cqw; padding:1.1cqw 1.4cqw; border-radius:1cqw; background:rgba(245,243,247,0.12); color:#F5F3F7;"><svg style="width:2.3cqw; height:2.3cqw; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="#FF5D8F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path></svg>Home</div>
+<div style="display:flex; align-items:center; gap:1.4cqw; padding:1.1cqw 1.4cqw; border-radius:1cqw; color:#C9BFD6;"><svg style="width:2.3cqw; height:2.3cqw; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11M3 11h11M3 16h7"></path><path d="M17 17.5V5l4 1.5"></path><circle cx="15.5" cy="17.5" r="1.8"></circle></svg>Playlists</div>
+<div style="display:flex; align-items:center; gap:1.4cqw; padding:1.1cqw 1.4cqw; border-radius:1cqw; color:#C9BFD6;"><svg style="width:2.3cqw; height:2.3cqw; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>History</div>
+<div style="display:flex; align-items:center; gap:1.4cqw; padding:1.1cqw 1.4cqw; border-radius:1cqw; color:#C9BFD6;"><svg style="width:2.3cqw; height:2.3cqw; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.53 5.45L9.48 2.53L14.52 2.53L14.47 5.45A7 7 0 0 1 16.44 6.59L16.44 6.59L18.94 5.08L21.46 9.45L18.91 10.86A7 7 0 0 1 18.91 13.14L18.91 13.14L21.46 14.55L18.94 18.92L16.44 17.41A7 7 0 0 1 14.47 18.55L14.47 18.55L14.52 21.47L9.48 21.47L9.53 18.55A7 7 0 0 1 7.56 17.41L7.56 17.41L5.06 18.92L2.54 14.55L5.09 13.14A7 7 0 0 1 5.09 10.86L5.09 10.86L2.54 9.45L5.06 5.08L7.56 6.59A7 7 0 0 1 9.53 5.45Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>Settings</div>
+</div></div>
+<div style="flex:1; padding:3.4cqw 3.6cqw; display:flex; flex-direction:column; gap:2.4cqw; min-width:0;">
+<div style="display:flex; gap:2cqw; align-items:center; background:rgba(23,16,31,0.8); border:0.15cqw solid #3A2D47; border-radius:1.4cqw; padding:1.6cqw;"><div style="background:#F5F3F7; border-radius:0.6cqw; padding:0.6cqw; line-height:0; flex-shrink:0;"><svg viewBox="0 0 21 21" style="width:7.5cqw; height:7.5cqw;"><rect x="0" y="0" width="7" height="7" fill="#0B0710"></rect><rect x="1" y="1" width="5" height="5" fill="#F5F3F7"></rect><rect x="2" y="2" width="3" height="3" fill="#0B0710"></rect><rect x="14" y="0" width="7" height="7" fill="#0B0710"></rect><rect x="15" y="1" width="5" height="5" fill="#F5F3F7"></rect><rect x="16" y="2" width="3" height="3" fill="#0B0710"></rect><rect x="0" y="14" width="7" height="7" fill="#0B0710"></rect><rect x="1" y="15" width="5" height="5" fill="#F5F3F7"></rect><rect x="2" y="16" width="3" height="3" fill="#0B0710"></rect><rect x="9" y="1" width="2" height="3" fill="#0B0710"></rect><rect x="9" y="6" width="3" height="2" fill="#0B0710"></rect><rect x="9" y="9" width="3" height="3" fill="#0B0710"></rect><rect x="14" y="9" width="2" height="4" fill="#0B0710"></rect><rect x="18" y="10" width="2" height="2" fill="#0B0710"></rect><rect x="17" y="15" width="3" height="3" fill="#0B0710"></rect><rect x="10" y="15" width="2" height="5" fill="#0B0710"></rect><rect x="13" y="17" width="2" height="3" fill="#0B0710"></rect><rect x="4" y="9" width="3" height="2" fill="#0B0710"></rect></svg></div><div style="display:flex; flex-direction:column; gap:0.5cqw;"><div style="font-family:'Fredoka'; font-weight:600; font-size:2.2cqw;">Scan to join the party</div><div style="font-size:1.4cqw; color:#C9BFD6;">Add songs from your phone</div></div></div>
+<div style="font-weight:700; font-size:2cqw;">Top Picks</div>
+<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1.8cqw;">
+<div><div style="position:relative; aspect-ratio:16/9; border-radius:1cqw; background:linear-gradient(135deg,#7C3AED,#4C1D95); outline:0.3cqw solid #FF5D8F; outline-offset:0.3cqw;"><div style="position:absolute; bottom:0.7cqw; right:0.7cqw; background:rgba(11,7,16,0.8); font-size:1.2cqw; font-weight:700; padding:0.2cqw 0.7cqw; border-radius:0.5cqw;">4:10</div></div><div style="font-weight:500; font-size:1.5cqw; line-height:1.35; margin-top:0.9cqw; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">Don't Stop Believin' - Journey</div></div>
+<div><div style="position:relative; aspect-ratio:16/9; border-radius:1cqw; background:linear-gradient(135deg,#FF5D8F,#7C3AED);"><div style="position:absolute; bottom:0.7cqw; right:0.7cqw; background:rgba(11,7,16,0.8); font-size:1.2cqw; font-weight:700; padding:0.2cqw 0.7cqw; border-radius:0.5cqw;">3:51</div></div><div style="font-weight:500; font-size:1.5cqw; line-height:1.35; margin-top:0.9cqw; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">Dancing Queen - ABBA</div></div>
+<div><div style="position:relative; aspect-ratio:16/9; border-radius:1cqw; background:linear-gradient(135deg,#4C1D95,#17101F);"><div style="position:absolute; bottom:0.7cqw; right:0.7cqw; background:rgba(11,7,16,0.8); font-size:1.2cqw; font-weight:700; padding:0.2cqw 0.7cqw; border-radius:0.5cqw;">4:51</div></div><div style="font-weight:500; font-size:1.5cqw; line-height:1.35; margin-top:0.9cqw; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">I Wanna Dance with Somebody - Whitney Houston</div></div>
+</div></div>
+</div>
               </div></div><div class="mock-tv-stand"></div></div>
             </div>
           </div>
@@ -336,7 +351,7 @@
               <div style="padding:0 40px;"><div class="mock-phone" aria-hidden="true"><div class="mock-phone-screen" style="aspect-ratio:9/18.5;">
                 <div style="flex:1; background:radial-gradient(circle at 50% 30%, #4C1D95 0%, #0B0710 70%); display:flex; flex-direction:column; align-items:center; padding:30px 14px 0; gap:6px;">
                   <svg width="28" height="28" viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/><rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/><rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/><rect x="41" y="46" width="14" height="4" rx="2" fill="#FF5D8F"/><polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/><circle cx="70" cy="66" r="7" fill="#FF5D8F"/><polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/></svg>
-                  <div style="font-family:'Fredoka'; font-weight:600; font-size:14px;">Karalo</div>
+                  <div style="font-family:'Fredoka'; font-weight:600; font-size:14px; display:flex; align-items:baseline;"><span style="display:inline-block; transform:translateY(-0.06em);">K</span><span style="display:inline-block; transform:translateY(0.06em);">a</span><span style="display:inline-block; transform:translateY(-0.08em);">r</span><span style="display:inline-block; transform:translateY(0.03em);">a</span><span style="display:inline-block; transform:translateY(-0.06em);">l</span><span style="display:inline-block; transform:translateY(0.06em);">o</span></div>
                   <div style="flex:1; display:flex; align-items:center; font-size:11px; font-weight:600; color:#C4B5FD; text-align:center;">You're about to join the session</div>
                 </div>
                 <div style="background:#17101F; border-top:1px solid #241834; border-radius:16px 16px 0 0; padding:16px 14px 22px; display:flex; flex-direction:column; gap:9px;">
@@ -382,10 +397,10 @@
                       <div style="width:26px; height:26px; border-radius:50%; background:#241834; border:1px solid #3A2D47; display:flex; align-items:center; justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24"><path d="M5 4l11 8-11 8V4z" fill="#F5F3F7"/><rect x="16.5" y="4" width="2.5" height="16" fill="#F5F3F7"/></svg></div>
                     </div>
                   </div>
-                  <div style="font-size:12px; font-weight:700;">Up Next</div>
-                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#7C3AED,#4C1D95); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Golden Hour</div><div style="font-size:8px; color:#A79BB5;">Sung by Léa</div></div></div>
-                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#4C1D95,#17101F); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Neon Summer</div><div style="font-size:8px; color:#A79BB5;">Sung by Sam</div></div></div>
-                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#7C3AED,#FF5D8F); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Shallow</div><div style="font-size:8px; color:#A79BB5;">Sung by Maya</div></div></div>
+                  <div style="display:flex; align-items:baseline; gap:6px;"><div style="font-size:12px; font-weight:700;">Up Next</div><div style="font-size:9px; color:#A79BB5;">3 songs</div></div>
+                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#7C3AED,#4C1D95); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Golden Hour</div><div style="font-size:8px; color:#A79BB5;">Sung by Léa</div></div><svg width="10" height="10" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="8" cy="6" r="1.6" fill="#63576F"/><circle cx="8" cy="12" r="1.6" fill="#63576F"/><circle cx="8" cy="18" r="1.6" fill="#63576F"/><circle cx="16" cy="6" r="1.6" fill="#63576F"/><circle cx="16" cy="12" r="1.6" fill="#63576F"/><circle cx="16" cy="18" r="1.6" fill="#63576F"/></svg></div>
+                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#4C1D95,#17101F); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Neon Summer</div><div style="font-size:8px; color:#A79BB5;">Sung by Sam</div></div><svg width="10" height="10" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="8" cy="6" r="1.6" fill="#63576F"/><circle cx="8" cy="12" r="1.6" fill="#63576F"/><circle cx="8" cy="18" r="1.6" fill="#63576F"/><circle cx="16" cy="6" r="1.6" fill="#63576F"/><circle cx="16" cy="12" r="1.6" fill="#63576F"/><circle cx="16" cy="18" r="1.6" fill="#63576F"/></svg></div>
+                  <div style="display:flex; align-items:center; gap:8px; background:#17101F; border:1px solid #241834; border-radius:8px; padding:6px 8px;"><div style="width:24px; height:24px; border-radius:5px; background:linear-gradient(135deg,#7C3AED,#FF5D8F); flex-shrink:0;"></div><div style="flex:1; min-width:0;"><div style="font-size:10px; font-weight:700;">Shallow</div><div style="font-size:8px; color:#A79BB5;">Sung by Maya</div></div><svg width="10" height="10" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="8" cy="6" r="1.6" fill="#63576F"/><circle cx="8" cy="12" r="1.6" fill="#63576F"/><circle cx="8" cy="18" r="1.6" fill="#63576F"/><circle cx="16" cy="6" r="1.6" fill="#63576F"/><circle cx="16" cy="12" r="1.6" fill="#63576F"/><circle cx="16" cy="18" r="1.6" fill="#63576F"/></svg></div>
                 </div>
               </div></div>
             </div>
@@ -456,14 +471,34 @@
       </div>
     </section>
 
-    <!-- ---------- Early access ---------- -->
-    <section id="access">
+    <!-- ---------- Install ---------- -->
+    <section id="install">
       <div class="wrap">
         <div class="cta-box">
           <h2 data-i18n-html="ctaTitle">Bring karaoke to <span class="accent">your living room</span></h2>
-          <p data-i18n="ctaText">Karalo is in private early access. Tell us about your TV and we'll send you an invite.</p>
-          <!-- TODO: replace with the real contact address or a sign-up form. -->
-          <a class="btn btn-primary" href="mailto:hello@karalo.app?subject=Karalo%20early%20access" data-i18n="ctaButton">Request an invite</a>
+          <p data-i18n="ctaText">Karalo is free to download. Install it on a Google TV or Android TV, such as a Chromecast with Google TV, in three steps.</p>
+          <div class="install-steps">
+            <div class="install-step">
+              <div class="num">1</div>
+              <h3 data-i18n="install1Title">Get Downloader</h3>
+              <p data-i18n-html="install1Text">From the Play Store on your TV, install <strong>Downloader</strong> by AFTVnews.</p>
+            </div>
+            <div class="install-step">
+              <div class="num">2</div>
+              <h3 data-i18n="install2Title">Allow installs</h3>
+              <p data-i18n-html="install2Text">Go to <strong>Settings &gt; Apps &gt; Security &amp; restrictions &gt; Unknown sources</strong> and turn on Downloader. The path varies slightly between TVs.</p>
+            </div>
+            <div class="install-step">
+              <div class="num">3</div>
+              <h3 data-i18n="install3Title">Enter the address</h3>
+              <p data-i18n="install3Text">Open Downloader, type this address and install when prompted:</p>
+              <code class="code-chip">karalo.app/download</code>
+            </div>
+          </div>
+          <div class="install-ctas">
+            <a class="btn btn-primary" href="https://karalo.app/download" data-i18n="installDownload">Download the APK</a>
+            <a class="btn btn-ghost" href="https://github.com/llocong/karalo/releases" data-i18n="installReleases">All releases</a>
+          </div>
         </div>
       </div>
     </section>
@@ -486,11 +521,11 @@
     const fr = {
       navHow: "Comment ça marche",
       navFeatures: "Fonctionnalités",
-      navCta: "Accès anticipé",
+      navCta: "Installer sur votre télé",
       eyebrow: "Pour Android TV",
       heroTitle: "Le karaoké,<br><span class=\"accent\">sur votre télé.</span>",
       heroLead: "Vos invités scannent un code QR et choisissent leurs chansons sur leur téléphone. Tout le monde chante sur grand écran.",
-      heroCta: "Obtenir l'accès anticipé",
+      heroCta: "Installer sur votre télé",
       heroSecondary: "Voir comment ça marche",
       fact1: "Aucune appli pour les invités",
       fact2: "Aucun compte",
@@ -528,8 +563,15 @@
       use5: "Partys des fêtes",
       use6: "Soirées de jeux",
       ctaTitle: "Le karaoké dans <span class=\"accent\">votre salon</span>",
-      ctaText: "Karalo est en accès anticipé privé. Parlez-nous de votre télé et on vous enverra une invitation.",
-      ctaButton: "Demander une invitation",
+      ctaText: "Karalo se télécharge gratuitement. Installez-le sur une Google TV ou une Android TV, comme un Chromecast avec Google TV, en trois étapes.",
+      install1Title: "Installer Downloader",
+      install1Text: "Depuis le Play Store de votre télé, installez <strong>Downloader</strong> d'AFTVnews.",
+      install2Title: "Autoriser les installations",
+      install2Text: "Allez dans <strong>Paramètres &gt; Applications &gt; Sécurité et restrictions &gt; Sources inconnues</strong> et activez Downloader. Le chemin varie un peu d'une télé à l'autre.",
+      install3Title: "Entrer l'adresse",
+      install3Text: "Ouvrez Downloader, tapez cette adresse et installez quand on vous le demande :",
+      installDownload: "Télécharger l'APK",
+      installReleases: "Toutes les versions",
       footPrivacy: "Confidentialité",
       footContact: "Contact",
     };
