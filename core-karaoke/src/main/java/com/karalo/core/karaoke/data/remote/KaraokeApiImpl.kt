@@ -11,6 +11,7 @@ import com.karalo.core.karaoke.data.remote.dto.MostPlayedDto
 import com.karalo.core.karaoke.data.remote.dto.NowPlayingPayloadDto
 import com.karalo.core.karaoke.data.remote.dto.QueueSnapshotDto
 import com.karalo.core.karaoke.data.remote.dto.SessionEnsureResponseDto
+import com.karalo.core.karaoke.data.remote.dto.ThemeDto
 import com.karalo.core.karaoke.di.KaraokeHttpClient
 import com.karalo.core.karaoke.domain.PlayNowSong
 import kotlinx.coroutines.CoroutineDispatcher
@@ -23,6 +24,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private val JSON_MEDIA_TYPE = "application/json".toMediaType()
@@ -31,6 +33,11 @@ private const val HTTP_NOT_FOUND = 404
 private const val HTTP_CONFLICT = 409
 
 private const val TV_REGISTRATION_KEY_HEADER = "X-Karalo-Registration-Key"
+
+// The shared @KaraokeHttpClient has no read timeout (it also carries the always-open WebSocket),
+// so each REST call gets its own limit: without one, a request stalled by a backend restart hung
+// forever and took the session heartbeat down with it.
+private const val REST_CALL_TIMEOUT_SECONDS = 20L
 
 @Suppress("TooManyFunctions") // one method per backend endpoint, plus the shared request plumbing
 class KaraokeApiImpl
@@ -172,6 +179,18 @@ class KaraokeApiImpl
                 body = json.encodeToString(HistoryPausedDto.serializer(), HistoryPausedDto(paused)),
             ).map { it.paused }
 
+        override suspend fun setTheme(
+            sessionId: String,
+            tvSecret: String,
+            theme: String,
+        ): AppResult<String> =
+            execute<ThemeDto>(
+                path = "/api/sessions/$sessionId/theme",
+                method = "PUT",
+                bearer = tvSecret,
+                body = json.encodeToString(ThemeDto.serializer(), ThemeDto(theme)),
+            ).map { it.theme }
+
         override suspend fun clearHistory(
             sessionId: String,
             tvSecret: String,
@@ -193,7 +212,9 @@ class KaraokeApiImpl
             withContext(ioDispatcher) {
                 runCatching {
                     val request = buildRequest(path, method, bearer, body, headers, query)
-                    client.newCall(request).execute().use { response ->
+                    val call = client.newCall(request)
+                    call.timeout().timeout(REST_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    call.execute().use { response ->
                         val responseBody = response.body?.string().orEmpty()
                         if (!response.isSuccessful) {
                             throw ApiCallException(mapErrorCode(response.code, responseBody))

@@ -16,7 +16,8 @@ private val TRAILING_PAREN_SUFFIX = Regex("""\s*\([^()]*\)\s*$""")
  * Strips the promotional/branding search results commonly tack onto a video's title — a leading
  * "Karaoke "/"Karaoké " and/or a trailing "(Karaoke Version)" or "| Karaoke Version | Karafun" —
  * leaving just the artist and song title. Shared by the search results grid and the player's
- * title display.
+ * title display. Falls back to the raw title when stripping would leave nothing -- e.g.
+ * "KARAOKE | Ai Chung Tình Được Mãi | Tone Nữ", where the song itself sits after the first pipe.
  */
 fun formatVideoTitle(rawTitle: String): String =
     rawTitle
@@ -24,3 +25,4 @@ fun formatVideoTitle(rawTitle: String): String =
         .replace(TRAILING_PIPE_SUFFIX, "")
         .replace(TRAILING_PAREN_SUFFIX, "")
         .trimEnd()
+        .ifBlank { rawTitle.trim() }

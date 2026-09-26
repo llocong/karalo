@@ -23,15 +23,10 @@
   let reconnectDelayMs = 1000;
   let dragInProgress = false;
 
-  const PLAY_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="#0B0710"/></svg>';
-  const PAUSE_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="#0B0710"/></svg>';
+  const PLAY_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" class="on-accent-fill"/></svg>';
+  const PAUSE_ICON = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1.5" class="on-accent-fill"/><rect x="14" y="5" width="4" height="14" rx="1.5" class="on-accent-fill"/></svg>';
   const HANDLE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="6" r="1.4" fill="#63576F"/><circle cx="8" cy="12" r="1.4" fill="#63576F"/><circle cx="8" cy="18" r="1.4" fill="#63576F"/><circle cx="16" cy="6" r="1.4" fill="#63576F"/><circle cx="16" cy="12" r="1.4" fill="#63576F"/><circle cx="16" cy="18" r="1.4" fill="#63576F"/></svg>';
-  const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#0B0710" stroke-width="2.4" stroke-linecap="round"/></svg>';
-
-  function thumbHtml(url) {
-    // Escaped: a phone supplies this URL when adding a song, and every other phone renders it.
-    return url ? `<img src="${escapeHtml(url)}" alt="" />` : "";
-  }
+  const DELETE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 
   async function loadSnapshot() {
     // A drag reloads the snapshot itself the instant it ends (see attachDragHandle's pointerup
@@ -48,10 +43,14 @@
   }
 
   function render(snapshot) {
+    applyTheme(snapshot.theme);
     currentPlaybackState = snapshot.playbackState;
-    const isPaused = currentPlaybackState === "PAUSED";
-    pauseResumeButton.innerHTML = isPaused ? PLAY_ICON : PAUSE_ICON;
-    pauseResumeButton.setAttribute("aria-label", isPaused ? "Play" : "Pause");
+    // Nothing playing on the TV: nothing to pause or resume, so the button rests, disabled, on Play.
+    const hasNowPlaying = Boolean(snapshot.nowPlaying);
+    const showPlay = !hasNowPlaying || currentPlaybackState === "PAUSED";
+    pauseResumeButton.innerHTML = showPlay ? PLAY_ICON : PAUSE_ICON;
+    pauseResumeButton.setAttribute("aria-label", showPlay ? "Play" : "Pause");
+    pauseResumeButton.disabled = !hasNowPlaying;
     // Nothing to skip to -- same rule the TV's own on-screen Next button follows.
     skipButton.disabled = snapshot.queue.length === 0;
 
@@ -62,7 +61,7 @@
 
   function renderNowPlaying(nowPlaying) {
     if (nowPlaying) {
-      nowPlayingThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
+      nowPlayingThumb.innerHTML = thumbnailImg(nowPlaying.videoId, nowPlaying.thumbnailUrl);
       nowPlayingTitle.textContent = nowPlaying.title;
       nowPlayingSungBy.textContent = nowPlaying.addedByDisplayName ? `Sung by ${nowPlaying.addedByDisplayName}` : "";
     } else {
@@ -74,7 +73,7 @@
 
   function renderMiniPlayer(nowPlaying) {
     if (nowPlaying) {
-      miniPlayerThumb.innerHTML = thumbHtml(nowPlaying.thumbnailUrl);
+      miniPlayerThumb.innerHTML = thumbnailImg(nowPlaying.videoId, nowPlaying.thumbnailUrl);
       miniPlayerTitle.textContent = nowPlaying.title;
       miniPlayerSubtitle.textContent = "Now playing";
     } else {
@@ -97,7 +96,7 @@
       wrap.innerHTML = `
         <div class="queue-row-delete">${DELETE_ICON}</div>
         <div class="queue-row" data-id="${item.id}">
-          <div class="thumb">${thumbHtml(item.thumbnailUrl)}</div>
+          <div class="thumb">${thumbnailImg(item.videoId, item.thumbnailUrl)}</div>
           <div class="meta">
             <div class="title">${escapeHtml(item.title)}</div>
             <div class="sung-by">Sung by ${escapeHtml(item.addedByDisplayName)}</div>
@@ -257,9 +256,9 @@
       loadSnapshot(); // reconcile from the backend on every (re)connect, never assume.
     };
     ws.onmessage = (event) => handleEvent(JSON.parse(event.data));
-    // 1008 (policy violation) is the backend rejecting the token: this guest was dropped. /me's
-    // 401 then sends them back to the Join page (see sendBackToJoin in shared.js) instead of
-    // reconnecting with a dead token forever.
+    // 1008 (policy violation) is the backend rejecting the token: this guest timed out, or the
+    // session ended. /me's 401 then says which, and apiFetch shows the matching page (see
+    // sendToSessionOver in shared.js) instead of reconnecting with a dead token forever.
     ws.onclose = (event) => (event.code === 1008 ? apiFetch(`/api/sessions/${sessionId}/me`, { sessionId }) : scheduleReconnect());
     ws.onerror = () => ws.close();
   }

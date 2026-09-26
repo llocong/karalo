@@ -40,10 +40,12 @@ import com.karalo.core.ui.components.ErrorState
 import com.karalo.core.ui.components.LoadingIndicator
 import com.karalo.core.ui.components.SidePanel
 import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
+import com.karalo.core.ui.theme.KaraloPagePadding
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-private val SAFE_ZONE_HORIZONTAL = 58.dp
-private val SAFE_ZONE_VERTICAL = 28.dp
+private val SAFE_ZONE_HORIZONTAL = KaraloPagePadding
+private val SAFE_ZONE_VERTICAL = KaraloPagePadding
 
 // Start fetching the next page while this many entries are still below the last visible one,
 // so holding DOWN rarely reaches the end of what's loaded.
@@ -51,6 +53,8 @@ private const val LOAD_MORE_THRESHOLD = 15
 
 internal const val HISTORY_TAG_LIST = "history_list"
 internal const val HISTORY_TAG_PAUSE = "history_pause"
+private const val REFRESH_SETTLE_DELAY_MS = 400L
+
 internal const val HISTORY_TAG_SORT = "history_sort"
 internal const val HISTORY_TAG_CLEAR = "history_clear"
 internal const val HISTORY_TAG_CANCEL = "history_cancel"
@@ -72,7 +76,15 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    LaunchedEffect(isActive) { if (isActive) viewModel.refresh() }
+    // Only once History has stayed on screen for a moment: the rail previews each page it passes
+    // over, and refreshing (a network call, then rebuilding the list) on every pass made scanning
+    // the rail stutter on the reference TV.
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            delay(REFRESH_SETTLE_DELAY_MS)
+            viewModel.refresh()
+        }
+    }
     val context = LocalContext.current
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
@@ -210,7 +222,8 @@ private fun HistoryList(
                 Modifier
                     .fillMaxSize()
                     .testTag(HISTORY_TAG_LIST)
-                    // Coming back DOWN from the buttons lands on the row that last had focus.
+                    // Re-entering the list lands on the row that last had focus (DOWN from the header buttons
+                    // goes straight to the newest song instead -- see HistoryHeader).
                     .focusRestorer(firstSongRequester)
                     .leftGoesTo(railFocusRequester),
             contentPadding =

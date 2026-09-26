@@ -1,5 +1,6 @@
 package com.karalo.core.karaoke.domain
 
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import com.karalo.core.testing.MainDispatcherExtension
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,6 +17,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
+/** What the backend's first answer looks like when nothing is queued. */
+private val LOADED_EMPTY = KaraokeQueueSnapshot("IDLE", null, emptyList())
+
 private fun nowPlaying(videoId: String) =
     NowPlaying(NowPlayingSource.QUEUE, "q-$videoId", videoId, "T", "C", null, null, "Alice")
 
@@ -27,6 +31,7 @@ private class FakeRepo : KaraokeRepository {
     val eventsFlow = MutableSharedFlow<KaraokeEvent>(extraBufferCapacity = 1)
     override val events: SharedFlow<KaraokeEvent> = eventsFlow
     override val sessionJoinUrl: StateFlow<String?> = MutableStateFlow(null)
+    override val seasonalTheme: StateFlow<SeasonalTheme> = MutableStateFlow(SeasonalTheme.DEFAULT)
 
     var consumeNextResult: AppResult<NowPlaying?> = AppResult.Success(null)
     var consumeNextCallCount = 0
@@ -57,6 +62,8 @@ private class FakeRepo : KaraokeRepository {
     override suspend fun setHistoryPaused(paused: Boolean): AppResult<Boolean> = error("unused")
 
     override suspend fun clearHistory(): AppResult<Unit> = error("unused")
+
+    override suspend fun setSeasonalTheme(theme: SeasonalTheme): AppResult<SeasonalTheme> = error("unused")
 }
 
 /**
@@ -82,6 +89,7 @@ class KaraokeSessionHolderTest {
             holder.isPlayerOnScreen = false
             val emissions = mutableListOf<NowPlaying>()
             launch { holder.autoStartRequests.collect { emissions.add(it) } }
+            repo.queueSnapshotFlow.value = LOADED_EMPTY
             advanceUntilIdle()
 
             repo.queueSnapshotFlow.value = KaraokeQueueSnapshot("PLAYING", nowPlaying("vid1"), emptyList())
@@ -89,6 +97,30 @@ class KaraokeSessionHolderTest {
 
             assertEquals(1, emissions.size)
             assertEquals("vid1", emissions.first().videoId)
+            coroutineContext.cancelChildren()
+        }
+
+    @Test
+    fun `a song already waiting in the queue when the app opens doesn't start on its own`() =
+        runTest(mainDispatcherExtension.testDispatcher) {
+            val repo = FakeRepo()
+            val holder = KaraokeSessionHolder(repo, this)
+            holder.isPlayerOnScreen = false
+            val emissions = mutableListOf<NowPlaying>()
+            launch { holder.autoStartRequests.collect { emissions.add(it) } }
+            advanceUntilIdle()
+
+            // The backend's first answer after launch: a phone had queued a song earlier.
+            repo.queueSnapshotFlow.value = KaraokeQueueSnapshot("PLAYING", nowPlaying("vid1"), emptyList())
+            advanceUntilIdle()
+            assertEquals(0, emissions.size)
+
+            // Once it has played through and the queue empties, the next song a phone adds does.
+            repo.queueSnapshotFlow.value = LOADED_EMPTY
+            advanceUntilIdle()
+            repo.queueSnapshotFlow.value = KaraokeQueueSnapshot("PLAYING", nowPlaying("vid2"), emptyList())
+            advanceUntilIdle()
+            assertEquals(listOf("vid2"), emissions.map { it.videoId })
             coroutineContext.cancelChildren()
         }
 
@@ -141,6 +173,7 @@ class KaraokeSessionHolderTest {
             holder.isPlayerOnScreen = false
             val emissions = mutableListOf<NowPlaying>()
             launch { holder.autoStartRequests.collect { emissions.add(it) } }
+            repo.queueSnapshotFlow.value = LOADED_EMPTY
             advanceUntilIdle()
 
             val snapshot = KaraokeQueueSnapshot("PLAYING", nowPlaying("vid1"), emptyList())

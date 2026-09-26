@@ -9,16 +9,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.tv.material3.MaterialTheme
+import androidx.lifecycle.repeatOnLifecycle
 import com.karalo.core.common.logging.Logger
 import com.karalo.core.common.mediakeys.MediaKeyRouter
 import com.karalo.core.common.session.SearchSessionHolder
+import com.karalo.core.karaoke.domain.KARAOKE_HEARTBEAT_INTERVAL
 import com.karalo.core.karaoke.domain.KaraokeRepository
 import com.karalo.core.karaoke.domain.KaraokeSessionHolder
 import com.karalo.core.ui.theme.KaraloTheme
+import com.karalo.core.ui.theme.LocalKaraloTokens
 import com.karalo.karalo.nav.KaraloNavHost
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -51,24 +55,31 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // The TV's one persistent karaoke session is ensured/restored on every launch, unconditionally
-        // -- never gated on the user ever opening a drawer or player -- so the QR is available from
-        // the very first frame the drawer could show it, per this feature's "session is independent
-        // of the current page" requirement. A failure here (backend unreachable) is non-fatal: the
-        // rest of the app -- homepage, search, local playback -- works exactly as it always has,
-        // simply without a QR to show until a later retry succeeds (see KaraokeRepositoryImpl's own
-        // reconnect loop, which keeps trying in the background regardless).
+        // The TV's one persistent karaoke session is ensured/restored as soon as the app is on
+        // screen, unconditionally -- never gated on the user ever opening a drawer or player -- so
+        // the QR is available from the very first frame the drawer could show it, per this
+        // feature's "session is independent of the current page" requirement. It's then repeated
+        // every KARAOKE_HEARTBEAT_INTERVAL while the app stays in the foreground: that's how the
+        // backend knows the session is still alive. Asleep, closed or on another app for 30
+        // minutes, and the backend ends it; the first call back starts it fresh. A failure
+        // (backend unreachable) is non-fatal: the rest of the app works exactly as it always has,
+        // simply without a QR to show until the next attempt succeeds.
         lifecycleScope.launch {
-            karaokeRepository.ensureSession().let { result ->
-                if (result is com.karalo.core.common.result.AppResult.Failure) {
-                    logger.log("Karaoke session ensure failed at launch: ${result.error}")
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val result = karaokeRepository.ensureSession()
+                    if (result is com.karalo.core.common.result.AppResult.Failure) {
+                        logger.log("Karaoke session ensure failed: ${result.error}")
+                    }
+                    delay(KARAOKE_HEARTBEAT_INTERVAL)
                 }
             }
         }
 
         setContent {
             val sessionJoinUrl by karaokeRepository.sessionJoinUrl.collectAsState()
-            KaraloTheme {
+            val seasonalTheme by karaokeRepository.seasonalTheme.collectAsState()
+            KaraloTheme(seasonalTheme = seasonalTheme) {
                 KaraloNavHost(
                     karaokeSessionHolder = karaokeSessionHolder,
                     searchSessionHolder = searchSessionHolder,
@@ -76,7 +87,7 @@ class MainActivity : ComponentActivity() {
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background),
+                            .background(LocalKaraloTokens.current.pageBackground),
                 )
             }
         }

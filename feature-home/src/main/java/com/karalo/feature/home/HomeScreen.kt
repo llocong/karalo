@@ -4,7 +4,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,40 +37,58 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.karalo.core.common.text.formatVideoTitle
 import com.karalo.core.ui.components.FocusableCard
-import com.karalo.core.ui.components.LoadingIndicator
+import com.karalo.core.ui.components.SkeletonShelf
 import com.karalo.core.ui.components.TvCarousel
 import com.karalo.core.ui.components.TvCarouselImagePrefetch
 import com.karalo.core.ui.focus.InstantBringIntoViewSpec
+import com.karalo.core.ui.theme.KaraloPagePadding
+import com.karalo.core.ui.theme.KaraloShelfCardGutter
+import com.karalo.core.ui.theme.KaraloShelfCardWidth
+import com.karalo.core.ui.theme.LocalKaraloTokens
 import com.karalo.feature.search.domain.SearchResultItem
 import kotlinx.coroutines.delay
 
-// Safe-zone content margins recommended by the TV layout guidelines
-// (developer.android.com/design/ui/tv/guides/styles/layouts). The bottom gets extra breathing
-// room on top of that so the last shelf's focused (scaled-up) card never touches the screen edge.
 // See the firstVideoFocusTrigger effect's own doc for why this retry exists.
 private const val FIRST_VIDEO_FOCUS_RETRY_DELAY_MS = 50L
 
-private val SAFE_ZONE_HORIZONTAL = 58.dp
-private val SAFE_ZONE_VERTICAL = 28.dp
-private val SAFE_ZONE_BOTTOM_EXTRA = 24.dp
-private val BOTTOM_SPACER_HEIGHT = SAFE_ZONE_VERTICAL + SAFE_ZONE_BOTTOM_EXTRA
+// The shared page margin (see KaraloPagePadding), on every side.
+private val SAFE_ZONE_HORIZONTAL = KaraloPagePadding
+private val SHELF_ROW_VERTICAL_PADDING = 20.dp
+private val SAFE_ZONE_VERTICAL = KaraloPagePadding
 
-private val SHELF_SPACING = 32.dp
-private val SHELF_TITLE_SPACING = 20.dp
-private val SHELF_CARD_WIDTH = 240.dp
+// The last shelf's own vertical content padding already leaves room for a focused tile's scale-up;
+// this spacer brings the gap below it to the shared page padding.
+private val BOTTOM_SPACER_HEIGHT = KaraloPagePadding - SHELF_ROW_VERTICAL_PADDING
+
+private val SHELF_SPACING = 23.dp
+
+// The row's own vertical content padding (room for a focused tile's scale-up) already separates
+// the title from the tiles; this tops it up to the design's 2.4cqw gap.
+private val SHELF_TITLE_SPACING = 3.dp
+
+// Shared with the Playlists page's carousel, so song tiles are the same size on both.
+private val SHELF_CARD_WIDTH = KaraloShelfCardWidth
+private val SHELF_CARD_GUTTER = KaraloShelfCardGutter
+private val SHELF_CONTENT_PADDING =
+    PaddingValues(horizontal = SAFE_ZONE_HORIZONTAL, vertical = SHELF_ROW_VERTICAL_PADDING)
+private val SHELF_TITLE_FONT_SIZE = 19.sp
+private val HALLOWEEN_HEADLINE_FONT_SIZE = 38.sp
 private val SHELF_LOADING_HEIGHT = 200.dp
 private const val THUMBNAIL_ASPECT_RATIO = 16f / 9f
 
 private const val TOP_PICKS_TITLE = "Top Picks"
-private const val POP_TITLE = "Pop"
-private const val ROCK_TITLE = "Rock"
+private const val HALLOWEEN_HITS_TITLE = "Halloween Hits"
 
 @Composable
 fun HomeScreen(
@@ -86,6 +106,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val seasonalTheme = LocalKaraloTokens.current.seasonalTheme
+    LaunchedEffect(seasonalTheme) { viewModel.onSeasonalThemeChanged(seasonalTheme) }
 
     HomeScreenContent(
         uiState = uiState,
@@ -192,7 +214,11 @@ internal fun HomeScreenContent(
     // recomposition -- or simply re-entering Home by *focusing* it in the rail, not selecting it --
     // never mistakes an already-consumed trigger value for a fresh one.
     var consumedFocusTrigger by rememberSaveable { mutableIntStateOf(0) }
-    val topPicksLoaded = (uiState.topPicks as? ShelfUiState.Loaded)?.takeIf { it.items.isNotEmpty() }
+    // The first shelf -- the one the join banner sits on and focus first lands in -- is Top Picks,
+    // or Halloween Hits in its place while the Halloween theme is on.
+    val isHalloween = LocalKaraloTokens.current.isHalloween
+    val (firstShelfTitle, firstShelfState) = uiState.firstShelf(isHalloween)
+    val topPicksLoaded = (firstShelfState as? ShelfUiState.Loaded)?.takeIf { it.items.isNotEmpty() }
 
     // Reacts to a fresh (not-yet-consumed) select trigger in two steps rather than one: claim the
     // root placeholder immediately if Top Picks hasn't loaded yet, then hand off to the real first
@@ -241,99 +267,117 @@ internal fun HomeScreenContent(
     // to get here. TvCarousel re-provides its own (animated, centered) spec for each shelf's
     // *horizontal* scroll, so that per-card browsing motion is unaffected.
     CompositionLocalProvider(LocalBringIntoViewSpec provides InstantBringIntoViewSpec) {
-        Column(
-            modifier =
-                modifier
-                    .fillMaxSize()
-                    .padding(top = SAFE_ZONE_VERTICAL)
-                    .focusRequester(placeholderFocusRequester)
-                    // Abandons a still-pending placeholder claim the moment focus actually leaves
-                    // this exact node for any reason -- browsing into an already-loaded shelf
-                    // while Top Picks is still loading, or BACK moving focus out to the rail -- by
-                    // marking the trigger consumed right here instead of waiting for the
-                    // select-effect above to do it. Without this, Top Picks finishing its load
-                    // later (its own delay is random and independent of the other shelves) would
-                    // otherwise steal focus back into content out from under wherever the user has
-                    // since navigated, undoing their action.
-                    .onFocusChanged { focusState ->
-                        if (!focusState.isFocused && placeholderClaimPending) {
-                            placeholderClaimPending = false
-                            consumedFocusTrigger = firstVideoFocusTrigger
-                        }
-                    }.focusable()
-                    // BACK while browsing opens the drawer with Home's own item focused, instead
-                    // of the platform default (which -- since Home has nothing behind it on the
-                    // back stack -- would otherwise exit the app). Attached here, on an ancestor of
-                    // every shelf's cards, rather than as a BackHandler: NavHost installs its own
-                    // internal back handling that, in this app's setup, always wins a BackHandler
-                    // priority race regardless of where either one sits in the composition,
-                    // silently swallowing BACK before ours ever sees it. Consuming the raw key
-                    // event here instead pre-empts that entirely, and naturally only fires while
-                    // focus is actually inside this content (once a rail item has focus instead,
-                    // this modifier is no longer an ancestor of the focused node, so it's simply
-                    // not part of the key event's path at all).
-                    .onPreviewKeyEvent { keyEvent ->
-                        val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
-                        if (isBackKeyDown && railFocusRequester != null) {
-                            railFocusRequester.requestFocus()
-                            true
-                        } else {
-                            false
-                        }
-                    }.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
-        ) {
-            // Either kind of restore -- a genuine return from Player, or re-selecting Home from the
-            // rail while it's already active -- shares this one key/requester pair; only one of the
-            // two can be pending at a time, so which side of the "?:" wins is never ambiguous.
-            val restoreFocusItemKey =
-                lastPlayedVideoId.takeIf { canRestoreLastPlayed }
-                    ?: lastFocusedVideoId.takeIf { canRestoreLastFocused }
-            HomeShelf(
-                title = TOP_PICKS_TITLE,
-                state = uiState.topPicks,
-                onResultClick = trackedOnResultClick,
-                firstItemFocusRequester = firstVideoFocusRequester,
-                focusFirstItemTrigger = firstVideoFocusTrigger,
-                restoreFocusItemKey = restoreFocusItemKey,
-                restoreFocusRequester = restoreFocusRequester,
-                railFocusRequester = railFocusRequester,
-                onItemFocused = trackedOnItemFocused,
-                header =
-                    sessionJoinUrl?.let { joinUrl ->
-                        {
-                            JoinPartyCard(
-                                joinUrl = joinUrl,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = SAFE_ZONE_HORIZONTAL)
-                                        .padding(bottom = SHELF_SPACING),
-                            )
-                        }
-                    },
-            )
-            HomeShelf(
-                title = POP_TITLE,
-                state = uiState.pop,
-                onResultClick = trackedOnResultClick,
-                restoreFocusItemKey = restoreFocusItemKey,
-                restoreFocusRequester = restoreFocusRequester,
-                railFocusRequester = railFocusRequester,
-                onItemFocused = trackedOnItemFocused,
-            )
-            HomeShelf(
-                title = ROCK_TITLE,
-                state = uiState.rock,
-                onResultClick = trackedOnResultClick,
-                restoreFocusItemKey = restoreFocusItemKey,
-                restoreFocusRequester = restoreFocusRequester,
-                railFocusRequester = railFocusRequester,
-                onItemFocused = trackedOnItemFocused,
-            )
-            Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
+        Box(modifier = modifier.fillMaxSize()) {
+            if (isHalloween) HalloweenDecorations()
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(top = SAFE_ZONE_VERTICAL)
+                        .focusRequester(placeholderFocusRequester)
+                        // Abandons a still-pending placeholder claim the moment focus actually leaves
+                        // this exact node for any reason -- browsing into an already-loaded shelf
+                        // while Top Picks is still loading, or BACK moving focus out to the rail -- by
+                        // marking the trigger consumed right here instead of waiting for the
+                        // select-effect above to do it. Without this, Top Picks finishing its load
+                        // later (its own delay is random and independent of the other shelves) would
+                        // otherwise steal focus back into content out from under wherever the user has
+                        // since navigated, undoing their action.
+                        .onFocusChanged { focusState ->
+                            if (!focusState.isFocused && placeholderClaimPending) {
+                                placeholderClaimPending = false
+                                consumedFocusTrigger = firstVideoFocusTrigger
+                            }
+                        }.focusable()
+                        // BACK while browsing opens the drawer with Home's own item focused, instead
+                        // of the platform default (which -- since Home has nothing behind it on the
+                        // back stack -- would otherwise exit the app). Attached here, on an ancestor of
+                        // every shelf's cards, rather than as a BackHandler: NavHost installs its own
+                        // internal back handling that, in this app's setup, always wins a BackHandler
+                        // priority race regardless of where either one sits in the composition,
+                        // silently swallowing BACK before ours ever sees it. Consuming the raw key
+                        // event here instead pre-empts that entirely, and naturally only fires while
+                        // focus is actually inside this content (once a rail item has focus instead,
+                        // this modifier is no longer an ancestor of the focused node, so it's simply
+                        // not part of the key event's path at all).
+                        .onPreviewKeyEvent { keyEvent ->
+                            val isBackKeyDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Back
+                            if (isBackKeyDown && railFocusRequester != null) {
+                                railFocusRequester.requestFocus()
+                                true
+                            } else {
+                                false
+                            }
+                        }.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
+            ) {
+                // Either kind of restore -- a genuine return from Player, or re-selecting Home from the
+                // rail while it's already active -- shares this one key/requester pair; only one of the
+                // two can be pending at a time, so which side of the "?:" wins is never ambiguous.
+                val restoreFocusItemKey =
+                    lastPlayedVideoId.takeIf { canRestoreLastPlayed }
+                        ?: lastFocusedVideoId.takeIf { canRestoreLastFocused }
+                HomeShelf(
+                    title = firstShelfTitle,
+                    state = firstShelfState,
+                    onResultClick = trackedOnResultClick,
+                    firstItemFocusRequester = firstVideoFocusRequester,
+                    focusFirstItemTrigger = firstVideoFocusTrigger,
+                    restoreFocusItemKey = restoreFocusItemKey,
+                    restoreFocusRequester = restoreFocusRequester,
+                    railFocusRequester = railFocusRequester,
+                    onItemFocused = trackedOnItemFocused,
+                    header = firstShelfHeader(isHalloween = isHalloween, sessionJoinUrl = sessionJoinUrl),
+                )
+                Spacer(modifier = Modifier.height(BOTTOM_SPACER_HEIGHT))
+            }
         }
     }
+}
+
+private fun HomeUiState.firstShelf(isHalloween: Boolean): Pair<String, ShelfUiState> =
+    if (isHalloween) HALLOWEEN_HITS_TITLE to halloween else TOP_PICKS_TITLE to topPicks
+
+/**
+ * What sits above the first shelf's title: the "Happy Halloween" headline while that theme is on,
+ * then the join banner once the session is known -- or nothing at all.
+ */
+private fun firstShelfHeader(
+    isHalloween: Boolean,
+    sessionJoinUrl: String?,
+): (@Composable () -> Unit)? {
+    if (sessionJoinUrl == null && !isHalloween) return null
+    return {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(SHELF_SPACING),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SAFE_ZONE_HORIZONTAL)
+                    .padding(bottom = SHELF_SPACING),
+        ) {
+            if (isHalloween) HalloweenHeadline()
+            sessionJoinUrl?.let { JoinPartyCard(joinUrl = it, modifier = Modifier.fillMaxWidth()) }
+        }
+    }
+}
+
+/** "Happy Halloween" above the join banner while the Halloween theme is on. */
+@Composable
+private fun HalloweenHeadline() {
+    Text(
+        text =
+            buildAnnotatedString {
+                append("Happy ")
+                withStyle(SpanStyle(color = LocalKaraloTokens.current.accent)) { append("Halloween") }
+            },
+        style =
+            MaterialTheme.typography.headlineLarge.copy(
+                fontSize = HALLOWEEN_HEADLINE_FONT_SIZE,
+                lineHeight = 40.sp,
+            ),
+        color = MaterialTheme.colorScheme.onBackground,
+    )
 }
 
 /**
@@ -391,13 +435,18 @@ private fun HomeShelf(
         header?.invoke()
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = SHELF_TITLE_FONT_SIZE),
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = SAFE_ZONE_HORIZONTAL),
         )
         Spacer(modifier = Modifier.height(SHELF_TITLE_SPACING))
         when (state) {
-            is ShelfUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxWidth().height(SHELF_LOADING_HEIGHT))
+            is ShelfUiState.Loading ->
+                SkeletonShelf(
+                    cardWidth = SHELF_CARD_WIDTH,
+                    contentPadding = SHELF_CONTENT_PADDING,
+                    itemSpacing = SHELF_CARD_GUTTER,
+                )
             is ShelfUiState.Error ->
                 Text(
                     text = "Couldn't load \"$title\". Check your connection and try again.",
@@ -413,6 +462,8 @@ private fun HomeShelf(
                 TvCarousel(
                     items = state.items,
                     key = { it.videoId },
+                    contentPadding = SHELF_CONTENT_PADDING,
+                    horizontalArrangement = Arrangement.spacedBy(SHELF_CARD_GUTTER),
                     firstItemFocusRequester = firstItemFocusRequester,
                     focusFirstItemTrigger = focusFirstItemTrigger,
                     leftEdgeFocusRequester = railFocusRequester,

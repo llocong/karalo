@@ -9,6 +9,22 @@ plugins {
     alias(libs.plugins.baselineprofile)
 }
 
+// The version release-please manages (see CONTRIBUTING.md "Releasing"): a release PR bumps it in
+// .release-please-manifest.json, and versionCode follows from it, so every release's is higher than
+// the last -- Android refuses to install an update whose versionCode isn't.
+val appVersionName: String =
+    Regex(""""\."\s*:\s*"([^"]+)"""")
+        .find(rootProject.file(".release-please-manifest.json").readText())
+        ?.groupValues
+        ?.get(1)
+        ?: error(".release-please-manifest.json has no version for \".\"")
+
+// major.minor.patch -> MMM_mmm_ppp, e.g. 0.1.0 -> 1000 and 1.2.3 -> 1002003.
+val appVersionCode: Int =
+    appVersionName.substringBefore('-').split('.').map(String::toInt).let { (major, minor, patch) ->
+        major * 1_000_000 + minor * 1_000 + patch
+    }
+
 android {
     namespace = "com.karalo.karalo"
     compileSdk = 35
@@ -17,8 +33,8 @@ android {
         applicationId = "com.karalo.karalo"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "com.karalo.karalo.HiltTestRunner"
     }
 
@@ -56,6 +72,15 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        // Release builds' lintVital step crashes on this AGP: androidx.lifecycle's bundled
+        // NonNullableMutableLiveDataDetector throws IncompatibleClassChangeError (disabling its
+        // issue doesn't stop it running), failing every release build. The app has no LiveData
+        // for it to check, and CI still runs ktlint/detekt; drop this once lifecycle or AGP is
+        // updated past the incompatibility.
+        checkReleaseBuilds = false
     }
 
     // androidTestImplementation(:core-testing) pulls in JUnit5, and several of its jars each
@@ -99,6 +124,7 @@ dependencies {
     implementation(project(":feature-search"))
     implementation(project(":feature-player"))
     implementation(project(":feature-home"))
+    implementation(project(":feature-playlists"))
     implementation(project(":feature-history"))
 
     implementation(libs.androidx.core.ktx)

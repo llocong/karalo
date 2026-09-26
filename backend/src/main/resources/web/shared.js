@@ -1,6 +1,23 @@
 // Shared fetch/localStorage helpers for the karaoke mobile web app. No build step, no framework —
 // see the karaoke implementation plan's "Mobile web app" section for why.
 
+// The session's seasonal theme, picked on the TV (Settings). Sent by the backend with the session
+// lookup and every queue snapshot; remembered so the next page load paints in it straight away
+// (see the inline script in each page's <head>) instead of flashing the default first.
+const THEME_KEY = "karalo_theme";
+
+function applyTheme(theme) {
+  if (!theme) return;
+  const name = theme === "DEFAULT" ? "" : String(theme).toLowerCase();
+  if (name) document.documentElement.dataset.theme = name;
+  else delete document.documentElement.dataset.theme;
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (e) {
+    // Storage blocked (private mode) -- the theme still applies for this page.
+  }
+}
+
 function storageKey(sessionId) {
   return `karalo_participant_${sessionId}`;
 }
@@ -30,16 +47,38 @@ function rememberedDisplayName() {
   return localStorage.getItem(DISPLAY_NAME_KEY) || "";
 }
 
-// A 401 means the backend no longer knows this guest -- it drops guests idle for a couple of hours
-// with nothing left in the queue. They're treated as a new guest: the token is forgotten (the name
-// is kept, see rememberDisplayName) and they go back to the Join page for this session.
+// Set by the first redirect below: several requests can fail at once (the live connection's close
+// check among them, which runs after the token is already forgotten), and a later one mustn't
+// override where the first one is taking the guest.
+let leavingPage = false;
+
+// A 401 without a reason (see sendToSessionOver) means the backend doesn't recognize this token at
+// all. They're treated as a new guest: the token is forgotten (the name is kept, see
+// rememberDisplayName) and they go back to the Join page for this session.
 function sendBackToJoin(sessionId) {
+  if (leavingPage) return;
+  leavingPage = true;
   const stale = loadParticipant(sessionId);
   if (stale) rememberDisplayName(stale.displayName);
   clearParticipant(sessionId);
   // Records saved before the session code was stored alongside the token can't find their Join
   // page; the landing page is the best fallback (scanning the TV's QR code again works as usual).
   location.href = stale && stale.code ? `/join/${encodeURIComponent(stale.code)}` : "/";
+}
+
+// Why a guest lost access, as the backend's 401 error code says: the whole session ended (its TV
+// went quiet for a while) or just this guest timed out (a couple of hours without doing anything).
+// Either way the token is forgotten and the name kept, and they get a page explaining what
+// happened -- not the Join page, which would only fail again, nor the website's homepage.
+const SESSION_OVER_REASONS = { SESSION_ENDED: "ended", GUEST_EXPIRED: "away" };
+
+function sendToSessionOver(sessionId, reason) {
+  if (leavingPage) return;
+  leavingPage = true;
+  const stale = sessionId ? loadParticipant(sessionId) : null;
+  if (stale) rememberDisplayName(stale.displayName);
+  if (sessionId) clearParticipant(sessionId);
+  location.href = `/session-over.html?reason=${reason}`;
 }
 
 async function apiFetch(path, options = {}) {
@@ -59,7 +98,9 @@ async function apiFetch(path, options = {}) {
   }
   const data = await response.json().catch(() => null);
   if (response.status === 401 && sessionId && options.redirectOnUnauthorized !== false) {
-    sendBackToJoin(sessionId);
+    const reason = SESSION_OVER_REASONS[data && data.error && data.error.code];
+    if (reason) sendToSessionOver(sessionId, reason);
+    else sendBackToJoin(sessionId);
     // Never settles: the page is navigating away, and the caller's own error handling (a
     // "Couldn't load the queue" toast, say) would only flash on screen on the way out.
     return new Promise(() => {});
@@ -68,6 +109,15 @@ async function apiFetch(path, options = {}) {
     return { ok: false, status: response.status, error: data && data.error };
   }
   return { ok: true, status: response.status, data };
+}
+
+// Song thumbnails show at 64x36 (56px at most in the queue), but a search result carries YouTube's
+// 1280x720 image (~80 KB). Its 320x180 one (~15 KB) is sharp enough at phone densities, and is
+// what's loaded here whenever the video id is known. Lazy: rows below the fold wait for a scroll.
+function thumbnailImg(videoId, fallbackUrl) {
+  const src = /^[\w-]{11}$/.test(videoId || "") ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : fallbackUrl;
+  // Escaped: a phone supplies the fallback URL when adding a song, and every other phone renders it.
+  return src ? `<img src="${escapeHtml(src)}" alt="" loading="lazy" decoding="async" />` : "";
 }
 
 function showToast(message) {

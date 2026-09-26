@@ -10,7 +10,33 @@
   --muted: #A79BB5;
   --tertiary: #63576F;
   --danger: #FF5D8F;
+  /* Theme-following tokens (see the "Karalo Themes" design): text on the accent, the stronger
+     outline, raised controls, the soft headline tint, and the Join page's backdrop. */
+  --on-accent: #0B0710;
+  --border-2: #3A2D47;
+  --raised: #241834;
+  --soft: #C4B5FD;
+  --join-bg: radial-gradient(circle at 50% 32%, #4C1D95 0%, #0B0710 70%);
 }
+/* Seasonal theme picked on the TV (Settings) -- set on <html> by applyTheme() in shared.js. */
+html[data-theme="halloween"] {
+  --bg: #0A0610;
+  --surface: #170E1B;
+  --border: #2E1B2E;
+  --border-2: #46283F;
+  --raised: #26162A;
+  --accent: #FF7A1A;
+  --danger: #FF7A1A;
+  --on-accent: #1A0B02;
+  --soft: #F2C9A8;
+  --join-bg: radial-gradient(circle at 50% 30%, #4A1F0E 0%, #2A0F3F 35%, #0A0610 72%);
+}
+/* Theme-only elements: hidden unless their theme is on. */
+.halloween-only { display: none !important; }
+html[data-theme="halloween"] .halloween-only { display: revert !important; }
+/* Logo parts that follow the theme accent (the mic band and play badge). */
+.logo-accent { fill: var(--accent); }
+.on-accent-fill { fill: var(--on-accent); }
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -40,6 +66,16 @@ input, textarea {
   font-weight: 600;
   color: var(--text);
 }
+/* The brand's per-letter baseline wave (K -0.06em, a +0.06, r -0.08, a +0.03, l -0.06, o +0.06),
+   in em so it scales with the wordmark's font size. Markup: one <span> per letter. */
+.wordmark.wave { display: inline-flex; align-items: baseline; }
+.wordmark.wave span { display: inline-block; }
+.wordmark.wave span:nth-child(1) { transform: translateY(-0.06em); }
+.wordmark.wave span:nth-child(2) { transform: translateY(0.06em); }
+.wordmark.wave span:nth-child(3) { transform: translateY(-0.08em); }
+.wordmark.wave span:nth-child(4) { transform: translateY(0.03em); }
+.wordmark.wave span:nth-child(5) { transform: translateY(-0.06em); }
+.wordmark.wave span:nth-child(6) { transform: translateY(0.06em); }
 
 /* ---------- Generic form controls ---------- */
 input[type="text"] {
@@ -72,7 +108,7 @@ button {
   display: block;
   width: 100%;
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
   text-align: center;
   font-weight: 800;
   font-size: 15px;
@@ -314,14 +350,14 @@ button {
   justify-content: center;
   padding: 0;
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
   flex-shrink: 0;
 }
 .icon-button.secondary {
   width: 44px;
   height: 44px;
-  background: var(--border);
-  border: 1px solid #3A2D47;
+  background: var(--raised);
+  border: 1px solid var(--border-2);
   color: var(--text);
 }
 .icon-button svg { display: block; }
@@ -351,7 +387,7 @@ button {
   justify-content: flex-end;
   padding-right: 20px;
 }
-.queue-row-delete svg { fill: var(--bg); }
+.queue-row-delete { color: var(--on-accent); }
 .queue-row {
   position: relative;
   display: flex;
@@ -485,6 +521,6 @@ button {
 }
 .modal-actions .primary {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .modal-actions .primary:disabled { opacity: 0.5; }

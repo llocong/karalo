@@ -15,7 +15,14 @@ sealed class ApiException(
 ) : Exception(message) {
     class Validation(message: String) : ApiException("VALIDATION", HttpStatusCode.BadRequest, message)
 
-    class Unauthorized(message: String = "Unauthorized") : ApiException("UNAUTHORIZED", HttpStatusCode.Unauthorized, message)
+    /**
+     * [code] tells the phone why, when it matters: [SESSION_ENDED] and [GUEST_EXPIRED] send it to
+     * the matching "session over" page instead of back to Join.
+     */
+    class Unauthorized(
+        message: String = "Unauthorized",
+        code: String = "UNAUTHORIZED",
+    ) : ApiException(code, HttpStatusCode.Unauthorized, message)
 
     class NotFound(message: String = "Not found") : ApiException("NOT_FOUND", HttpStatusCode.NotFound, message)
 
@@ -23,3 +30,9 @@ sealed class ApiException(
 
     class UpstreamUnavailable(message: String) : ApiException("UPSTREAM_UNAVAILABLE", HttpStatusCode.BadGateway, message)
 }
+
+/** The TV went quiet long enough for its session to end (see TV_INACTIVITY_TIMEOUT). */
+const val SESSION_ENDED = "SESSION_ENDED"
+
+/** The guest went too long without a meaningful action (see GUEST_INACTIVITY_TIMEOUT). */
+const val GUEST_EXPIRED = "GUEST_EXPIRED"

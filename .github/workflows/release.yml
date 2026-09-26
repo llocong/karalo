@@ -19,29 +19,52 @@ jobs:
       - id: release-please
         uses: googleapis/release-please-action@v4
         with:
+          # Bumps the version in .release-please-manifest.json (which app/build.gradle.kts reads
+          # versionName and versionCode from) and updates CHANGELOG.md, from Conventional Commits.
           release-type: simple
-          # Bumps versionName per semantic versioning from Conventional Commits and generates
-          # CHANGELOG.md; app/build.gradle.kts' versionCode is bumped manually per release for now
-          # (see CONTRIBUTING.md "Releasing").
 
   build-and-sign:
-    name: Build signed release AAB
+    name: Build signed release APK
     runs-on: ubuntu-latest
     needs: version-and-changelog
     if: needs.version-and-changelog.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v')
+    env:
+      # Set by release-please when it just created the release, or the pushed tag otherwise.
+      TAG: ${{ needs.version-and-changelog.outputs.tag_name || github.ref_name }}
+      # Where friends download it (see deploy/publish-apk.sh, which copies the release there).
+      DOWNLOAD_BASE_URL: ${{ vars.KARALO_DOWNLOAD_BASE_URL || 'https://karalo.app/download' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
 
+      # Never ship an unsigned or debug-signed APK: Android only installs updates signed with the
+      # same key, so a release signed with anything else can't be updated later.
+      - name: Check release secrets
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KARALO_TV_REGISTRATION_KEY: ${{ secrets.KARALO_TV_REGISTRATION_KEY }}
+          KARALO_BACKEND_BASE_URL: ${{ vars.KARALO_BACKEND_BASE_URL }}
+          KARALO_BACKEND_WS_URL: ${{ vars.KARALO_BACKEND_WS_URL }}
+        run: |
+          missing=""
+          for name in RELEASE_KEYSTORE_BASE64 KARALO_TV_REGISTRATION_KEY KARALO_BACKEND_BASE_URL KARALO_BACKEND_WS_URL; do
+            [ -n "$(printenv "$name")" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing release secrets/variables:$missing (see CONTRIBUTING.md \"Releasing\")"
+            exit 1
+          fi
+
       - name: Decode signing keystore
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-        if: env.RELEASE_KEYSTORE_BASE64 != ''
-        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release.keystore
+        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
       - name: Decode google-services.json
         env:
@@ -49,22 +72,65 @@ jobs:
         if: env.GOOGLE_SERVICES_JSON_BASE64 != ''
         run: echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/google-services.json
 
-      - name: Build signed AAB
+      - name: Build signed APK and AAB
         env:
-          RELEASE_KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease
+          KARALO_BACKEND_BASE_URL: ${{ vars.KARALO_BACKEND_BASE_URL }}
+          KARALO_BACKEND_WS_URL: ${{ vars.KARALO_BACKEND_WS_URL }}
+          KARALO_TV_REGISTRATION_KEY: ${{ secrets.KARALO_TV_REGISTRATION_KEY }}
+        run: ./gradlew :app:assembleRelease :app:bundleRelease
 
-      - name: Attach AAB to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      # The files a release carries: the APK (named for its version), its checksum, and
+      # latest.json -- what karalo.app/download serves, and what an in-app update check will read.
+      - name: Package release files
+        run: |
+          set -eu
+          apk_in=app/build/outputs/apk/release/app-release.apk
+          build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$build_tools/apksigner" verify "$apk_in"
+          if "$build_tools/apksigner" verify --print-certs "$apk_in" | grep -q "CN=Android Debug"; then
+            echo "::error::The APK is signed with a debug key"; exit 1
+          fi
+          badging="$("$build_tools/aapt2" dump badging "$apk_in" | head -1)"
+          version_code="$(echo "$badging" | sed -E "s/.*versionCode='([0-9]+)'.*/\1/")"
+          version_name="$(echo "$badging" | sed -E "s/.*versionName='([^']+)'.*/\1/")"
+          [ "v$version_name" = "$TAG" ] || { echo "::error::APK version $version_name doesn't match tag $TAG"; exit 1; }
+
+          mkdir -p release
+          apk="karalo-$version_name.apk"
+          cp "$apk_in" "release/$apk"
+          cp app/build/outputs/bundle/release/app-release.aab "release/karalo-$version_name.aab"
+          sha256="$(sha256sum "release/$apk" | cut -d' ' -f1)"
+          echo "$sha256  $apk" > "release/$apk.sha256"
+
+          # This version's section of CHANGELOG.md ("## [0.2.0](...) (date)" up to the next "## ").
+          notes="$(awk -v v="$version_name" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## / { exit }
+            on { print }' CHANGELOG.md)"
+          jq -n \
+            --argjson versionCode "$version_code" \
+            --arg versionName "$version_name" \
+            --arg apkUrl "$DOWNLOAD_BASE_URL/$apk" \
+            --arg sha256 "$sha256" \
+            --arg notes "$notes" \
+            --arg releasedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{versionCode: $versionCode, versionName: $versionName, apkUrl: $apkUrl, sha256: $sha256, notes: $notes, releasedAt: $releasedAt}' \
+            > release/latest.json
+          cat release/latest.json
+
+      - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/bundle/release/app-release.aab
+          tag_name: ${{ env.TAG }}
+          files: release/*
 
       # Play Console publishing is opt-in: wire PLAY_SERVICE_ACCOUNT_JSON as a repo secret and
-      # uncomment this step when the app has a Play Console listing (see README "Secrets").
+      # uncomment this step when the app has a Play Console listing (see README "Secrets"). A Play
+      # build must not include a self-updater (Play policy), so disable that for this upload.
       # - name: Publish to Play Console (internal testing track)
       #   if: env.PLAY_SERVICE_ACCOUNT_JSON != ''
       #   env:
@@ -73,5 +139,5 @@ jobs:
       #   with:
       #     serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
       #     packageName: com.karalo.karalo
-      #     releaseFiles: app/build/outputs/bundle/release/app-release.aab
+      #     releaseFiles: release/*.aab
       #     track: internal

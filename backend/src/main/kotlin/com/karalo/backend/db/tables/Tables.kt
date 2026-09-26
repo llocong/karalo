@@ -1,5 +1,7 @@
 package com.karalo.backend.db.tables
 
+import com.karalo.backend.domain.model.SeasonalTheme
+
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.timestamp
 
@@ -34,7 +36,19 @@ object Sessions : Table("sessions") {
     // when the song starts, and forced on when history is paused mid-song -- so a song is only
     // recorded if history was on for its whole run, and resuming never adds one retroactively.
     val nowPlayingHistorySuppressed = bool("now_playing_history_suppressed").default(false)
+
+    // Seasonal theme the host picked on the TV (a SeasonalTheme name), shown on the TV and on
+    // every phone in the session.
+    val theme = text("theme").default(SeasonalTheme.DEFAULT.name)
     val updatedAt = timestamp("updated_at")
+
+    // Set when the TV went quiet for TV_INACTIVITY_TIMEOUT (see endSessionIfTvInactive): the
+    // session's guests and queue are gone, and its next ensure clears this again.
+    val endedAt = timestamp("ended_at").nullable()
+
+    // When the TV's live connection (/ws/tv) last dropped, null while it's connected. Closing
+    // the app drops it, which ends the session after TV_DISCONNECT_GRACE.
+    val tvDisconnectedAt = timestamp("tv_disconnected_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -52,6 +66,11 @@ object Participants : Table("participants") {
     // Nullable only so createMissingTablesAndColumns can add it to an existing DB; every row gets
     // a value (new rows on join, older ones via the startup backfill in connectDatabase).
     val lastActiveAt = timestamp("last_active_at").nullable()
+
+    // Removed guests are kept as tombstones for a while (see pruneInactive), so an old token can
+    // still tell the phone *why* it lost access: a GuestRemovalReason name.
+    val removedAt = timestamp("removed_at").nullable()
+    val removedReason = text("removed_reason").nullable()
     override val primaryKey = PrimaryKey(id)
 
     init {

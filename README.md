@@ -8,6 +8,19 @@ minimal remote-friendly player. Every search is silently prefixed with `karaoke 
 autocomplete, a results grid, and a stripped-down player (Play/Pause, Previous, Next, progress
 bar only). No microphone/scoring, no accounts, no monetization.
 
+## Install on your TV
+
+On a Google TV / Android TV (e.g. Chromecast with Google TV):
+
+1. From the Play Store, install **Downloader** (by AFTVnews).
+2. Allow it to install apps: *Settings > Apps > Security & restrictions > Unknown sources >
+   Downloader* (the exact path varies a little between TVs).
+3. Open Downloader, type `karalo.app/download`, and install when it asks.
+
+To update, do the same again: it installs over the existing app and keeps its settings. Right after
+installing or updating, the app can feel slower to start until the TV optimizes it in the
+background, usually overnight.
+
 ## Architecture
 
 Clean Architecture + MVVM across the Android app's Gradle modules, plus an independent backend
@@ -173,5 +186,3 @@ merge, branch protection settings to configure once).
 - **No system media integration.** Hardware/remote media keys are handled directly by
   `MainActivity` (see `com.karalo.core.common.mediakeys`), not via a `MediaSession`, so there's no
   lock-screen/notification playback UI or guaranteed Google Assistant voice control.
-- **Placeholder art.** The launcher icon and Google TV banner (`app/src/main/res/drawable/`) are
-  simple vector placeholders, not final brand assets.

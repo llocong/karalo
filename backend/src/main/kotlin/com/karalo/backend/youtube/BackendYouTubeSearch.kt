@@ -61,9 +61,20 @@ class BackendYouTubeSearch(
         }
     }
 
-    fun search(query: String): List<Result> =
+    private val cache = SearchCache<List<Result>>()
+
+    /** Blocking (a live scrape): call it off the request threads, e.g. on Dispatchers.IO. */
+    fun search(query: String): List<Result> {
+        val fullQuery = applyKaraokePrefix(query)
+        return cache.getOrLoad(fullQuery.lowercase()) { fetch(fullQuery, query) }
+    }
+
+    private fun fetch(
+        fullQuery: String,
+        query: String,
+    ): List<Result> =
         try {
-            val queryHandler = service.searchQHFactory.fromQuery(applyKaraokePrefix(query))
+            val queryHandler = service.searchQHFactory.fromQuery(fullQuery)
             val info = SearchInfo.getInfo(service, queryHandler)
             filterWithOneTopUp(
                 firstPage = info.relatedItems.filterIsInstance<StreamInfoItem>(),

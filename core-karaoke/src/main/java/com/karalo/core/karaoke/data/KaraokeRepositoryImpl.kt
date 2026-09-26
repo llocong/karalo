@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.karalo.core.common.di.ApplicationScope
 import com.karalo.core.common.error.AppError
 import com.karalo.core.common.logging.Logger
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.common.result.AppResult
 import com.karalo.core.common.result.map
 import com.karalo.core.common.result.onSuccess
@@ -59,6 +60,7 @@ private const val RECONNECT_MAX_BACKOFF_SHIFT = 5
 private const val RECONNECT_JITTER_MAX_MS = 400L
 
 internal val TV_SECRET_KEY = stringPreferencesKey("karaoke_tv_secret")
+internal val SEASONAL_THEME_KEY = stringPreferencesKey("karaoke_seasonal_theme")
 
 /** Exponential backoff, capped: 1s, 2s, 4s, ... up to [RECONNECT_MAX_DELAY_SECONDS]. */
 private fun backoffDelayFor(attempt: Int): Long {
@@ -101,6 +103,9 @@ class KaraokeRepositoryImpl
         private val sessionJoinUrlFlow = MutableStateFlow<String?>(null)
         override val sessionJoinUrl: StateFlow<String?> = sessionJoinUrlFlow.asStateFlow()
 
+        private val seasonalThemeFlow = MutableStateFlow(SeasonalTheme.DEFAULT)
+        override val seasonalTheme: StateFlow<SeasonalTheme> = seasonalThemeFlow.asStateFlow()
+
         // Cached after the first successful ensure; reused for every subsequent REST call and WS
         // (re)connect for the rest of this process's lifetime. Never re-derived from anywhere
         // else, which is what guarantees the WS reconnect loop can never accidentally address a
@@ -119,7 +124,11 @@ class KaraokeRepositoryImpl
 
         override suspend fun ensureSession(): AppResult<KaraokeSession> {
             val tvId = tvInstallationIdProvider.getOrCreate()
-            val secret = cachedTvSecret ?: dataStore.data.first()[TV_SECRET_KEY]
+            val prefs = dataStore.data.first()
+            val secret = cachedTvSecret ?: prefs[TV_SECRET_KEY]
+            // The last theme this TV saw, so launch paints in it before the backend answers (or
+            // while it's unreachable) -- the backend's own value replaces it just below.
+            if (cachedSessionId == null) seasonalThemeFlow.value = SeasonalTheme.fromWireName(prefs[SEASONAL_THEME_KEY])
             return when (val result = api.ensureSession(tvId, secret)) {
                 is AppResult.Success -> {
                     val body = result.data
@@ -129,6 +138,7 @@ class KaraokeRepositoryImpl
                         dataStore.edit { prefs -> prefs[TV_SECRET_KEY] = fresh }
                     } ?: run { cachedTvSecret = secret }
                     sessionJoinUrlFlow.value = body.session.joinUrl
+                    applyTheme(body.session.theme)
                     reconcile()
                     startWebSocketLoopIfNeeded()
                     AppResult.Success(KaraokeSession(body.session.id, body.session.code, body.session.joinUrl))
@@ -194,6 +204,31 @@ class KaraokeRepositoryImpl
         override suspend fun clearHistory(): AppResult<Unit> =
             withSession { sessionId, secret -> api.clearHistory(sessionId, secret) }
 
+        override suspend fun setSeasonalTheme(theme: SeasonalTheme): AppResult<SeasonalTheme> =
+            withSession { sessionId, secret ->
+                // Applied optimistically so the TV switches the instant the host picks it, then
+                // reverted if the backend refuses -- phones only ever follow the backend's value.
+                val previous = seasonalThemeFlow.value
+                seasonalThemeFlow.value = theme
+                when (val result = api.setTheme(sessionId, secret, theme.wireName)) {
+                    is AppResult.Success -> AppResult.Success(applyTheme(result.data))
+                    is AppResult.Failure -> {
+                        seasonalThemeFlow.value = previous
+                        AppResult.Failure(result.error)
+                    }
+                }
+            }
+
+        /** Publishes the backend's [wireName] theme and remembers it for the next launch. */
+        private suspend fun applyTheme(wireName: String): SeasonalTheme {
+            val theme = SeasonalTheme.fromWireName(wireName)
+            seasonalThemeFlow.value = theme
+            dataStore.edit { prefs ->
+                if (prefs[SEASONAL_THEME_KEY] != theme.wireName) prefs[SEASONAL_THEME_KEY] = theme.wireName
+            }
+            return theme
+        }
+
         private suspend inline fun <T> withSession(
             block: suspend (sessionId: String, secret: String) -> AppResult<T>,
         ): AppResult<T> {
@@ -210,7 +245,10 @@ class KaraokeRepositoryImpl
             val sessionId = cachedSessionId ?: return
             val secret = cachedTvSecret ?: return
             when (val result = api.fetchQueue(sessionId, secret)) {
-                is AppResult.Success -> queueSnapshotFlow.value = result.data.toDomain()
+                is AppResult.Success -> {
+                    queueSnapshotFlow.value = result.data.toDomain()
+                    applyTheme(result.data.theme)
+                }
                 is AppResult.Failure -> logger.log("Karaoke queue reconcile failed: ${result.error}")
             }
         }
@@ -220,6 +258,7 @@ class KaraokeRepositoryImpl
                 queueSnapshotFlow.value.copy(
                     nowPlaying = payload.nowPlaying?.toDomain(),
                     playbackState = payload.playbackState ?: queueSnapshotFlow.value.playbackState,
+                    loaded = true,
                 )
         }
 

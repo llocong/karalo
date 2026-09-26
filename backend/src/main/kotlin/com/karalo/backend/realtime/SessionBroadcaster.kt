@@ -1,5 +1,6 @@
 package com.karalo.backend.realtime
 
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
@@ -33,6 +34,17 @@ class SessionRoom {
 
     suspend fun setTvSocket(session: DefaultWebSocketSession?) = tvMutex.withLock { tvSocket = session }
 
+    /**
+     * Unregisters [session] if it's still the TV's current socket. Returns false when a reconnect
+     * already replaced it, so the old socket's close isn't mistaken for the TV going away.
+     */
+    suspend fun clearTvSocket(session: DefaultWebSocketSession): Boolean =
+        tvMutex.withLock {
+            if (tvSocket !== session) return false
+            tvSocket = null
+            true
+        }
+
     suspend fun sendToTv(text: String): Boolean =
         tvMutex.withLock {
             val socket = tvSocket ?: return false
@@ -41,6 +53,12 @@ class SessionRoom {
 
     suspend fun broadcastToPhones(text: String) {
         phoneSockets.forEach { socket -> runCatching { socket.send(Frame.Text(text)) } }
+    }
+
+    /** Disconnects every phone, e.g. when the session ends; [reason] is the error code they'll see. */
+    suspend fun closePhones(reason: String) {
+        phoneSockets.forEach { runCatching { it.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, reason)) } }
+        phoneSockets.clear()
     }
 
     suspend fun closeAll() {
@@ -72,6 +90,13 @@ class SessionBroadcaster(
         val room = rooms[sessionId] ?: return
         room.broadcastToPhones(text)
         room.sendToTv(text)
+    }
+
+    suspend fun closePhones(
+        sessionId: String,
+        reason: String,
+    ) {
+        rooms[sessionId]?.closePhones(reason)
     }
 
     /** TV-only relay (pause/resume/skip commands) — returns false if the TV isn't connected. */

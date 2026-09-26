@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
+import com.karalo.core.common.model.SeasonalTheme
 import com.karalo.core.ui.theme.KaraloTheme
 import com.karalo.feature.search.domain.SearchResultItem
 import org.junit.Rule
@@ -19,9 +20,8 @@ private const val ITEM_COUNT = 4
 /**
  * Verifies `HomeScreenContent`'s own wiring on top of [TvCarousel][com.karalo.core.ui.components.TvCarousel]
  * -- see core-ui's `TvCarouselScrollTest` for the generic centered-scroll math every shelf relies
- * on, which this test deliberately no longer re-asserts. What's specific to this screen: all three
- * shelves render with their titles, and UP/DOWN moves focus between shelves while each shelf keeps
- * its own row of cards independently focus-managed.
+ * on, which this test deliberately doesn't re-assert. What's specific to this screen: it shows one
+ * shelf, picked by the seasonal theme -- Top Picks by default, Halloween Hits under Halloween.
  */
 @OptIn(ExperimentalTestApi::class)
 class HomeShelfScrollTest {
@@ -39,40 +39,43 @@ class HomeShelfScrollTest {
             )
         }
 
-    @Test
-    fun allThreeShelvesRenderAndUpDownMovesFocusBetweenThem() {
+    private fun setContent(theme: SeasonalTheme) {
         composeRule.setContent {
-            KaraloTheme {
+            KaraloTheme(seasonalTheme = theme) {
                 HomeScreenContent(
                     uiState =
                         HomeUiState(
                             topPicks = ShelfUiState.Loaded(shelfItems("TopPicks")),
-                            pop = ShelfUiState.Loaded(shelfItems("Pop")),
-                            rock = ShelfUiState.Loaded(shelfItems("Rock")),
+                            halloween = ShelfUiState.Loaded(shelfItems("Halloween")),
                         ),
                     onResultClick = { _, _ -> },
                     firstVideoFocusTrigger = 0,
                 )
             }
         }
+    }
+
+    @Test
+    fun defaultThemeShowsOnlyTopPicksAndRightBrowsesIt() {
+        setContent(SeasonalTheme.DEFAULT)
 
         composeRule.onNodeWithText("Top Picks").assertExists()
-        composeRule.onNodeWithText("Pop").assertExists()
-        composeRule.onNodeWithText("Rock").assertExists()
+        composeRule.onNodeWithText("Halloween Hits").assertDoesNotExist()
+        composeRule.onNodeWithText("Halloween Item 0").assertDoesNotExist()
 
         composeRule.onNodeWithText("TopPicks Item 0").requestFocus()
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionRight) }
         composeRule.waitForIdle()
+        composeRule.onNodeWithText("TopPicks Item 1").assertIsFocused()
+    }
 
-        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("Pop Item 0").assertIsFocused()
+    @Test
+    fun halloweenThemeShowsOnlyHalloweenHits() {
+        setContent(SeasonalTheme.HALLOWEEN)
 
-        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("Rock Item 0").assertIsFocused()
-
-        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionUp) }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("Pop Item 0").assertIsFocused()
+        composeRule.onNodeWithText("Halloween Hits").assertExists()
+        composeRule.onNodeWithText("Halloween Item 0").assertExists()
+        composeRule.onNodeWithText("Top Picks").assertDoesNotExist()
+        composeRule.onNodeWithText("TopPicks Item 0").assertDoesNotExist()
     }
 }

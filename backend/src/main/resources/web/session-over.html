@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Karalo</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect x='6' y='6' width='84' height='84' rx='22' fill='%237C3AED'/%3E%3Crect x='40' y='26' width='16' height='20' rx='8' fill='%23F5F3F7'/%3E%3Crect x='41' y='46' width='14' height='4' rx='2' fill='%23FF5D8F'/%3E%3Cpolygon points='43,50 53,50 51,70 45,70' fill='%23F5F3F7'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <script>
+    // Paint in the last-known seasonal theme before first render (see applyTheme in shared.js).
+    try {
+      var t = localStorage.getItem("karalo_theme");
+      if (t && t !== "DEFAULT") document.documentElement.dataset.theme = t.toLowerCase();
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="/shared.css" />
+  <style>
+    /* Where a guest lands after losing access (see sendToSessionOver in shared.js), from the
+       "Session ended" and "Inactive" screens of the Karalo Remote Control design. ?reason=ended:
+       the TV went quiet and the session is over. ?reason=away: only this guest timed out. */
+    :root { --over-bg: radial-gradient(circle at 50% 38%, #3B1675 0%, #0B0710 68%); }
+    html[data-theme="halloween"] { --over-bg: var(--join-bg); }
+    body {
+      /* Same viewport handling as join.html: the sheet absorbs leftover height, never the content. */
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--over-bg);
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    .over-top { display: flex; justify-content: center; padding: 48px 28px 0; }
+    .over-top .wordmark { font-size: 20px; }
+    .over-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 32px 32px;
+    }
+    .over-text { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--soft);
+      background: rgba(124, 58, 237, 0.18);
+      border: 1px solid rgba(196, 181, 253, 0.2);
+      padding: 6px 12px;
+      border-radius: 999px;
+    }
+    .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .status-pill.ended .dot { background: var(--accent); }
+    .over-title {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 1.15;
+      margin: 0;
+      text-wrap: balance;
+    }
+    .over-body { font-size: 15px; line-height: 1.5; color: var(--muted); max-width: 290px; margin: 0; text-wrap: pretty; }
+    .over-sheet {
+      margin-top: auto;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 24px 24px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .over-sheet .label { font-weight: 700; font-size: 15px; }
+    .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+    .steps li { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+    .steps .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--raised);
+      border: 1px solid var(--border-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="over-top">
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <rect x="6" y="6" width="84" height="84" rx="22" fill="#7C3AED"/>
+        <rect x="26" y="24" width="44" height="30" rx="10" fill="none" stroke="#F5F3F7" stroke-width="3.5"/>
+        <rect x="40" y="26" width="16" height="20" rx="8" fill="#F5F3F7"/>
+        <rect x="41" y="46" width="14" height="4" rx="2" class="logo-accent"/>
+        <polygon points="43,50 53,50 51,70 45,70" fill="#F5F3F7"/>
+        <circle cx="70" cy="66" r="7" class="logo-accent"/>
+        <polygon points="67.5,62.5 67.5,69.5 73,66" fill="#0B0710"/>
+      </svg>
+      <div class="wordmark wave" role="img" aria-label="Karalo"><span>K</span><span>a</span><span>r</span><span>a</span><span>l</span><span>o</span></div>
+    </div>
+  </div>
+
+  <main class="over-main">
+    <!-- A TV showing a QR code: rejoining always goes through the TV. -->
+    <svg width="200" height="150" viewBox="0 0 200 150" fill="none" aria-hidden="true">
+      <rect x="10" y="8" width="180" height="112" rx="16" fill="var(--surface)" stroke="var(--border-2)" stroke-width="2.5"/>
+      <rect x="70" y="26" width="60" height="60" rx="8" fill="#F5F3F7"/>
+      <rect x="76" y="32" width="16" height="16" rx="3" fill="none" stroke="#0B0710" stroke-width="4"/>
+      <rect x="108" y="32" width="16" height="16" rx="3" fill="none" stroke="#0B0710" stroke-width="4"/>
+      <rect x="76" y="64" width="16" height="16" rx="3" fill="none" stroke="#0B0710" stroke-width="4"/>
+      <rect x="100" y="56" width="6" height="6" fill="#0B0710"/><rect x="110" y="64" width="6" height="6" fill="#0B0710"/><rect x="118" y="72" width="6" height="6" fill="#0B0710"/><rect x="100" y="72" width="6" height="6" fill="#0B0710"/><rect x="118" y="56" width="6" height="6" fill="#0B0710"/>
+      <rect x="60" y="96" width="80" height="6" rx="3" fill="var(--border-2)"/>
+      <rect x="78" y="128" width="44" height="6" rx="3" fill="var(--border-2)"/>
+      <path d="M62 18h-6a4 4 0 0 0-4 4v6M138 18h6a4 4 0 0 1 4 4v6M62 94h-6a4 4 0 0 1-4-4v-6M138 94h6a4 4 0 0 0 4-4v-6" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    <div class="over-text">
+      <div class="status-pill" id="status"><span class="dot"></span><span id="statusLabel">Disconnected</span></div>
+      <h1 class="over-title" id="title">You’ve been away for a while</h1>
+      <p class="over-body" id="body">Your connection to the TV timed out. Scan the QR code on the TV to jump back in.</p>
+    </div>
+  </main>
+
+  <div class="over-sheet">
+    <div class="label">How to rejoin</div>
+    <ol class="steps">
+      <li><span class="num">1</span>Open Karalo on the TV</li>
+      <li><span class="num">2</span>Scan the QR code with your phone camera</li>
+    </ol>
+  </div>
+
+  <script>
+    // "away" is the default: it's the right advice for any reason this page doesn't know.
+    if (new URLSearchParams(location.search).get("reason") === "ended") {
+      document.getElementById("status").classList.add("ended");
+      document.getElementById("statusLabel").textContent = "Session ended";
+      document.getElementById("title").textContent = "This karaoke session is over";
+      document.getElementById("body").textContent =
+        "Thanks for singing! To keep the party going, start a new session on the TV and scan the QR code.";
+    }
+  </script>
+</body>
+</html>

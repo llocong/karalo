@@ -25,6 +25,12 @@
     return;
   }
   const sessionId = lookup.data.sessionId;
+  applyTheme(lookup.data.theme);
+  // The TV went quiet long enough to end this session: nothing to join until it's back.
+  if (lookup.data.ended) {
+    sendToSessionOver(sessionId, "ended");
+    return;
+  }
 
   // Already joined this session on this phone? Skip straight to search if the token still works.
   // Its 401 is handled right here (not by apiFetch's usual redirect, which would reload this very
@@ -32,6 +38,10 @@
   const existing = loadParticipant(sessionId);
   if (existing) {
     const me = await apiFetch(`/api/sessions/${sessionId}/me`, { sessionId, redirectOnUnauthorized: false });
+    if (!me.ok && me.error && me.error.code === "SESSION_ENDED") {
+      sendToSessionOver(sessionId, "ended");
+      return;
+    }
     if (me.ok) {
       // Records saved before the code was stored alongside the token get it now, so a later 401
       // can bring this guest back to this page (see sendBackToJoin in shared.js).
@@ -60,6 +70,10 @@
       method: "POST",
       body: { displayName },
     });
+    if (!result.ok && result.error && result.error.code === "SESSION_ENDED") {
+      sendToSessionOver(sessionId, "ended"); // it ended while this page was open
+      return;
+    }
     if (!result.ok) {
       // Shown under the field (not in the header, which is for "session not found") so the
       // form stays usable for another try.

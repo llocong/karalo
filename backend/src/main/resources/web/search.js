@@ -2,8 +2,10 @@
   const params = new URLSearchParams(location.search);
   const sessionId = params.get("sessionId");
   const participant = sessionId ? loadParticipant(sessionId) : null;
+  // No token for this session on this phone (it timed out on another tab, or storage was
+  // cleared): the guest has to scan the TV's QR code again.
   if (!sessionId || !participant) {
-    location.href = "index.html";
+    sendToSessionOver(sessionId, "away");
     return;
   }
 
@@ -14,17 +16,33 @@
   const resultsEl = document.getElementById("results");
   let debounceTimer = null;
 
-  // Same shelves as the TV's Home screen (see feature-home/HomeViewModel.kt's TOP_PICKS_QUERY/
-  // POP_QUERY/ROCK_QUERY) plus R&B added with the identical "karaoke " + lowercase(name) rule --
-  // fetched through the exact same backend search endpoint real search results use, so a
-  // playlist's songs are genuinely equivalent to what the TV shelf would show, not a separate
-  // curated list.
+  // The TV's Playlists page, in the same order and with the same queries and covers (see
+  // PLAYLISTS in feature-playlists' Playlist.kt) -- keep the two lists in step. Each is fetched
+  // through the same backend search endpoint real search results use, not a curated list.
   const PLAYLISTS = [
-    { name: "Top Picks", query: "karaoke", image: "/images/playlist-top-picks.png" },
-    { name: "Pop", query: "karaoke pop", image: "/images/playlist-pop.png" },
-    { name: "Rock", query: "karaoke rock", image: "/images/playlist-rock.png" },
-    { name: "R&B", query: "karaoke r&b", image: "/images/playlist-rnb.png" },
+    { name: "Top Picks", query: "karaoke", image: "/images/playlists/top-picks.webp" },
+    { name: "Duets", query: "karaoke duets", image: "/images/playlists/duets.webp" },
+    { name: "Pop", query: "karaoke pop", image: "/images/playlists/pop.webp" },
+    { name: "Rock", query: "karaoke rock", image: "/images/playlists/rock.webp" },
+    { name: "R&B", query: "karaoke r&b", image: "/images/playlists/rnb.webp" },
+    { name: "Latin", query: "karaoke latin", image: "/images/playlists/latin.webp" },
+    { name: "Hip-Hop", query: "karaoke hip hop", image: "/images/playlists/hip-hop.webp" },
+    { name: "French Variety", query: "karaoke variété française", image: "/images/playlists/french-variety.webp" },
+    { name: "Disney", query: "karaoke disney", image: "/images/playlists/disney.webp" },
+    { name: "90’s Hits", query: "karaoke 90s hits", image: "/images/playlists/90s.webp" },
+    { name: "80’s Hits", query: "karaoke 80s hits", image: "/images/playlists/80s.webp" },
+    { name: "70’s Hits", query: "karaoke 70s hits", image: "/images/playlists/70s.webp" },
+    { name: "60’s Hits", query: "karaoke 60s hits", image: "/images/playlists/60s.webp" },
+    { name: "Vietnamese", query: "karaoke vietnamese", image: "/images/playlists/vietnamese.webp" },
   ];
+  // Only the first few are searched as soon as the page opens, so the tiles on screen open
+  // instantly; the rest are searched when tapped. Every playlist is a live YouTube search, and
+  // warming all of them would spend most of a guest's search allowance (see SearchRateLimit).
+  const PREFETCHED_PLAYLISTS = 4;
+  // The Halloween theme's banner playlist -- same query as the TV's "Halloween Hits" shelf (see
+  // feature-home/HomeViewModel.kt's HALLOWEEN_QUERY). Only fetched when the banner is tapped.
+  const HALLOWEEN_PLAYLIST = { name: "Halloween Hits", query: "halloween karaoke" };
+  document.getElementById("halloweenBanner").addEventListener("click", () => openPlaylist(HALLOWEEN_PLAYLIST));
   const BACK_ARROW_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 4l-8 8 8 8" stroke="#7C3AED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const playlistHeaderEl = document.getElementById("playlistHeader");
@@ -39,7 +57,11 @@
   function ensurePlaylistFetch(playlist) {
     if (!playlistFetches[playlist.name]) {
       playlistFetches[playlist.name] = apiFetch(`/api/sessions/${sessionId}/search?q=${encodeURIComponent(playlist.query)}`, { sessionId }).then(
-        (result) => (result.ok ? result.data.results : []),
+        (result) => {
+          // Not cached when it fails (rate limit, YouTube hiccup), so the next tap tries again.
+          if (!result.ok) delete playlistFetches[playlist.name];
+          return result.ok ? result.data.results : [];
+        },
       );
     }
     return playlistFetches[playlist.name];
@@ -55,9 +77,7 @@
       tile.addEventListener("click", () => openPlaylist(playlist));
       playlistsGridEl.appendChild(tile);
     });
-    // Eagerly warmed (not fetched lazily on click) so opening a tile is instant, matching the
-    // TV Home screen's own eager-load-on-mount behavior for its shelves.
-    PLAYLISTS.forEach(ensurePlaylistFetch);
+    PLAYLISTS.slice(0, PREFETCHED_PLAYLISTS).forEach(ensurePlaylistFetch);
   }
 
   // Whether the Playlists grid (the "main page") is what's currently showing, as last rendered by
@@ -168,7 +188,7 @@
       const row = document.createElement("div");
       row.className = "song-row";
       row.innerHTML = `
-        <div class="thumb">${r.thumbnailUrl ? `<img src="${escapeHtml(r.thumbnailUrl)}" alt="" />` : ""}</div>
+        <div class="thumb">${thumbnailImg(r.videoId, r.thumbnailUrl)}</div>
         <div class="meta">
           <div class="title">${escapeHtml(r.title)}</div>
         </div>

@@ -59,3 +59,14 @@ internal fun Modifier.upGoesTo(target: FocusRequester): Modifier =
 /** Swallows RIGHT so focus doesn't move (there's nothing enabled to the right). */
 internal fun Modifier.rightStaysPut(): Modifier =
     onPreviewKeyEvent { keyEvent -> keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight }
+
+/**
+ * DOWN from the header buttons goes to [target] (the newest song). Left to the list's own
+ * focusRestorer, focus could land on the list itself -- nothing visibly focused.
+ */
+internal fun Modifier.downGoesTo(target: FocusRequester): Modifier =
+    onPreviewKeyEvent { keyEvent ->
+        val isDown = keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionDown
+        if (isDown) target.requestFocus()
+        isDown
+    }

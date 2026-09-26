@@ -41,13 +41,14 @@ import coil.request.ImageRequest
 import coil.size.Precision
 import com.karalo.core.ui.focus.CenteredBringIntoViewSpec
 import com.karalo.core.ui.focus.InstantCenteredBringIntoViewSpec
+import com.karalo.core.ui.theme.KaraloPagePadding
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 
 /** Shared defaults for [TvCarousel], matching the spacing every row in this app already used. */
 object TvCarouselDefaults {
-    val ContentPadding = PaddingValues(horizontal = 58.dp, vertical = 20.dp)
+    val ContentPadding = PaddingValues(horizontal = KaraloPagePadding, vertical = 20.dp)
     val ItemGutter = 20.dp
     const val PREFETCH_AHEAD_COUNT = 4
 

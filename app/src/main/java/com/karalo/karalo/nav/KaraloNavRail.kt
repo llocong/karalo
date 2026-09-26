@@ -2,7 +2,6 @@ package com.karalo.karalo.nav
 
 import android.app.Activity
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -14,26 +13,25 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,27 +40,36 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.DrawerState
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.Icon
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.NavigationDrawerItemDefaults
 import androidx.tv.material3.NavigationDrawerScope
 import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import com.karalo.core.ui.R
-import com.karalo.core.ui.theme.KaraloLogoTextStyle
+import com.karalo.core.ui.components.KaraloLogoLockup
+import com.karalo.core.ui.components.KaraloLogoMark
+import com.karalo.core.ui.icons.KaraloIcons
+import com.karalo.core.ui.theme.KaraloNavLabelTextStyle
+import com.karalo.core.ui.theme.KaraloRailItemActive
+import com.karalo.core.ui.theme.KaraloTextSecondary
+import com.karalo.core.ui.theme.LocalKaraloTokens
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 const val NAV_TAG_HOME = "nav_home"
 const val NAV_TAG_SEARCH = "nav_search"
+const val NAV_TAG_PLAYLISTS = "nav_playlists"
 const val NAV_TAG_HISTORY = "nav_history"
 const val NAV_TAG_SETTINGS = "nav_settings"
 
@@ -84,24 +91,44 @@ private const val EXPLICIT_SELECT_GRACE_MS = 500L
 // works, rather than being silently snapped back.
 private const val STRAY_FOCUS_CORRECTION_WINDOW_MS = 120L
 
-// Generous gap below the logo header so the nav items sit well clear of it once the drawer is
-// collapsed to icons-only, per the nav-drawer guide's three-section layout (logo header / nav
-// items / bottom actions) -- developer.android.com/design/ui/tv/guides/components/navigation-drawer.
-private val HEADER_TO_ITEMS_SPACING = 48.dp
+// Gap below the logo header, per the "Karalo Themes" design (4cqw on a 16:9 screen).
+private val HEADER_TO_ITEMS_SPACING = 38.dp
 
 // Bigger than a regular nav icon -- this is the brand mark, not just another rail item.
-private val LOGO_SIZE = 40.dp
+private val LOGO_SIZE = 35.dp
 
-private val ITEM_COLLAPSED_WIDTH = NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
-private val ITEM_EXPANDED_WIDTH = NavigationDrawerItemDefaults.ExpandedDrawerItemWidth
-private val ITEM_HEIGHT = NavigationDrawerItemDefaults.ContainerHeightOneLine
-private val ITEM_HORIZONTAL_INSET = 16.dp
-private val ITEM_ICON_SIZE = NavigationDrawerItemDefaults.IconSize
+// The rail's share of the screen width, expanded (icons + labels) and collapsed (icons only), per
+// the design. Content tiles keep their own fixed size either way -- collapsing just reveals more.
+private const val RAIL_EXPANDED_SCREEN_FRACTION = 0.22f
+private const val RAIL_COLLAPSED_SCREEN_FRACTION = 0.09f
+private val RAIL_HORIZONTAL_PADDING = 16.dp
+private val RAIL_TOP_PADDING = 35.dp
 
-// Centers the (larger) logo on the same vertical line as the nav icons below it: item icons sit
-// at ITEM_HORIZONTAL_INSET + half their own size; solving for the same center with LOGO_SIZE
-// gives this inset instead of reusing ITEM_HORIZONTAL_INSET directly.
-private val HEADER_HORIZONTAL_INSET = ITEM_HORIZONTAL_INSET + (ITEM_ICON_SIZE - LOGO_SIZE) / 2
+private val ITEM_HEIGHT = 46.dp
+private val ITEM_SPACING = 12.dp
+private val ITEM_ICON_SIZE = 22.dp
+private val ITEM_LABEL_SPACING = 13.dp
+private val ITEM_SHAPE = RoundedCornerShape(10.dp)
+
+/**
+ * The rail item widths (the rail itself is these plus [RAIL_HORIZONTAL_PADDING] on each side), and
+ * the icon inset that keeps each icon centered in the collapsed width -- so it stays put while the
+ * rail expands around it.
+ */
+private class RailMetrics(
+    screenWidth: Dp,
+) {
+    val collapsedWidth = screenWidth * RAIL_COLLAPSED_SCREEN_FRACTION - RAIL_HORIZONTAL_PADDING * 2
+    val expandedWidth = screenWidth * RAIL_EXPANDED_SCREEN_FRACTION - RAIL_HORIZONTAL_PADDING * 2
+    val itemHorizontalInset = (collapsedWidth - ITEM_ICON_SIZE) / 2
+
+    // Centers the (larger) logo on the same vertical line as the nav icons below it.
+    val headerHorizontalInset = itemHorizontalInset + (ITEM_ICON_SIZE - LOGO_SIZE) / 2
+
+    /** How far along the collapsed-to-expanded width range [width] currently is, from 0f to 1f. */
+    fun revealFractionOf(width: Dp): Float =
+        ((width - collapsedWidth) / (expandedWidth - collapsedWidth)).coerceIn(0f, 1f)
+}
 
 /**
  * The drawer's contents: a logo header, the primary destinations, and a settings action pinned to
@@ -152,28 +179,44 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     drawerState: DrawerState,
     homeFocusRequester: FocusRequester,
     searchFocusRequester: FocusRequester,
+    playlistsFocusRequester: FocusRequester,
     historyFocusRequester: FocusRequester,
     settingsFocusRequester: FocusRequester,
     onHomeClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onPlaylistsClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onHomeSelect: () -> Unit,
     onSearchSelect: () -> Unit,
+    onPlaylistsSelect: () -> Unit,
     onHistorySelect: () -> Unit,
     onSettingsSelect: () -> Unit,
 ) {
     val searchInteractionSource = remember { MutableInteractionSource() }
     val homeInteractionSource = remember { MutableInteractionSource() }
+    val playlistsInteractionSource = remember { MutableInteractionSource() }
     val historyInteractionSource = remember { MutableInteractionSource() }
     val settingsInteractionSource = remember { MutableInteractionSource() }
-    val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
-    val isHomeFocused by homeInteractionSource.collectIsFocusedAsState()
-    val isHistoryFocused by historyInteractionSource.collectIsFocusedAsState()
-    val isSettingsFocused by settingsInteractionSource.collectIsFocusedAsState()
+    // Per-item focus is only read in effects (and by each item itself), never directly here: this
+    // whole rail used to recompose on every focus move from one item to the next. Only
+    // "any item focused" -- which changes when entering/leaving the rail -- is read in composition.
+    val searchFocused = searchInteractionSource.collectIsFocusedAsState()
+    val homeFocused = homeInteractionSource.collectIsFocusedAsState()
+    val playlistsFocused = playlistsInteractionSource.collectIsFocusedAsState()
+    val historyFocused = historyInteractionSource.collectIsFocusedAsState()
+    val settingsFocused = settingsInteractionSource.collectIsFocusedAsState()
 
-    LaunchedEffect(isSearchFocused, isHomeFocused, isHistoryFocused, isSettingsFocused) {
-        val anyFocused = isSearchFocused || isHomeFocused || isHistoryFocused || isSettingsFocused
+    val anyFocused by remember {
+        derivedStateOf {
+            searchFocused.value ||
+                homeFocused.value ||
+                playlistsFocused.value ||
+                historyFocused.value ||
+                settingsFocused.value
+        }
+    }
+    LaunchedEffect(anyFocused) {
         drawerState.setValue(if (anyFocused) DrawerValue.Open else DrawerValue.Closed)
     }
 
@@ -208,6 +251,7 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         when (route) {
             NavDestination.Home.route -> homeFocusRequester
             NavDestination.Search.route -> searchFocusRequester
+            NavDestination.Playlists.route -> playlistsFocusRequester
             NavDestination.History.route -> historyFocusRequester
             NavDestination.Settings.route -> settingsFocusRequester
             else -> null
@@ -235,6 +279,10 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         markExplicitSelect(NavDestination.Search.route)
         onSearchSelect()
     }
+    val trackedOnPlaylistsSelect: () -> Unit = {
+        markExplicitSelect(NavDestination.Playlists.route)
+        onPlaylistsSelect()
+    }
     val trackedOnHistorySelect: () -> Unit = {
         markExplicitSelect(NavDestination.History.route)
         onHistorySelect()
@@ -251,37 +299,49 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     // disposes the screen being left and rebuilds the one being entered (shelves, lazy rows, cards,
     // images, focus nodes) from scratch. Scanning across several rail items quickly (holding
     // DOWN/UP, or just arrowing through in succession) would otherwise pay that full rebuild cost
-    // once per item passed over, not just once for wherever the user actually stops -- each of
-    // these LaunchedEffects is individually keyed on its own isXFocused, so Compose already cancels
-    // a still-pending delay the instant focus moves off that item again, meaning only the item the
-    // user actually settles on for a moment ever triggers the expensive navigation.
-    LaunchedEffect(isSearchFocused) {
-        if (isSearchFocused) {
-            correctStrayFocus(NavDestination.Search.route)
-            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            if (!isRecentExplicitSelectElsewhere(NavDestination.Search.route)) onSearchClick()
-        }
+    // once per item passed over, not just once for wherever the user actually stops -- each item's
+    // FocusPreviewEffect cancels its still-pending delay the instant focus moves off that item
+    // again, meaning only the item the user actually settles on for a moment ever triggers the
+    // expensive navigation.
+    val currentOnSearchClick by rememberUpdatedState(onSearchClick)
+    val currentOnHomeClick by rememberUpdatedState(onHomeClick)
+    val currentOnPlaylistsClick by rememberUpdatedState(onPlaylistsClick)
+    val currentOnHistoryClick by rememberUpdatedState(onHistoryClick)
+    val currentOnSettingsClick by rememberUpdatedState(onSettingsClick)
+    FocusPreviewEffect(
+        searchFocused,
+        NavDestination.Search.route,
+        ::correctStrayFocus,
+        ::isRecentExplicitSelectElsewhere,
+    ) {
+        currentOnSearchClick()
     }
-    LaunchedEffect(isHomeFocused) {
-        if (isHomeFocused) {
-            correctStrayFocus(NavDestination.Home.route)
-            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            if (!isRecentExplicitSelectElsewhere(NavDestination.Home.route)) onHomeClick()
-        }
+    FocusPreviewEffect(homeFocused, NavDestination.Home.route, ::correctStrayFocus, ::isRecentExplicitSelectElsewhere) {
+        currentOnHomeClick()
     }
-    LaunchedEffect(isHistoryFocused) {
-        if (isHistoryFocused) {
-            correctStrayFocus(NavDestination.History.route)
-            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            if (!isRecentExplicitSelectElsewhere(NavDestination.History.route)) onHistoryClick()
-        }
+    FocusPreviewEffect(
+        playlistsFocused,
+        NavDestination.Playlists.route,
+        ::correctStrayFocus,
+        ::isRecentExplicitSelectElsewhere,
+    ) {
+        currentOnPlaylistsClick()
     }
-    LaunchedEffect(isSettingsFocused) {
-        if (isSettingsFocused) {
-            correctStrayFocus(NavDestination.Settings.route)
-            delay(FOCUS_PREVIEW_DEBOUNCE_MS)
-            if (!isRecentExplicitSelectElsewhere(NavDestination.Settings.route)) onSettingsClick()
-        }
+    FocusPreviewEffect(
+        historyFocused,
+        NavDestination.History.route,
+        ::correctStrayFocus,
+        ::isRecentExplicitSelectElsewhere,
+    ) {
+        currentOnHistoryClick()
+    }
+    FocusPreviewEffect(
+        settingsFocused,
+        NavDestination.Settings.route,
+        ::correctStrayFocus,
+        ::isRecentExplicitSelectElsewhere,
+    ) {
+        currentOnSettingsClick()
     }
 
     val activity = LocalContext.current as? Activity
@@ -293,22 +353,32 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
     // times the animation bookkeeping and four separate graphicsLayer recompositions per frame for
     // what is, visually, one single collapse/expand. A single shared value read by all four keeps
     // the exact same look for a quarter of the per-frame cost.
-    val width by
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val metrics = remember(screenWidth) { RailMetrics(screenWidth) }
+    // Read only from layout/draw lambdas (never during composition), so the collapse/expand tween
+    // re-lays out and redraws the rail each frame without recomposing it -- confirmed in a Perfetto
+    // trace on the reference TV, where per-frame recomposition of all four items was a major part
+    // of the rail's frame time.
+    val widthState =
         animateDpAsState(
-            targetValue = if (hasFocus) ITEM_EXPANDED_WIDTH else ITEM_COLLAPSED_WIDTH,
+            targetValue = if (hasFocus) metrics.expandedWidth else metrics.collapsedWidth,
             label = "navRailWidth",
         )
-    val revealFraction = revealFractionOf(width)
+    val width = remember(widthState) { { widthState.value } }
+    val revealFraction = remember(widthState, metrics) { { metrics.revealFractionOf(widthState.value) } }
+
+    // While the rail has focus, only the focused item looks active. The current destination only
+    // follows focus after FOCUS_PREVIEW_DEBOUNCE_MS (and a frame or two for the switch itself), so
+    // styling it as "selected" too showed the item just left still highlighted next to the new one.
+    fun isShownSelected(route: String) = currentRoute == route && !anyFocused
 
     Column(
         modifier =
             Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surface),
-                    ),
-                ).fillMaxHeight()
-                .padding(12.dp)
+                .background(LocalKaraloTokens.current.sidebarBackground)
+                .fillMaxHeight()
+                .padding(horizontal = RAIL_HORIZONTAL_PADDING)
+                .padding(top = RAIL_TOP_PADDING)
                 .selectableGroup()
                 // BACK while any rail item is focused (i.e. the drawer is open) exits the app --
                 // consumed here, on an ancestor of every item, rather than left to fall through to
@@ -325,17 +395,18 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
                     }
                 },
     ) {
-        KaraloNavHeader(width = width, revealFraction = revealFraction)
+        KaraloNavHeader(width = width, revealFraction = revealFraction, horizontalInset = metrics.headerHorizontalInset)
         Spacer(modifier = Modifier.height(HEADER_TO_ITEMS_SPACING))
 
         KaraloNavItem(
-            selected = currentRoute == NavDestination.Search.route,
+            selected = isShownSelected(NavDestination.Search.route),
             onClick = trackedOnSearchSelect,
-            icon = Icons.Filled.Search,
+            icon = KaraloIcons.Search,
             label = "Search",
             interactionSource = searchInteractionSource,
             width = width,
             revealFraction = revealFraction,
+            iconInset = metrics.itemHorizontalInset,
             modifier =
                 Modifier
                     .testTag(NAV_TAG_SEARCH)
@@ -344,48 +415,67 @@ internal fun NavigationDrawerScope.KaraloNavRailContent(
         )
 
         KaraloNavItem(
-            selected = currentRoute == NavDestination.Home.route,
+            selected = isShownSelected(NavDestination.Home.route),
             onClick = trackedOnHomeSelect,
-            icon = Icons.Filled.Home,
+            icon = KaraloIcons.Home,
             label = "Home",
             interactionSource = homeInteractionSource,
             width = width,
             revealFraction = revealFraction,
+            iconInset = metrics.itemHorizontalInset,
             modifier =
                 Modifier
                     .testTag(NAV_TAG_HOME)
                     .focusRequester(homeFocusRequester)
-                    .padding(top = 8.dp),
+                    .padding(top = ITEM_SPACING),
         )
 
         KaraloNavItem(
-            selected = currentRoute == NavDestination.History.route,
+            selected = isShownSelected(NavDestination.Playlists.route),
+            onClick = trackedOnPlaylistsSelect,
+            icon = KaraloIcons.Playlists,
+            label = "Playlists",
+            interactionSource = playlistsInteractionSource,
+            width = width,
+            revealFraction = revealFraction,
+            iconInset = metrics.itemHorizontalInset,
+            modifier =
+                Modifier
+                    .testTag(NAV_TAG_PLAYLISTS)
+                    .focusRequester(playlistsFocusRequester)
+                    .padding(top = ITEM_SPACING),
+        )
+
+        KaraloNavItem(
+            selected = isShownSelected(NavDestination.History.route),
             onClick = trackedOnHistorySelect,
-            icon = Icons.Filled.History,
+            icon = KaraloIcons.History,
             label = "History",
             interactionSource = historyInteractionSource,
             width = width,
             revealFraction = revealFraction,
+            iconInset = metrics.itemHorizontalInset,
             modifier =
                 Modifier
                     .testTag(NAV_TAG_HISTORY)
                     .focusRequester(historyFocusRequester)
-                    .padding(top = 8.dp),
+                    .padding(top = ITEM_SPACING),
         )
 
         KaraloNavItem(
-            selected = currentRoute == NavDestination.Settings.route,
+            selected = isShownSelected(NavDestination.Settings.route),
             onClick = trackedOnSettingsSelect,
-            icon = Icons.Filled.Settings,
+            icon = KaraloIcons.Settings,
             label = "Settings",
             interactionSource = settingsInteractionSource,
             width = width,
             revealFraction = revealFraction,
+            iconInset = metrics.itemHorizontalInset,
             modifier =
                 Modifier
                     .testTag(NAV_TAG_SETTINGS)
                     .focusRequester(settingsFocusRequester)
-                    .padding(top = 8.dp),
+                    .padding(top = ITEM_SPACING),
         )
     }
 }
@@ -397,17 +487,19 @@ private fun NavigationDrawerScope.KaraloNavItem(
     icon: ImageVector,
     label: String,
     interactionSource: MutableInteractionSource,
-    width: Dp,
-    revealFraction: Float,
+    width: () -> Dp,
+    revealFraction: () -> Float,
+    iconInset: Dp,
     modifier: Modifier = Modifier,
     blockDirectionUp: Boolean = false,
 ) {
+    val isFocused by interactionSource.collectIsFocusedAsState()
     Surface(
         selected = selected,
         onClick = onClick,
         modifier =
             modifier
-                .width(width)
+                .animatedWidth(width)
                 .height(ITEM_HEIGHT)
                 // While the drawer is open, RIGHT dives into the destination's content just like
                 // pressing the OK/Center button does -- a focused rail item is, by construction,
@@ -444,7 +536,7 @@ private fun NavigationDrawerScope.KaraloNavItem(
                         blockDirectionUp && keyEvent.key == Key.DirectionUp
                     }
                 },
-        shape = SelectableSurfaceDefaults.shape(shape = RoundedCornerShape(percent = 50)),
+        shape = SelectableSurfaceDefaults.shape(shape = ITEM_SHAPE),
         colors = karaloNavItemColors(),
         // Surface's default 1.1x focused-scale pivots around the item's own center, which sits at
         // a different absolute x at 56dp vs 256dp wide -- combined with the width tween, that
@@ -461,82 +553,107 @@ private fun NavigationDrawerScope.KaraloNavItem(
             modifier =
                 Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = ITEM_HORIZONTAL_INSET),
+                    .padding(start = iconInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(modifier = Modifier.size(ITEM_ICON_SIZE)) {
-                Icon(imageVector = icon, contentDescription = null)
-            }
-            if (revealFraction > 0f) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip,
-                    modifier =
-                        Modifier
-                            .padding(start = 12.dp)
-                            .graphicsLayer { alpha = revealFraction },
-                )
-            }
-        }
-    }
-}
-
-/** App logo + wordmark, centered on the same vertical line as the nav item icons below it. */
-@Composable
-private fun KaraloNavHeader(
-    width: Dp,
-    revealFraction: Float,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier =
-            Modifier
-                .width(width)
-                .padding(start = HEADER_HORIZONTAL_INSET, top = 12.dp, bottom = 12.dp),
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_karalo_logo),
-            contentDescription = null,
-            modifier = Modifier.size(LOGO_SIZE),
-        )
-        if (revealFraction > 0f) {
+            // The active item's icon takes the theme accent; its label just turns white (see
+            // karaloNavItemColors).
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isFocused || selected) LocalKaraloTokens.current.accent else LocalContentColor.current,
+                modifier = Modifier.size(ITEM_ICON_SIZE),
+            )
+            // Always composed (just transparent while collapsed) so expanding never has to
+            // compose it mid-animation.
             Text(
-                text = "Karalo",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = KaraloLogoTextStyle,
-                // At in-between widths during the collapse/expand tween, this would otherwise
-                // wrap onto a second line -- taller than the logo itself -- which grew the
-                // header's own height for that instant and pushed every item below it down (and
-                // made the header's own icon look like it was moving too).
+                text = label,
+                style = KaraloNavLabelTextStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Clip,
+                softWrap = false,
                 modifier =
                     Modifier
-                        .padding(start = 12.dp)
-                        .graphicsLayer { alpha = revealFraction },
+                        .padding(start = ITEM_LABEL_SPACING)
+                        .graphicsLayer { alpha = revealFraction() },
             )
         }
     }
 }
 
-/** How far along the collapsed-to-expanded width range [width] currently is, from 0f to 1f. */
-private fun revealFractionOf(width: Dp): Float =
-    ((width - ITEM_COLLAPSED_WIDTH) / (ITEM_EXPANDED_WIDTH - ITEM_COLLAPSED_WIDTH)).coerceIn(0f, 1f)
+/**
+ * One item's focus-to-preview debounce (see the comment above its call sites): keyed on the focus
+ * State object rather than its value, and collected with collectLatest, so a pending preview is
+ * cancelled the moment focus moves on -- without the rail recomposing on each move.
+ */
+@Composable
+private fun FocusPreviewEffect(
+    focused: State<Boolean>,
+    route: String,
+    correctStrayFocus: (String) -> Unit,
+    isRecentExplicitSelectElsewhere: (String) -> Boolean,
+    onPreview: () -> Unit,
+) {
+    LaunchedEffect(focused) {
+        snapshotFlow { focused.value }.collectLatest { isFocused ->
+            if (isFocused) {
+                correctStrayFocus(route)
+                delay(FOCUS_PREVIEW_DEBOUNCE_MS)
+                if (!isRecentExplicitSelectElsewhere(route)) onPreview()
+            }
+        }
+    }
+}
+
+/** A fixed [width] read at layout time, so animating it re-lays out without recomposing. */
+private fun Modifier.animatedWidth(width: () -> Dp): Modifier =
+    layout { measurable, constraints ->
+        val widthPx = constraints.constrainWidth(width().roundToPx())
+        val placeable = measurable.measure(constraints.copy(minWidth = widthPx, maxWidth = widthPx))
+        layout(widthPx, placeable.height) { placeable.place(0, 0) }
+    }
+
+/**
+ * The logo lockup (mark + wordmark, one vector), collapsing to the mark alone. The mark sits on the
+ * same vertical line as the nav item icons below it; the full lockup fades in over it as the rail
+ * expands, clipped to the header's current width so it never pushes the layout during the tween.
+ */
+@Composable
+private fun KaraloNavHeader(
+    width: () -> Dp,
+    revealFraction: () -> Float,
+    horizontalInset: Dp,
+) {
+    Box(
+        modifier =
+            Modifier
+                .animatedWidth(width)
+                .clipToBounds()
+                .padding(start = horizontalInset),
+    ) {
+        KaraloLogoMark(size = LOGO_SIZE)
+        KaraloLogoLockup(
+            markSize = LOGO_SIZE,
+            modifier =
+                Modifier
+                    .wrapContentWidth(align = Alignment.Start, unbounded = true)
+                    .graphicsLayer { alpha = revealFraction() },
+        )
+    }
+}
 
 @Composable
 private fun karaloNavItemColors() =
     SelectableSurfaceDefaults.colors(
         containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        focusedContainerColor = MaterialTheme.colorScheme.primary,
+        contentColor = KaraloTextSecondary,
+        focusedContainerColor = KaraloRailItemActive,
         focusedContentColor = MaterialTheme.colorScheme.onBackground,
-        selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+        selectedContainerColor = KaraloRailItemActive,
         selectedContentColor = MaterialTheme.colorScheme.onBackground,
         // The current route's own item starts out both selected *and* focused (e.g. Home at
         // launch) -- without these, that combined state falls back to SelectableSurfaceDefaults'
         // own muted default instead of matching our plain focused look.
-        focusedSelectedContainerColor = MaterialTheme.colorScheme.primary,
+        focusedSelectedContainerColor = KaraloRailItemActive,
         focusedSelectedContentColor = MaterialTheme.colorScheme.onBackground,
     )

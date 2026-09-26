@@ -1,0 +1,259 @@
+@file:Suppress("MagicNumber", "MaxLineLength") // vector coordinates, generated from the brand font
+
+package com.karalo.core.ui.components
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.graphics.vector.group
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.karalo.core.ui.theme.KaraloBackground
+import com.karalo.core.ui.theme.KaraloOnBackground
+import com.karalo.core.ui.theme.KaraloVioletPrimary
+import com.karalo.core.ui.theme.LocalKaraloTokens
+
+// Lockup geometry, in the wordmark's own units (1 em = 100): the mark is 1.44em square, sits 0.4em
+// left of the wordmark, and is centered on the wordmark's cap height -- the "Karalo Themes" design's
+// 3.6 / 1 / 2.5 icon / gap / font-size ratio.
+private const val MARK_VIEWPORT = 96f
+private const val LOCKUP_MARK_SIZE = 144f
+private const val LOCKUP_GAP = 40f
+private const val WORDMARK_WIDTH = 300.4f
+private const val WORDMARK_HEIGHT = 85.7f
+private const val WORDMARK_TOP = 29f
+private const val LOCKUP_WIDTH = LOCKUP_MARK_SIZE + LOCKUP_GAP + WORDMARK_WIDTH
+private const val LOCKUP_HEIGHT = LOCKUP_MARK_SIZE
+
+// The wordmark's glyphs are outlined at 1em = 100 viewport units.
+private const val WORDMARK_EM = 100f
+
+/**
+ * "Karalo" in Fredoka SemiBold with the brand's per-letter baseline wave (K -0.06em, a +0.06, r
+ * -0.08, a +0.03, l -0.06, o +0.06), as outlines rather than live text so it scales as one shape
+ * and never depends on font loading. Generated from `core-ui/src/main/res/font/fredoka_variable.ttf`
+ * pinned to wght=600, at 1em = 100 units, top of the tallest glyph at y=0.
+ */
+private val WORDMARK_GLYPHS =
+    listOf(
+        // K
+        "M12.53 72.93Q8.88 72.93 7.29 71.84Q5.7 70.75 5.34 68.98Q4.98 67.2 4.98 65.28V10.53Q4.98 8." +
+            "6 5.35 6.86Q5.73 5.12 7.31 4.05Q8.9 2.98 12.62 2.98Q16.35 2.98 17.9 4.06Q19.45 5.15 19.83 " +
+            "6.89Q20.2 8.63 20.2 10.63V27.88L41.62 5.53Q43.58 3.45 45.24 2.65Q46.9 1.85 48.64 2.38Q50.3" +
+            "8 2.9 52.43 4.9Q55.8 8 55.85 10.33Q55.9 12.65 53.03 15.63L30.03 37.98L53.23 60.23Q56.33 63" +
+            ".28 56.16 65.71Q56 68.15 52.62 71.03Q50.2 73.03 48.46 73.55Q46.73 74.08 45.21 73.24Q43.7 7" +
+            "2.4 41.83 70.25L20.2 47.8V65.38Q20.2 67.3 19.83 69.04Q19.45 70.78 17.86 71.85Q16.28 72.93 " +
+            "12.53 72.93Z",
+        // a
+        "M104.4 84.75Q100.68 84.75 98.91 83.45Q97.15 82.15 97.18 80.25L98.22 78.58Q97.58 79.58 95.9" +
+            " 81.03Q94.22 82.48 91.49 83.62Q88.75 84.78 84.8 84.78Q80.2 84.78 76.05 82.78Q71.9 80.78 68" +
+            ".69 77.25Q65.47 73.73 63.61 69.23Q61.75 64.73 61.75 59.7Q61.75 54.8 63.61 50.36Q65.47 45.9" +
+            "3 68.74 42.45Q72 38.98 76.11 36.98Q80.22 34.98 84.8 34.98Q88.53 34.98 91.12 36.03Q93.72 37" +
+            ".08 95.45 38.5Q97.18 39.93 98.08 41.23L97.25 39.8Q97.18 37.43 98.95 36.16Q100.72 34.9 104." +
+            "5 34.9Q108.12 34.9 109.65 36Q111.18 37.1 111.54 38.88Q111.9 40.65 111.9 42.65V77.18Q111.9 " +
+            "79.13 111.54 80.89Q111.18 82.65 109.64 83.7Q108.1 84.75 104.4 84.75ZM86.95 69.9Q89.58 69.9" +
+            " 91.71 68.54Q93.85 67.18 95.14 64.89Q96.43 62.6 96.43 59.83Q96.43 56.9 95.11 54.65Q93.8 52" +
+            ".4 91.61 51.06Q89.42 49.73 86.75 49.73Q83.88 49.73 81.61 51.1Q79.35 52.48 78.03 54.78Q76.7" +
+            " 57.08 76.7 59.95Q76.7 62.7 78.06 64.95Q79.42 67.2 81.75 68.55Q84.08 69.9 86.95 69.9Z",
+        // r
+        "M127.35 70.93Q123.73 70.93 122.15 69.84Q120.58 68.75 120.25 66.96Q119.93 65.18 119.93 63.2" +
+            "5V28.38Q119.93 26.35 120.29 24.65Q120.65 22.95 122.23 21.93Q123.8 20.9 127.45 20.9Q131 20." +
+            "9 132.55 21.85Q134.1 22.8 134.48 24.05Q134.85 25.3 134.85 26.2L133.65 26.8Q133.9 26.38 134" +
+            ".75 25.35Q135.6 24.33 137.11 23.16Q138.62 22 140.75 21.18Q142.88 20.35 145.68 20.35Q146.75" +
+            " 20.35 148.1 20.54Q149.45 20.73 150.9 21.15Q152.35 21.58 153.56 22.33Q154.78 23.08 155.51 " +
+            "24.2Q156.25 25.33 156.25 26.9Q156.25 30.98 154.36 33.83Q152.48 36.68 149.62 36.68Q147.93 3" +
+            "6.68 147.19 36.4Q146.45 36.13 146.04 35.81Q145.62 35.5 144.99 35.23Q144.35 34.95 142.83 34" +
+            ".95Q141.33 34.95 139.94 35.38Q138.55 35.8 137.43 36.65Q136.3 37.5 135.65 38.74Q135 39.98 1" +
+            "35 41.53V63.45Q135 65.38 134.64 67.11Q134.28 68.85 132.69 69.89Q131.1 70.93 127.35 70.93Z",
+        // a
+        "M203 81.75Q199.28 81.75 197.51 80.45Q195.75 79.15 195.78 77.25L196.83 75.58Q196.18 76.58 1" +
+            "94.5 78.03Q192.83 79.48 190.09 80.62Q187.35 81.78 183.4 81.78Q178.8 81.78 174.65 79.78Q170" +
+            ".5 77.78 167.29 74.25Q164.08 70.73 162.21 66.23Q160.35 61.73 160.35 56.7Q160.35 51.8 162.2" +
+            "1 47.36Q164.08 42.93 167.34 39.45Q170.6 35.98 174.71 33.98Q178.83 31.98 183.4 31.98Q187.13" +
+            " 31.98 189.73 33.03Q192.33 34.08 194.05 35.5Q195.78 36.93 196.68 38.23L195.85 36.8Q195.78 " +
+            "34.43 197.55 33.16Q199.33 31.9 203.1 31.9Q206.73 31.9 208.25 33Q209.78 34.1 210.14 35.88Q2" +
+            "10.5 37.65 210.5 39.65V74.18Q210.5 76.13 210.14 77.89Q209.78 79.65 208.24 80.7Q206.7 81.75" +
+            " 203 81.75ZM185.55 66.9Q188.18 66.9 190.31 65.54Q192.45 64.18 193.74 61.89Q195.03 59.6 195" +
+            ".03 56.83Q195.03 53.9 193.71 51.65Q192.4 49.4 190.21 48.06Q188.03 46.73 185.35 46.73Q182.4" +
+            "8 46.73 180.21 48.1Q177.95 49.48 176.62 51.78Q175.3 54.08 175.3 56.95Q175.3 59.7 176.66 61" +
+            ".95Q178.03 64.2 180.35 65.55Q182.68 66.9 185.55 66.9Z",
+        // l
+        "M237.7 72.93Q233.55 72.93 230.4 72.48Q227.25 72.03 225.03 70.83Q222.8 69.63 221.39 67.49Q2" +
+            "19.98 65.35 219.31 62.01Q218.65 58.68 218.65 53.83V7.6Q218.65 5.58 219.01 3.88Q219.38 2.18" +
+            " 220.96 1.09Q222.55 0 226.18 0Q229.83 0 231.38 1.08Q232.93 2.15 233.3 3.88Q233.68 5.6 233." +
+            "68 7.6V53.05Q233.68 54.73 233.84 55.78Q234 56.83 234.45 57.41Q234.9 58 235.7 58.18Q236.5 5" +
+            "8.35 237.75 58.35Q239.03 58.35 240.28 58.68Q241.53 59 242.39 60.48Q243.25 61.95 243.25 65." +
+            "45Q243.25 69.1 242.39 70.69Q241.53 72.28 240.24 72.6Q238.95 72.93 237.7 72.93Z",
+        // o
+        "M272.58 85.7Q267.88 85.7 263.25 83.84Q258.62 81.98 254.83 78.56Q251.03 75.15 248.79 70.41Q" +
+            "246.55 65.68 246.55 59.93Q246.55 54.53 248.59 49.84Q250.63 45.15 254.2 41.58Q257.78 38 262" +
+            ".43 35.96Q267.08 33.93 272.38 33.93Q279.6 33.93 285.45 37.38Q291.3 40.83 294.8 46.69Q298.3" +
+            " 52.55 298.3 59.83Q298.3 65.85 296.04 70.62Q293.78 75.4 290.04 78.78Q286.3 82.15 281.74 83" +
+            ".93Q277.18 85.7 272.58 85.7ZM272.38 70.62Q274.78 70.62 277.28 69.43Q279.78 68.23 281.48 65" +
+            ".79Q283.18 63.35 283.18 59.7Q283.18 56.48 281.79 54.08Q280.4 51.68 277.94 50.34Q275.48 49 " +
+            "272.28 49Q269.33 49 266.94 50.4Q264.55 51.8 263.11 54.24Q261.68 56.68 261.68 59.8Q261.68 6" +
+            "3.4 263.34 65.83Q265 68.25 267.48 69.44Q269.95 70.62 272.38 70.62Z",
+    )
+
+/**
+ * The Karalo mark: a violet rounded square holding a TV-screen outline with a mic inside (capsule
+ * head with grille lines, tapered handle), an [accent] band on the mic and an [accent] play badge in
+ * the bottom-right corner. Same geometry as `res/drawable/ic_karalo_logo.xml`, as code so the accent
+ * parts can follow the active seasonal theme.
+ */
+private fun ImageVector.Builder.markPaths(accent: Color): ImageVector.Builder {
+    val white = SolidColor(KaraloOnBackground)
+    path(fill = SolidColor(KaraloVioletPrimary), pathBuilder = { roundRect(6f, 6f, 84f, 84f, 22f) })
+    path(stroke = white, strokeLineWidth = 3.5f, pathBuilder = { roundRect(26f, 24f, 44f, 30f, 10f) })
+    path(fill = white, pathBuilder = { roundRect(40f, 26f, 16f, 20f, 8f) })
+    for (y in listOf(32f, 38f)) {
+        path(stroke = SolidColor(KaraloVioletPrimary), strokeLineWidth = 1.6f, strokeLineCap = StrokeCap.Round) {
+            moveTo(42f, y)
+            lineTo(54f, y)
+        }
+    }
+    path(fill = SolidColor(accent), pathBuilder = { roundRect(41f, 46f, 14f, 4f, 2f) })
+    path(fill = white) {
+        moveTo(43f, 50f)
+        lineTo(53f, 50f)
+        lineTo(51f, 70f)
+        lineTo(45f, 70f)
+        close()
+    }
+    path(fill = SolidColor(accent)) {
+        moveTo(63f, 66f)
+        arcTo(7f, 7f, 0f, isMoreThanHalf = true, isPositiveArc = true, x1 = 77f, y1 = 66f)
+        arcTo(7f, 7f, 0f, isMoreThanHalf = true, isPositiveArc = true, x1 = 63f, y1 = 66f)
+        close()
+    }
+    path(fill = SolidColor(KaraloBackground)) {
+        moveTo(67.5f, 62.5f)
+        lineTo(67.5f, 69.5f)
+        lineTo(73f, 66f)
+        close()
+    }
+    return this
+}
+
+private fun PathBuilder.roundRect(
+    x: Float,
+    y: Float,
+    w: Float,
+    h: Float,
+    r: Float,
+) {
+    moveTo(x + r, y)
+    lineTo(x + w - r, y)
+    arcTo(r, r, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = x + w, y1 = y + r)
+    lineTo(x + w, y + h - r)
+    arcTo(r, r, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = x + w - r, y1 = y + h)
+    lineTo(x + r, y + h)
+    arcTo(r, r, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = x, y1 = y + h - r)
+    lineTo(x, y + r)
+    arcTo(r, r, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = x + r, y1 = y)
+    close()
+}
+
+private fun karaloMarkVector(accent: Color): ImageVector =
+    ImageVector
+        .Builder(
+            name = "KaraloMark",
+            defaultWidth = MARK_VIEWPORT.dp,
+            defaultHeight = MARK_VIEWPORT.dp,
+            viewportWidth = MARK_VIEWPORT,
+            viewportHeight = MARK_VIEWPORT,
+        ).markPaths(accent)
+        .build()
+
+private fun karaloLockupVector(accent: Color): ImageVector =
+    ImageVector
+        .Builder(
+            name = "KaraloLockup",
+            defaultWidth = LOCKUP_WIDTH.dp,
+            defaultHeight = LOCKUP_HEIGHT.dp,
+            viewportWidth = LOCKUP_WIDTH,
+            viewportHeight = LOCKUP_HEIGHT,
+        ).apply {
+            group(scaleX = LOCKUP_MARK_SIZE / MARK_VIEWPORT, scaleY = LOCKUP_MARK_SIZE / MARK_VIEWPORT) {
+                markPaths(accent)
+            }
+            group(translationX = LOCKUP_MARK_SIZE + LOCKUP_GAP, translationY = WORDMARK_TOP) {
+                for (glyph in WORDMARK_GLYPHS) {
+                    addPath(pathData = addPathNodes(glyph), fill = SolidColor(KaraloOnBackground))
+                }
+            }
+        }.build()
+
+private fun karaloWordmarkVector(): ImageVector =
+    ImageVector
+        .Builder(
+            name = "KaraloWordmark",
+            defaultWidth = WORDMARK_WIDTH.dp,
+            defaultHeight = WORDMARK_HEIGHT.dp,
+            viewportWidth = WORDMARK_WIDTH,
+            viewportHeight = WORDMARK_HEIGHT,
+        ).apply {
+            for (glyph in WORDMARK_GLYPHS) {
+                addPath(pathData = addPathNodes(glyph), fill = SolidColor(KaraloOnBackground))
+            }
+        }.build()
+
+private val KaraloWordmarkVector: ImageVector by lazy { karaloWordmarkVector() }
+
+/**
+ * The "Karalo" wordmark alone (with its baseline wave), for layouts that stack it under the mark
+ * rather than beside it. [fontSize] is the text size it stands in for: the vector is scaled so its
+ * letters match Fredoka SemiBold at that size.
+ */
+@Composable
+fun KaraloWordmark(
+    fontSize: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val scale = fontSize.value / WORDMARK_EM
+    Image(
+        imageVector = KaraloWordmarkVector,
+        contentDescription = "Karalo",
+        modifier = modifier.width((WORDMARK_WIDTH * scale).dp).height((WORDMARK_HEIGHT * scale).dp),
+    )
+}
+
+/** The icon-only mark, e.g. for the collapsed nav rail. Its accent parts follow the active theme. */
+@Composable
+fun KaraloLogoMark(
+    size: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val accent = LocalKaraloTokens.current.accent
+    val vector = remember(accent) { karaloMarkVector(accent) }
+    Image(imageVector = vector, contentDescription = null, modifier = modifier.size(size))
+}
+
+/**
+ * The full logo lockup -- mark + "Karalo" wordmark -- as a single vector, sized by the mark's
+ * [markSize] (the wordmark scales with it, keeping the design's proportions).
+ */
+@Composable
+fun KaraloLogoLockup(
+    markSize: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val accent = LocalKaraloTokens.current.accent
+    val vector = remember(accent) { karaloLockupVector(accent) }
+    Image(
+        imageVector = vector,
+        contentDescription = "Karalo",
+        modifier = modifier.height(markSize).width(markSize * (LOCKUP_WIDTH / LOCKUP_HEIGHT)),
+    )
+}

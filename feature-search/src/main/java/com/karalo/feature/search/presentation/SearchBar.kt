@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -37,10 +36,13 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.karalo.core.ui.theme.KaraloNavLabelTextStyle
+import com.karalo.core.ui.theme.KaraloPagePadding
+import com.karalo.core.ui.theme.LocalKaraloTokens
 
 // Safe-zone content margin (developer.android.com/design/ui/tv/guides/styles/layouts), duplicated
 // locally per this codebase's established convention (see HomeScreen.kt/SearchResultsRow.kt).
-private val SAFE_ZONE_HORIZONTAL = 58.dp
+private val SAFE_ZONE_HORIZONTAL = KaraloPagePadding
 private val MIC_BUTTON_SIZE = 56.dp
 private val MIC_TO_FIELD_GAP = 16.dp
 private val SEARCH_FIELD_HORIZONTAL_PADDING = 24.dp
@@ -110,17 +112,18 @@ private fun MicButton(
             is VoiceSearchState.Error -> "Voice search, unavailable"
             VoiceSearchState.Idle -> "Voice search"
         }
+    val tokens = LocalKaraloTokens.current
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         colors =
             ClickableSurfaceDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                focusedContainerColor = MaterialTheme.colorScheme.primary,
-                focusedContentColor = Color.White,
-                pressedContainerColor = MaterialTheme.colorScheme.primary,
-                pressedContentColor = Color.White,
+                containerColor = tokens.control,
+                contentColor = tokens.onControl,
+                focusedContainerColor = tokens.control,
+                focusedContentColor = tokens.onControl,
+                pressedContainerColor = tokens.control,
+                pressedContentColor = tokens.onControl,
             ),
         modifier =
             Modifier
@@ -161,11 +164,10 @@ private fun SearchQueryField(
     modifier: Modifier = Modifier,
 ) {
     val isEmpty = textFieldValue.text.isEmpty()
-    // Uses labelMedium (the Plain/Manrope role also used by the suggestion chips and the
-    // navigation drawer's item labels) rather than a Brand/Fredoka style: an editable text field
-    // needs a plain, highly-legible face for arbitrary typed text, not the expressive display font
-    // reserved for headlines -- and matching labelMedium here keeps the query field, the
-    // suggestions row, and the drawer all reading at the same face/size.
+    // Uses the navigation drawer's own item-label style (Manrope, the Plain role) rather than a
+    // Brand/Fredoka style: an editable text field needs a plain, highly-legible face for arbitrary
+    // typed text, not the expressive display font reserved for headlines -- and sharing the
+    // drawer's style keeps the query field and the drawer reading at the same face/size.
     //
     // The TextFieldValue overload (rather than the plain String one) is deliberate: it's the only
     // way to control cursor *position* explicitly, needed so that setting the field's text from a
@@ -175,7 +177,7 @@ private fun SearchQueryField(
         value = textFieldValue,
         onValueChange = onTextFieldValueChange,
         singleLine = true,
-        textStyle = MaterialTheme.typography.labelMedium.copy(color = SearchTypedText),
+        textStyle = KaraloNavLabelTextStyle.copy(color = SearchTypedText),
         cursorBrush = SolidColor(SearchTypedText),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
@@ -187,7 +189,7 @@ private fun SearchQueryField(
                     // mic is active -- not relying solely on the mic icon/description change.
                     Text(
                         text = if (isListening) LISTENING_PLACEHOLDER else SEARCH_PLACEHOLDER,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = KaraloNavLabelTextStyle,
                         color = SearchPlaceholderText,
                     )
                 }

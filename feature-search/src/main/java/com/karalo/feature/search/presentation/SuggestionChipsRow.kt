@@ -15,9 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.karalo.core.ui.components.TvCarousel
+import com.karalo.core.ui.theme.KaraloNavLabelTextStyle
 
 // Safe-zone content margin, duplicated locally per this codebase's established convention (see
 // HomeScreen.kt/SearchResultsRow.kt).
@@ -79,7 +79,8 @@ private fun SuggestionChip(
 
     Text(
         text = label,
-        style = MaterialTheme.typography.labelMedium,
+        // Same as the search field and the nav drawer labels.
+        style = KaraloNavLabelTextStyle,
         maxLines = 1,
         color = if (isFocused) SearchChipFocusedText else SearchChipUnfocusedText,
         modifier =

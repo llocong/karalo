@@ -10,6 +10,12 @@ import com.karalo.youtubeclient.model.YtVideoSummary
 /** Scriptable [YouTubeClient] test double shared by every module that talks to it. */
 class FakeYouTubeClient : YouTubeClient {
     var searchResult: AppResult<List<YtVideoSummary>> = AppResult.Success(emptyList())
+
+    /**
+     * Per-query overrides of [searchResult], matched when the query contains the key (ignoring
+     * case) -- e.g. so a test's own search returns something Home's shelves don't also show.
+     */
+    var searchResultsByQuery: Map<String, AppResult<List<YtVideoSummary>>> = emptyMap()
     var suggestionsResult: AppResult<List<YtSuggestion>> = AppResult.Success(emptyList())
     var streamResult: AppResult<YtStreamInfo> = AppResult.Failure(AppError.NotFound)
 
@@ -23,7 +29,8 @@ class FakeYouTubeClient : YouTubeClient {
         minResults: Int,
     ): AppResult<List<YtVideoSummary>> {
         lastSearchQuery = query
-        return when (val result = searchResult) {
+        val scripted = searchResultsByQuery.entries.firstOrNull { query.contains(it.key, ignoreCase = true) }?.value
+        return when (val result = scripted ?: searchResult) {
             is AppResult.Success -> AppResult.Success(result.data.filter(keep))
             is AppResult.Failure -> result
         }

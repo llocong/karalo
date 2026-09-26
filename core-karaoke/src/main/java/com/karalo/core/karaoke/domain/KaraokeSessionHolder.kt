@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -53,12 +54,21 @@ class KaraokeSessionHolder
                 // previousNowPlaying is only ever read/written from this single collector, so a
                 // plain local var (no synchronization) is safe here.
                 var previousNowPlaying: NowPlaying? = null
+                var baselineTaken = false
                 karaokeRepository.queueSnapshot
+                    // The first snapshot loaded after launch is where things stand, not a change:
+                    // a song left waiting in the queue must not start playing on its own the
+                    // moment the app opens. Only transitions after it count.
+                    .filter { it.loaded }
                     .map { it.nowPlaying }
                     .distinctUntilChanged()
                     .collect { nowPlaying ->
                         val previous = previousNowPlaying
                         previousNowPlaying = nowPlaying
+                        if (!baselineTaken) {
+                            baselineTaken = true
+                            return@collect
+                        }
                         // Must be a genuine nothing-playing -> something-playing transition
                         // (previous == null), not merely *some* change while off-screen -- e.g. a
                         // manually-selected Play-Now video ending (BACK) hands nowPlaying back to

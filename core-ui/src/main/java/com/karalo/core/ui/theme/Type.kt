@@ -6,6 +6,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Typography
 import com.karalo.core.ui.R
@@ -29,8 +30,10 @@ private fun manrope(weight: FontWeight) =
         variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)),
     )
 
+private val FredokaMedium = FontFamily(fredoka(FontWeight.Medium))
 private val FredokaSemiBold = FontFamily(fredoka(FontWeight.SemiBold))
 private val ManropeRegular = FontFamily(manrope(FontWeight.Normal))
+private val ManropeMedium = FontFamily(manrope(FontWeight.Medium))
 private val ManropeSemiBold = FontFamily(manrope(FontWeight.SemiBold))
 private val ManropeBold = FontFamily(manrope(FontWeight.Bold))
 private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
@@ -40,6 +43,40 @@ private val ManropeExtraBold = FontFamily(manrope(FontWeight.ExtraBold))
 // role (Manrope) on the brand board.
 val KaraloLogoTextStyle =
     TextStyle(fontFamily = FredokaSemiBold, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 24.sp)
+
+// Video tile labels ("Title - Artist" on one text run, wrapping to 2 lines) -- Manrope Medium, a
+// step lighter than body text's neighbors so a row of tiles reads as content rather than chrome.
+val KaraloTileLabelTextStyle =
+    TextStyle(
+        fontFamily = ManropeMedium,
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp,
+    )
+
+// A seasonal greeting under the wordmark on the waiting screen ("Happy Halloween") -- Fredoka
+// Medium, a step lighter than the wordmark itself. No color: the caller uses the theme's accent.
+val KaraloSplashGreetingTextStyle =
+    TextStyle(
+        fontFamily = FredokaMedium,
+        fontWeight = FontWeight.Medium,
+        fontSize = 23.sp,
+        lineHeight = 28.sp,
+        letterSpacing = 0.02.em,
+    )
+
+// Nav drawer item labels, also used by the search field (typed text and placeholder) and the
+// search suggestion chips so they all read identically -- Manrope SemiBold, like labelMedium, a
+// size down from it. No color: each caller sets its own.
+val KaraloNavLabelTextStyle =
+    TextStyle(
+        fontFamily = ManropeSemiBold,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 0.sp,
+    )
 
 // The full 15-style TV Material typography scale (developer.android.com/design/ui/tv/guides/
 // styles/typography), sized up from the guide's phone-derived base tokens for 10-foot legibility.

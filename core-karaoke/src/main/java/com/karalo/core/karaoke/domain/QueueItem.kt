@@ -44,8 +44,12 @@ data class KaraokeQueueSnapshot(
     val playbackState: String,
     val nowPlaying: NowPlaying?,
     val queue: List<QueueItem>,
+    // False only for [EMPTY], the placeholder before the backend's first answer. Lets a reader tell
+    // "not loaded yet" apart from "loaded, and empty" (equal otherwise, so a StateFlow would
+    // swallow the second as a repeat of the first).
+    val loaded: Boolean = true,
 ) {
     companion object {
-        val EMPTY = KaraokeQueueSnapshot(playbackState = "IDLE", nowPlaying = null, queue = emptyList())
+        val EMPTY = KaraokeQueueSnapshot(playbackState = "IDLE", nowPlaying = null, queue = emptyList(), loaded = false)
     }
 }
